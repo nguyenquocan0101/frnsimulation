@@ -59,3 +59,17 @@ await fairinoSim.MoveL([320, 0, 420, 180, 0, 90], 0, 0, 20, 20, 20);
 Các API này là **SDK-style emulator** để học luồng lệnh. Chế độ Live Monitor chỉ
 mirror telemetry, không mô phỏng dynamics/torque/encoder/I/O, chưa có collision
 mesh đầy đủ và không được dùng để điều khiển robot thật.
+
+## Deploy Vercel
+
+Project có thể deploy như một static web kèm Python Function ở `POST /api/python/run`.
+Vercel sẽ phục vụ `index.html`, model 3D và các tài nguyên tĩnh; endpoint này chạy
+`python_sim_runner.py` trực tiếp trong Python Runtime để kiểm tra và mô phỏng code
+của học sinh. Không cần, cũng không sử dụng `serve.mjs` trên Vercel.
+
+1. Import repository trên Vercel và chọn branch `deployvercel`.
+2. Giữ nguyên Build Command và Output Directory ở chế độ tự động/để trống.
+3. Deploy. Sau đó nút **Run program** gọi cùng-domain endpoint `/api/python/run`.
+
+Bridge và SDK kết nối robot thật không chạy trên Vercel: chúng chỉ nên chạy trên máy
+nằm trong mạng LAN của robot. Phiên bản Vercel là simulator độc lập, an toàn cho lớp học.

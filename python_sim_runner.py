@@ -131,7 +131,10 @@ def execute(payload):
         return {"ok": False, "error": {"line": getattr(error, "lineno", None), "message": str(error)}}
 
     actions, output = [], []
-    positions = {point: bool(value) for point, value in payload.get("positions", {}).items() if point in VALID_POINTS}
+    raw_positions = payload.get("positions", {})
+    if not isinstance(raw_positions, dict):
+        raw_positions = {}
+    positions = {point: bool(value) for point, value in raw_positions.items() if point in VALID_POINTS}
 
     def classroom_print(*values, sep=" ", end="\n", **_):
         output.append(sep.join(str(value) for value in values) + end)
