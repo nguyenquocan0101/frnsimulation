@@ -49,6 +49,7 @@ const BLOCK_COLORS = [
 ];
 const TECHCAMP_MAX_SPEED = 40;
 const TECHCAMP_MAX_ACC = 20;
+const DEFAULT_HOME_JOINTS = [-90, -135, 126, 8.8, 85.2, 0];
 const HOME_CAMERA_TARGET = [0, 0.55, 0];
 const HOME_CAMERA_VIEWS = [
   { name: "Trước", position: [1.55, 0.85, 0] },
@@ -68,8 +69,8 @@ const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const state = {
-  jointsDeg: [0, -35, 65, 0, 25, 0],
-  targetDeg: [0, -35, 65, 0, 25, 0],
+  jointsDeg: [...DEFAULT_HOME_JOINTS],
+  targetDeg: [...DEFAULT_HOME_JOINTS],
   enabled: true,
   automatic: false,
   running: false,
