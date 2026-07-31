@@ -147,7 +147,7 @@ function updateSceneTheme() {
 
 function initTheme() {
   const saved = localStorage.getItem("fr3-theme");
-  applyTheme(saved || "light");
+  applyTheme(saved || "dark");
   $("themeToggleBtn")?.addEventListener("click", () =>
     applyTheme(
       document.documentElement.dataset.theme === "dark" ? "light" : "dark",
