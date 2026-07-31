@@ -25,8 +25,8 @@
       "title": "Sinh code sắp xếp sử dụng P7 buffer",
       "user_visible_behavior": "Học sinh có chương trình Python đưa sáu màu về P1–P6.",
       "verification_command": "Mọi hoán vị sáu block được giải với P7 trống ở cuối.",
-      "status": "not_started",
-      "evidence": "",
+      "status": "passing",
+      "evidence": "Python runner accepted 32 actions; local simulator replay returned P1-P6 to the sample order and P7 to empty.",
       "notes": "",
       "priority": "P1"
     }

@@ -46,6 +46,14 @@ const JOINT_RPY = [
 const BLOCK_POSITIONS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
 const SORTABLE_BLOCK_NAMES = BLOCK_POSITIONS.slice(0, -1);
 const BUFFER_POSITION = BLOCK_POSITIONS.at(-1);
+const SAMPLE_BLOCK_POSITIONS = {
+  P1: "P3",
+  P2: "P2",
+  P3: "P4",
+  P4: "P1",
+  P5: "P5",
+  P6: "P6",
+};
 const BLOCK_COLORS = [
   0xf06b62, 0xf3a64a, 0xe7c85f, 0x6fc88f, 0x56a9d9, 0x7187d8, 0xa879d6,
 ];
@@ -929,7 +937,7 @@ function renderBlockBoard() {
 function resetBlocks(silent = false) {
   state.blocks = SORTABLE_BLOCK_NAMES.map((name, index) => ({
     name,
-    position: name,
+    position: SAMPLE_BLOCK_POSITIONS[name],
     color: BLOCK_COLORS[index],
     carried: false,
   }));

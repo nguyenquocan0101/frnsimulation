@@ -137,20 +137,30 @@
 from techcamp_api import TechCamp
 
 
-def test():
+def transfer(bot, source, target):
+    """Pick a block at source and place it at target."""
+    bot.move_to(source)
+    bot.move_down()
+    bot.grip()
+    bot.move_up()
+    bot.move_to(target)
+    bot.move_down()
+    bot.release()
+    bot.move_up()
+
+
+def sort_sample():
+    # Start: P1=green, P3=red, P4=yellow; P7 is empty.
+    # Use P7 as the buffer, then restore P1 -> P6 color order.
     with TechCamp() as bot:
-        bot.move_to("P3")   # travel at safe height
-        bot.move_down()     # lower
-        bot.grip()          # close gripper
-        bot.move_up()       # raise
-        bot.move_to("P1")   # travel
-        bot.move_down()
-        bot.release()       # open gripper
-        bot.move_up()
+        transfer(bot, "P1", "P7")
+        transfer(bot, "P3", "P1")
+        transfer(bot, "P4", "P3")
+        transfer(bot, "P7", "P4")
 
 
 if __name__ == "__main__":
-    test()</textarea
+    sort_sample()</textarea
                 >
               </div>
             </div>

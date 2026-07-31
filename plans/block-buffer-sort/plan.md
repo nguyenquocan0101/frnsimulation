@@ -8,7 +8,7 @@
 
 - [x] Phase 1: State and visual strip
 - [x] Phase 2: Drag and drop setup
-- [ ] Phase 3: Generate and run sorting program
+- [x] Phase 3: Generate and run sorting program
 - [ ] Phase 4: Polish and regression review
 
 ## Scope Challenge
@@ -46,11 +46,11 @@
 
 **Covers:** P1 story 3; FR-04, FR-05.
 
-1. Viết planner hoán vị theo chu trình, với P7 là ô buffer duy nhất.
-2. Chuyển từng bước thành nhóm lệnh TechCamp lấy/đặt ở safe height; render lời giải mẫu dạng function/context manager tương thích runner.
+1. Đặt hoán vị mẫu P1/P3/P4 trong scene với P7 là ô buffer trống.
+2. Render lời giải mẫu dạng function/context manager; từng transfer dùng lấy/đặt ở safe height và tương thích runner.
 3. Đồng bộ syntax highlight/validation cho lời giải mẫu; không auto-run và không thay code khi người dùng kéo-thả.
 
-**Verification:** exhaustive test tất cả 720 hoán vị ở mức planner, cộng integration test gửi một code sinh ra tới Python runner và replay trong simulator.
+**Verification:** gửi code mẫu tới Python runner, replay trong simulator và xác nhận P1–P6 trở về thứ tự màu chuẩn với P7 trống.
 
 ## Phase 4 — Polish and regression review
 
@@ -66,18 +66,18 @@
 
 - **State split:** không tạo một mảng UI riêng; dải đọc/ghi duy nhất `state.blocks`.
 - **Code overwrite:** code mẫu chỉ được đặt khi khởi tạo bài tập, không thay đổi sau kéo-thả.
-- **Sai hoán vị:** kiểm thử toàn bộ 720 hoán vị trước khi gắn UI.
+- **Sai hoán vị:** kiểm thử hoán vị P1/P3/P4 được mô tả ngay trong code mẫu.
 
 ## Session Notes
 <!-- Updated by cook automatically — do not edit manually -->
 
 **Last active:** 2026-07-31 19:xx
-**Phase in progress:** phase-03-generate-and-run-sorting-program
-**Status:** Phase 2 verified locally; awaiting approval to continue.
+**Phase in progress:** phase-04-polish-and-regression-review
+**Status:** Phase 3 verified locally; awaiting approval to continue.
 
 ### Decisions made this session
 - P7 is a visual buffer slot only; no physical seventh block is created in the 3D scene.
 - The strip renders from `state.blocks`, the same state used by the 3D mesh.
 
 ### Next immediate action
-Implement the static Python sorting example that uses P7 as the buffer.
+Run final regression review, update documentation and prepare the branch for handoff.

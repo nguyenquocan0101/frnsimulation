@@ -19,8 +19,8 @@ Học sinh cần nhìn được block màu nào đang nằm ở P1–P7 và tạ
 - **[P1]** As a giáo viên, I want to kéo-thả block giữa các ô so that tôi tạo được bài sắp xếp trước khi chạy robot.
   Accepted when: có thể kéo một block P1–P6 sang ô khác, trạng thái scene 3D và dải đồng bộ ngay, và chỉ có đúng một ô trống sau mỗi lần đổi.
 
-- **[P1]** As a học sinh, I want to nhận code Python sắp xếp theo trạng thái hiện tại so that tôi quan sát/chạy được robot đưa màu về thứ tự chuẩn P1–P6 bằng P7.
-  Accepted when: chương trình sinh ra dùng các hàm TechCamp hợp lệ, giải được mọi hoán vị của sáu block, kết thúc với màu chuẩn tại P1–P6 và P7 trống.
+- **[P1]** As a học sinh, I want to xem code Python lời giải mẫu so that tôi quan sát/chạy được robot đưa màu về thứ tự chuẩn P1–P6 bằng P7.
+  Accepted when: code mẫu dùng các hàm TechCamp hợp lệ, giải đúng hoán vị mẫu ban đầu, kết thúc với màu chuẩn tại P1–P6 và P7 trống.
 
 - **[P2]** As a giáo viên, I want to giữ cấu hình kéo-thả gần nhất so that có thể chỉnh bài tập mà không bị Reset thay thế.
   Accepted when: các thao tác render/animation không làm mất hoán vị do người dùng đã tạo, trừ khi code mẫu được chạy để thực hiện bài sắp xếp.
@@ -35,7 +35,7 @@ Học sinh cần nhìn được block màu nào đang nằm ở P1–P7 và tạ
 2. **FR-02:** Dải lấy dữ liệu trực tiếp từ cùng state block đang điều khiển mesh 3D; khi `grip`, `release`, `move_to`, reset hoặc animation thay đổi vị trí, dải phải render lại.
 3. **FR-03:** P7 là buffer trống mặc định. Kéo block vào slot đang có block sẽ hoán đổi trực tiếp; kéo block vào P7 chuyển block vào buffer. Mọi thao tác bảo toàn sáu block độc nhất và đúng một slot trống.
 4. **FR-04:** Render một chương trình Python TechCamp lời giải mẫu trong editor. Chuỗi thao tác chỉ dùng `move_to`, `move_down`, `move_up`, `grip`, `release`; không gọi SDK thật.
-5. **FR-05:** Thuật toán sinh code phải dùng P7 để xử lý chu trình hoán vị và kết thúc ở thứ tự màu chuẩn P1→P6; P7 trống.
+5. **FR-05:** Code mẫu phải dùng P7 để xử lý chu trình P1/P3/P4 của hoán vị ban đầu và kết thúc ở thứ tự màu chuẩn P1→P6; P7 trống.
 6. **FR-06:** Kéo-thả không tự thay nội dung editor. Lời giải mẫu được đặt khi scene bài tập được khởi tạo và vẫn có syntax highlight/có thể chạy bằng runner hiện tại.
 
 ---
@@ -52,8 +52,8 @@ Học sinh cần nhìn được block màu nào đang nằm ở P1–P7 và tạ
 
 - [ ] Dải luôn có 7 slot và luôn thể hiện đúng 6 block + 1 ô trống theo state scene.
 - [ ] Hoán đổi qua kéo-thả cập nhật đồng thời dải và mesh 3D trong một frame kế tiếp, đồng thời giữ nguyên cấu hình đó cho tới thao tác tiếp theo của người dùng.
-- [ ] Với tất cả 720 hoán vị của sáu block, code sinh ra đưa block về thứ tự P1–P6 và để P7 trống.
-- [ ] Code sinh ra chạy thành công qua `/api/python/run`, không có lệnh live/bridge.
+- [ ] Code mẫu đưa đúng hoán vị P1/P3/P4 về thứ tự P1–P6 và để P7 trống.
+- [ ] Code mẫu chạy thành công qua `/api/python/run`, không có lệnh live/bridge.
 
 ---
 
