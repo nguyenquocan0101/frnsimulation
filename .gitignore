@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+*.log
+.agents/
+.codex/
+
+# FAIRINO SDK build artifacts: generated locally from the vendor source.
+bridge/vendor/**/build/
+bridge/vendor/**/__pycache__/

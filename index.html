@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>FR3 Classroom · TechCamp IDE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Paytone+One&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.176.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Bỏ qua tới nội dung chính</a>
+    <div class="app-shell">
+      <div class="ide-layout" id="ideLayout">
+
+        <main id="main-content" class="code-column">
+          <header class="column-header">
+            <div class="header-brand">
+              <div class="techx-logo" aria-label="FPTU TechX Camp">FPTU TECH<span>X</span> CAMP</div>
+              <span>FR3 SIMULATION</span>
+            </div>
+            <button
+              class="theme-button header-theme-button"
+              id="themeToggleBtn"
+              type="button"
+              aria-pressed="false"
+              aria-label="Đổi chế độ sáng tối"
+            >
+              <span class="theme-icon">☾</span
+              ><span class="theme-label sr-only">Dark mode</span>
+            </button>
+          </header>
+
+          <section class="panel code-panel" aria-label="Khu vực Code và Điều khiển">
+            <div class="workspace-tabs" role="tablist" aria-label="Khu vực làm việc">
+              <button class="workspace-tab active" id="codeTab" type="button" role="tab" aria-selected="true" aria-controls="codeTabPanel">Code</button>
+              <button class="workspace-tab" id="controlTab" type="button" role="tab" aria-selected="false" aria-controls="controlTabPanel" tabindex="-1">Điều khiển</button>
+            </div>
+            <div id="codeTabPanel" role="tabpanel" aria-labelledby="codeTab">
+              <div class="editor-toolbar">
+                <span class="file-tab"
+                  ><span class="file-dot"></span> main.py</span
+                >
+                <div class="editor-toolbar-actions">
+                  <span class="code-validation" id="codeValidation" aria-live="polite" hidden>
+                    <span class="code-validation-dot" aria-hidden="true"></span>
+                    <span id="codeValidationSummary"></span>
+                  </span>
+                  <div class="editor-font-controls" aria-label="Cỡ chữ code">
+                    <button
+                      class="editor-font-button"
+                      id="codeFontDecrease"
+                      type="button"
+                      aria-label="Giảm cỡ chữ code"
+                    >
+                      −
+                    </button>
+                    <button
+                      class="editor-font-button"
+                      id="codeFontIncrease"
+                      type="button"
+                      aria-label="Tăng cỡ chữ code"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button class="button primary editor-run-button" id="runBtn">
+                    <span class="button-symbol">▶</span> Run program
+                  </button>
+                </div>
+              </div>
+              <div class="code-error-list" id="codeErrorList" aria-live="polite" hidden></div>
+              <div class="code-editor">
+                <pre class="code-line-numbers" id="codeLineNumbers" aria-hidden="true"></pre>
+                <pre
+                  class="code-highlight"
+                  id="codeHighlight"
+                  aria-hidden="true"
+                ><code></code></pre>
+                <textarea class="code" id="program" spellcheck="false">
+from techcamp_api import TechCamp
+
+
+def test():
+    with TechCamp() as bot:
+        bot.move_to("P3")   # travel at safe height
+        bot.move_down()     # lower
+        bot.grip()          # close gripper
+        bot.move_up()       # raise
+        bot.move_to("P1")   # travel
+        bot.move_down()
+        bot.release()       # open gripper
+        bot.move_up()
+
+
+if __name__ == "__main__":
+    test()</textarea
+                >
+              </div>
+            </div>
+
+            <div id="controlTabPanel" role="tabpanel" aria-labelledby="controlTab" hidden>
+            <div class="control-grid">
+              <div>
+                <div class="subheading">
+                  <strong>Joint jog</strong>
+                </div>
+                <div class="joints" id="jointControls"></div>
+                <div class="toolbar">
+                  <button class="button" id="applyBtn">Apply target</button>
+                </div>
+              </div>
+              <div>
+                <div class="subheading">
+                  <strong>TCP pose</strong>
+                </div>
+                <div class="pose-grid" id="tcpReadout"></div>
+                <div class="divider"></div>
+                <div class="subheading">
+                  <strong>MoveL target</strong>
+                </div>
+                <div class="pose-grid target-grid" id="targetPose"></div>
+                <button class="button primary full" id="moveLBtn">
+                  MoveL to target
+                </button>
+              </div>
+            </div>
+            </div>
+          </section>
+        </main>
+
+        <div
+          class="layout-splitter"
+          id="layoutSplitter"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Kéo để thay đổi độ rộng Code và Mô phỏng"
+          tabindex="0"
+        ></div>
+
+        <section class="simulation-column" aria-labelledby="viewport-title">
+          <div class="simulation-header">
+            <h2 id="viewport-title">Mô phỏng</h2>
+          </div>
+          <div class="viewport-wrap" id="viewportWrap">
+            <div
+              id="viewport"
+              aria-label="Mô hình 3D FAIRINO FR3 tương tác bằng chuột hoặc cảm ứng"
+            ></div>
+            <div class="loading-card" id="loadingCard">
+              <span class="loader"></span
+              ><span>Đang tải mô hình 3D chính thức…</span>
+            </div>
+            <button
+              class="viewport-home-button"
+              id="homeBtn"
+              type="button"
+              aria-label="Đưa cánh tay về Home"
+              title="Đưa cánh tay về Home"
+            ><span aria-hidden="true">⌂</span><span class="sr-only">Home</span></button>
+          </div>
+          <div class="toolbar primary-tools">
+            <button class="button primary" id="enableBtn">Enable</button
+            ><button class="button danger" id="stopBtn">Stop</button
+            ><button class="button" id="modeBtn">Automatic mode</button
+            ><button
+              class="button primary safe-zone-toggle"
+              id="safeZoneToggleBtn"
+              type="button"
+              aria-pressed="true"
+            >
+              Safe ON
+            </button>
+            <button class="button quiet" id="changeViewBtn" title="Đổi góc nhìn camera">Change view</button
+            ><button class="button quiet" id="homeViewBtn">Home camera</button>
+            <div class="speed-control">
+              <button class="button quiet speed-button" id="speedBtn" type="button" aria-expanded="false" aria-controls="speedPopover">Speed 25%</button>
+              <div class="speed-popover" id="speedPopover" hidden>
+                <label for="speedRange">Speed <output id="speedOutput">25%</output></label>
+                <input id="speedRange" type="range" min="5" max="100" step="5" value="25" aria-label="Tốc độ cánh tay" />
+              </div>
+            </div>
+          </div>
+          <div class="log-toolbar">
+            <span>Output</span>
+            <button class="button quiet" id="clearLogBtn">Clear log</button>
+          </div>
+          <pre
+            class="console simulator-log"
+            id="console"
+            aria-live="polite"
+          ></pre>
+        </section>
+      </div>
+      <footer class="safety-note">
+        Demo mô phỏng — không dùng để điều khiển robot thật.
+      </footer>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
