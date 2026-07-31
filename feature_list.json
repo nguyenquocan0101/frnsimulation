@@ -1,0 +1,34 @@
+{
+  "features": [
+    {
+      "id": "block-state-strip",
+      "title": "Dải 7 ô hiển thị block màu theo vị trí",
+      "user_visible_behavior": "Giáo viên thấy ngay block nào đang ở P1–P7 cạnh icon Home.",
+      "verification_command": "Dải có P1–P7 và đồng bộ với scene sau các thao tác lấy/đặt.",
+      "status": "passing",
+      "evidence": "Local browser: 7 slots rendered; P1-P6 have six colors and P7 is empty.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "block-slot-drag-drop",
+      "title": "Kéo-thả để tạo hoán vị block",
+      "user_visible_behavior": "Giáo viên đổi chỗ block để tạo bài sắp xếp.",
+      "verification_command": "Kéo-thả luôn bảo toàn sáu block và đúng một P7 trống.",
+      "status": "passing",
+      "evidence": "Local browser: P1↔P4 swap and P3→P7 transfer updated the compact strip and simulator state.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "buffer-sort-code-generator",
+      "title": "Sinh code sắp xếp sử dụng P7 buffer",
+      "user_visible_behavior": "Học sinh có chương trình Python đưa sáu màu về P1–P6.",
+      "verification_command": "Mọi hoán vị sáu block được giải với P7 trống ở cuối.",
+      "status": "not_started",
+      "evidence": "",
+      "notes": "",
+      "priority": "P1"
+    }
+  ]
+}

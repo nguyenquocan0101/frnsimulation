@@ -9,7 +9,10 @@
     <title>FR3 Classroom · TechCamp IDE</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Paytone+One&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Paytone+One&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./styles.css" />
     <script type="importmap">
       {
@@ -24,11 +27,12 @@
     <a class="skip-link" href="#main-content">Bỏ qua tới nội dung chính</a>
     <div class="app-shell">
       <div class="ide-layout" id="ideLayout">
-
         <main id="main-content" class="code-column">
           <header class="column-header">
             <div class="header-brand">
-              <div class="techx-logo" aria-label="FPTU TechX Camp">FPTU TECH<span>X</span> CAMP</div>
+              <div class="techx-logo" aria-label="FPTU TechX Camp">
+                FPTU TECH<span>X</span> CAMP
+              </div>
               <span>FR3 SIMULATION</span>
             </div>
             <button
@@ -43,10 +47,36 @@
             </button>
           </header>
 
-          <section class="panel code-panel" aria-label="Khu vực Code và Điều khiển">
-            <div class="workspace-tabs" role="tablist" aria-label="Khu vực làm việc">
-              <button class="workspace-tab active" id="codeTab" type="button" role="tab" aria-selected="true" aria-controls="codeTabPanel">Code</button>
-              <button class="workspace-tab" id="controlTab" type="button" role="tab" aria-selected="false" aria-controls="controlTabPanel" tabindex="-1">Điều khiển</button>
+          <section
+            class="panel code-panel"
+            aria-label="Khu vực Code và Điều khiển"
+          >
+            <div
+              class="workspace-tabs"
+              role="tablist"
+              aria-label="Khu vực làm việc"
+            >
+              <button
+                class="workspace-tab active"
+                id="codeTab"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                aria-controls="codeTabPanel"
+              >
+                Code
+              </button>
+              <button
+                class="workspace-tab"
+                id="controlTab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="controlTabPanel"
+                tabindex="-1"
+              >
+                Điều khiển
+              </button>
             </div>
             <div id="codeTabPanel" role="tabpanel" aria-labelledby="codeTab">
               <div class="editor-toolbar">
@@ -54,7 +84,12 @@
                   ><span class="file-dot"></span> main.py</span
                 >
                 <div class="editor-toolbar-actions">
-                  <span class="code-validation" id="codeValidation" aria-live="polite" hidden>
+                  <span
+                    class="code-validation"
+                    id="codeValidation"
+                    aria-live="polite"
+                    hidden
+                  >
                     <span class="code-validation-dot" aria-hidden="true"></span>
                     <span id="codeValidationSummary"></span>
                   </span>
@@ -81,9 +116,18 @@
                   </button>
                 </div>
               </div>
-              <div class="code-error-list" id="codeErrorList" aria-live="polite" hidden></div>
+              <div
+                class="code-error-list"
+                id="codeErrorList"
+                aria-live="polite"
+                hidden
+              ></div>
               <div class="code-editor">
-                <pre class="code-line-numbers" id="codeLineNumbers" aria-hidden="true"></pre>
+                <pre
+                  class="code-line-numbers"
+                  id="codeLineNumbers"
+                  aria-hidden="true"
+                ></pre>
                 <pre
                   class="code-highlight"
                   id="codeHighlight"
@@ -111,32 +155,37 @@ if __name__ == "__main__":
               </div>
             </div>
 
-            <div id="controlTabPanel" role="tabpanel" aria-labelledby="controlTab" hidden>
-            <div class="control-grid">
-              <div>
-                <div class="subheading">
-                  <strong>Joint jog</strong>
+            <div
+              id="controlTabPanel"
+              role="tabpanel"
+              aria-labelledby="controlTab"
+              hidden
+            >
+              <div class="control-grid">
+                <div>
+                  <div class="subheading">
+                    <strong>Joint jog</strong>
+                  </div>
+                  <div class="joints" id="jointControls"></div>
+                  <div class="toolbar">
+                    <button class="button" id="applyBtn">Apply target</button>
+                  </div>
                 </div>
-                <div class="joints" id="jointControls"></div>
-                <div class="toolbar">
-                  <button class="button" id="applyBtn">Apply target</button>
+                <div>
+                  <div class="subheading">
+                    <strong>TCP pose</strong>
+                  </div>
+                  <div class="pose-grid" id="tcpReadout"></div>
+                  <div class="divider"></div>
+                  <div class="subheading">
+                    <strong>MoveL target</strong>
+                  </div>
+                  <div class="pose-grid target-grid" id="targetPose"></div>
+                  <button class="button primary full" id="moveLBtn">
+                    MoveL to target
+                  </button>
                 </div>
               </div>
-              <div>
-                <div class="subheading">
-                  <strong>TCP pose</strong>
-                </div>
-                <div class="pose-grid" id="tcpReadout"></div>
-                <div class="divider"></div>
-                <div class="subheading">
-                  <strong>MoveL target</strong>
-                </div>
-                <div class="pose-grid target-grid" id="targetPose"></div>
-                <button class="button primary full" id="moveLBtn">
-                  MoveL to target
-                </button>
-              </div>
-            </div>
             </div>
           </section>
         </main>
@@ -152,7 +201,7 @@ if __name__ == "__main__":
 
         <section class="simulation-column" aria-labelledby="viewport-title">
           <div class="simulation-header">
-            <h2 id="viewport-title">Mô phỏng</h2>
+            <h2 id="viewport-title">Simulation</h2>
           </div>
           <div class="viewport-wrap" id="viewportWrap">
             <div
@@ -169,7 +218,14 @@ if __name__ == "__main__":
               type="button"
               aria-label="Đưa cánh tay về Home"
               title="Đưa cánh tay về Home"
-            ><span aria-hidden="true">⌂</span><span class="sr-only">Home</span></button>
+            >
+              <span aria-hidden="true">⌂</span><span class="sr-only">Home</span>
+            </button>
+            <div
+              class="block-state-strip"
+              id="blockStateStrip"
+              aria-label="Vị trí các block màu P1 đến P7"
+            ></div>
           </div>
           <div class="toolbar primary-tools">
             <button class="button primary" id="enableBtn">Enable</button
@@ -183,13 +239,36 @@ if __name__ == "__main__":
             >
               Safe ON
             </button>
-            <button class="button quiet" id="changeViewBtn" title="Đổi góc nhìn camera">Change view</button
+            <button
+              class="button quiet"
+              id="changeViewBtn"
+              title="Đổi góc nhìn camera"
+            >
+              Change view</button
             ><button class="button quiet" id="homeViewBtn">Home camera</button>
             <div class="speed-control">
-              <button class="button quiet speed-button" id="speedBtn" type="button" aria-expanded="false" aria-controls="speedPopover">Speed 25%</button>
+              <button
+                class="button quiet speed-button"
+                id="speedBtn"
+                type="button"
+                aria-expanded="false"
+                aria-controls="speedPopover"
+              >
+                Speed 25%
+              </button>
               <div class="speed-popover" id="speedPopover" hidden>
-                <label for="speedRange">Speed <output id="speedOutput">25%</output></label>
-                <input id="speedRange" type="range" min="5" max="100" step="5" value="25" aria-label="Tốc độ cánh tay" />
+                <label for="speedRange"
+                  >Speed <output id="speedOutput">25%</output></label
+                >
+                <input
+                  id="speedRange"
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="5"
+                  value="25"
+                  aria-label="Tốc độ cánh tay"
+                />
               </div>
             </div>
           </div>

@@ -44,6 +44,8 @@ const JOINT_RPY = [
   [-Math.PI / 2, 0, 0],
 ];
 const BLOCK_POSITIONS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+const SORTABLE_BLOCK_NAMES = BLOCK_POSITIONS.slice(0, -1);
+const BUFFER_POSITION = BLOCK_POSITIONS.at(-1);
 const BLOCK_COLORS = [
   0xf06b62, 0xf3a64a, 0xe7c85f, 0x6fc88f, 0x56a9d9, 0x7187d8, 0xa879d6,
 ];
@@ -641,6 +643,7 @@ function buildBlockBoard() {
     const label = makeTextSprite(name, index === 0 ? "#f7b0a8" : "#b9cbe0");
     label.position.set(cart[0] / 1000, cart[1] / 1000, 0.17);
     boardGroup.add(label);
+    if (name === BUFFER_POSITION) return;
     const blockGroup = new THREE.Group();
     blockGroup.name = `block-${name}`;
     const body = new THREE.Mesh(
@@ -687,6 +690,9 @@ function blockAt(position) {
 function updateBlockVisuals() {
   if (!blockMeshes.size) return;
   const tcp = matrixToPose(tcpMatrix(state.jointsDeg.map(deg)));
+  blockMeshes.forEach((mesh) => {
+    mesh.visible = false;
+  });
   state.blocks.forEach((block) => {
     const mesh = blockMeshes.get(block.name);
     if (!mesh) return;
@@ -725,6 +731,7 @@ function renderBlockBoardLegacy() {
 
 let draggedBlockName = null;
 let pointerDraggedBlockName = null;
+let selectedBlockName = null;
 let pointerDragBound = false;
 
 function clearPointerBlockDrag() {
@@ -737,17 +744,29 @@ function clearPointerBlockDrag() {
     .forEach((slot) => slot.classList.remove("drag-over"));
 }
 
+function setSelectedBlock(blockName) {
+  selectedBlockName = selectedBlockName === blockName ? null : blockName;
+  document.querySelectorAll("[data-block-name]").forEach((card) => {
+    const selected = card.dataset.blockName === selectedBlockName;
+    card.classList.toggle("is-selected", selected);
+    card.setAttribute("aria-pressed", String(selected));
+  });
+}
+
 function moveBlockToPosition(blockName, position) {
   const block = state.blocks.find((item) => item.name === blockName);
   if (!block || block.carried) return;
   const previous = block.position;
+  const targetBlock = blockAt(position);
+  if (targetBlock && targetBlock !== block) targetBlock.position = previous;
   block.position = position;
+  selectedBlockName = null;
   renderBlockBoard();
   updateBlockVisuals();
   log(
     "Block " +
       blockName +
-      " -> " +
+      (targetBlock && targetBlock !== block ? " swap " : " -> ") +
       position +
       (previous === position ? " · unchanged" : ""),
   );
@@ -776,6 +795,11 @@ function bindBlockBoardDrag() {
       pointerDraggedBlockName = card.dataset.blockName;
       card.classList.add("dragging");
       event.preventDefault();
+    });
+    card.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      setSelectedBlock(card.dataset.blockName);
     });
   });
   document.querySelectorAll("[data-drop-position]").forEach((slot) => {
@@ -807,12 +831,51 @@ function bindBlockBoardDrag() {
       moveBlockToPosition(pointerDraggedBlockName, slot.dataset.dropPosition);
       clearPointerBlockDrag();
     });
+    slot.addEventListener("keydown", (event) => {
+      if (!selectedBlockName || (event.key !== "Enter" && event.key !== " "))
+        return;
+      event.preventDefault();
+      moveBlockToPosition(selectedBlockName, slot.dataset.dropPosition);
+    });
   });
 }
 
 function renderBlockBoard() {
   const carrying = state.blocks.find((block) => block.carried);
   const remaining = state.blocks.filter((block) => !block.carried).length;
+  const stateStrip = $("blockStateStrip");
+  if (stateStrip) {
+    stateStrip.innerHTML = BLOCK_POSITIONS.map((position) => {
+      const block = blockAt(position);
+      const color = block
+        ? "#" + block.color.toString(16).padStart(6, "0")
+        : "transparent";
+      const slotState = block ? "block" : carrying ? "đang nhấc block" : "trống";
+      return (
+        '<button class="block-state-slot' +
+        (block ? " is-occupied" : " is-empty") +
+        (block?.name === selectedBlockName ? " is-selected" : "") +
+        '" style="--block-color:' +
+        color +
+        '" type="button" draggable="' +
+        String(Boolean(block)) +
+        '" data-drop-position="' +
+        position +
+        '"' +
+        (block ? ' data-block-name="' + block.name + '"' : "") +
+        ' aria-pressed="' +
+        String(block?.name === selectedBlockName) +
+        '" aria-label="' +
+        position +
+        ": " +
+        slotState +
+        '"><span>' +
+        position +
+        "</span></button>"
+      );
+    }).join("");
+    bindBlockBoardDrag();
+  }
   if ($("boardChip")) $("boardChip").textContent = remaining + " BLOCKS";
   if ($("boardState"))
     $("boardState").textContent =
@@ -864,7 +927,7 @@ function renderBlockBoard() {
 }
 
 function resetBlocks(silent = false) {
-  state.blocks = BLOCK_POSITIONS.map((name, index) => ({
+  state.blocks = SORTABLE_BLOCK_NAMES.map((name, index) => ({
     name,
     position: name,
     color: BLOCK_COLORS[index],
@@ -876,7 +939,7 @@ function resetBlocks(silent = false) {
   techcampSim.carriedBlock = null;
   renderBlockBoard();
   updateBlockVisuals();
-  if (!silent) log("Scene reset -> P1…P7");
+  if (!silent) log("Scene reset -> P1…P6 · P7 buffer");
 }
 
 async function loadCalibratedPoints() {
