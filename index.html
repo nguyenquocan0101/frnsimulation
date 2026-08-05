@@ -178,6 +178,7 @@ if __name__ == "__main__":
                     <strong>Joint jog</strong>
                   </div>
                   <div class="joints" id="jointControls"></div>
+                  <div class="joint-color-legend" id="jointColorLegend" aria-label="Chú thích màu các khớp"></div>
                   <div class="toolbar">
                     <button class="button" id="applyBtn">Apply target</button>
                   </div>
@@ -237,6 +238,9 @@ if __name__ == "__main__":
               id="blockStateStrip"
               aria-label="Vị trí các block màu P1 đến P7"
             ></div>
+            <div class="block-magnifier" id="blockMagnifier" aria-hidden="true" hidden>
+              <span>BLOCK LENS · 2×</span>
+            </div>
           </div>
           <div class="toolbar primary-tools">
             <button class="button primary" id="enableBtn">Enable</button
@@ -257,6 +261,13 @@ if __name__ == "__main__":
             >
               Change view</button
             ><button class="button quiet" id="homeViewBtn">Home camera</button>
+            <div class="camera-control">
+              <button class="button quiet speed-button" id="cameraZoomBtn" type="button" aria-expanded="false" aria-controls="cameraZoomPopover">View 118%</button>
+              <div class="speed-popover camera-popover" id="cameraZoomPopover" hidden>
+                <label for="cameraZoomRange">Khung nhìn <output id="cameraZoomOutput">118%</output></label>
+                <input id="cameraZoomRange" type="range" min="100" max="135" step="1" value="118" aria-label="Độ gần camera tổng quan" />
+              </div>
+            </div>
             <div class="speed-control">
               <button
                 class="button quiet speed-button"

@@ -14,9 +14,15 @@ const GRIPPER_FINGER_TRAVEL = 16;
 const GRIPPER_ANIMATION_MS = 220;
 const GRIPPER_JAW_CENTER_CAD = [40.35, 17.5, -37.75];
 const BLOCK_SIZE = 0.04;
-const BLOCK_TOP_SIZE = 0.033;
-const BLOCK_TOP_HEIGHT = 0.005;
 const JOINT_NAMES = ["J1", "J2", "J3", "J4", "J5", "J6"];
+const JOINT_COLORS = [
+  { hex: 0xef6b62, css: "#ef6b62" },
+  { hex: 0xf3a64a, css: "#f3a64a" },
+  { hex: 0xe4c354, css: "#e4c354" },
+  { hex: 0x69c58a, css: "#69c58a" },
+  { hex: 0x55abd9, css: "#55abd9" },
+  { hex: 0x7d8fe0, css: "#7d8fe0" },
+];
 const JOINT_LIMITS_DEG = [
   [-175, 175],
   [-265, 85],
@@ -70,15 +76,29 @@ const SAMPLE_BLOCK_POSITIONS = {
 const BLOCK_COLORS = [
   0xf06b62, 0xf3a64a, 0xe7c85f, 0x6fc88f, 0x56a9d9, 0x7187d8, 0xa879d6,
 ];
+const OBJECT_CLASSES = [
+  { value: 1, id: "chicken", label: "Gà" },
+  { value: 2, id: "tree", label: "Cây" },
+  { value: 3, id: "dog", label: "Chó" },
+  { value: 4, id: "car", label: "Ô tô" },
+  { value: 5, id: "chair", label: "Ghế" },
+  { value: 6, id: "umbrella", label: "Dù" },
+  { value: 7, id: "elephant", label: "Voi" },
+  { value: 8, id: "airplane", label: "Máy bay" },
+  { value: 9, id: "house", label: "Nhà" },
+];
 const TECHCAMP_MAX_SPEED = 40;
 const TECHCAMP_MAX_ACC = 20;
 const DEFAULT_HOME_JOINTS = [-90, -135, 126, 8.8, 85.2, 0];
-const HOME_CAMERA_TARGET = [0, 0.55, 0];
+// Keep the robot and the worktable together in the primary teaching view.
+const HOME_CAMERA_TARGET = [0, 0.3, -0.24];
+const HOME_CAMERA_ZOOM_DEFAULT = 118;
+const HOME_CAMERA_ZOOM_RANGE = [100, 135];
 const HOME_CAMERA_VIEWS = [
-  { name: "Trước", position: [1.55, 0.85, 0] },
-  { name: "Phải", position: [0, 0.85, 1.55] },
+  { name: "Chính diện", position: [0, 0.62, -1.55] },
+  { name: "Phải", position: [1.55, 0.85, 0] },
   { name: "Sau", position: [-1.55, 0.85, 0] },
-  { name: "Trái", position: [0, 0.85, -1.55] },
+  { name: "Trái", position: [0, 0.85, 1.55] },
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -119,10 +139,12 @@ const state = {
     alert: null,
     bounds: { x: [-500, 500], y: [-600, 600], z: [0, 850] },
   },
+  cameraZoom: HOME_CAMERA_ZOOM_DEFAULT,
 };
 
 let scene,
   camera,
+  magnifierCamera,
   renderer,
   controls,
   robotRoot,
@@ -136,7 +158,9 @@ let scene,
 let cameraViewIndex = -1;
 let jointRotators = [];
 let modelMaterials = [];
+let jointMaterials = [];
 const blockMeshes = new Map();
+const objectClassTextures = new Map();
 const gripperVisual = {
   fingers: [],
   closed: false,
@@ -279,6 +303,7 @@ function initWorkspaceTabs() {
       const panel = $(item.getAttribute("aria-controls"));
       if (panel) panel.hidden = !selected;
     });
+    setJointVisualization(tab.id === "controlTab");
   };
   tabs.forEach((tab, index) => {
     tab.addEventListener("click", () => activate(tab));
@@ -642,6 +667,37 @@ function makeTextSprite(text, color = "#cfe0f2") {
   return sprite;
 }
 
+function objectClassForBlock(blockName) {
+  return OBJECT_CLASSES[SORTABLE_BLOCK_NAMES.indexOf(blockName)] || null;
+}
+
+function objectClassTexture(objectClass) {
+  if (!objectClass) return null;
+  const existing = objectClassTextures.get(objectClass.id);
+  if (existing) return existing;
+  const texture = new THREE.TextureLoader().load(
+    `./assets/object-classes/${objectClass.id}.jpg`,
+  );
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  objectClassTextures.set(objectClass.id, texture);
+  return texture;
+}
+
+function objectClassMaterials(objectClass) {
+  const texture = objectClassTexture(objectClass);
+  return Array.from(
+    { length: 6 },
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: texture,
+        roughness: 0.52,
+        metalness: 0.02,
+      }),
+  );
+}
+
 function buildBlockBoard() {
   if (!robotRoot || !BLOCK_POSITIONS.every((name) => pointRecord(name))) return;
   if (boardGroup) robotRoot.remove(boardGroup);
@@ -670,6 +726,7 @@ function buildBlockBoard() {
   board.position.set(boardCenter.x / 1000, boardCenter.y / 1000, boardSurfaceZ - 0.009);
   board.receiveShadow = true;
   boardGroup.add(board);
+  boardGroup.userData.magnifierTarget = board;
   const edgeMaterial = new THREE.LineBasicMaterial({
     color: 0x6c87a3,
     transparent: true,
@@ -698,37 +755,20 @@ function buildBlockBoard() {
     label.position.set(cart[0] / 1000, cart[1] / 1000, boardSurfaceZ + 0.013);
     boardGroup.add(label);
     if (name === BUFFER_POSITION) return;
+    const objectClass = objectClassForBlock(name);
     const blockGroup = new THREE.Group();
     blockGroup.name = `block-${name}`;
     const body = new THREE.Mesh(
       new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE),
-      new THREE.MeshStandardMaterial({
-        color: BLOCK_COLORS[index],
-        roughness: 0.55,
-        metalness: 0.04,
-      }),
+      objectClassMaterials(objectClass),
     );
     body.castShadow = true;
     body.receiveShadow = true;
     blockGroup.add(body);
-    const top = new THREE.Mesh(
-      new THREE.BoxGeometry(BLOCK_TOP_SIZE, BLOCK_TOP_SIZE, BLOCK_TOP_HEIGHT),
-      new THREE.MeshStandardMaterial({
-        color: 0xf2f7ff,
-        roughness: 0.35,
-        metalness: 0.05,
-      }),
-    );
-    top.position.z = BLOCK_SIZE / 2 + BLOCK_TOP_HEIGHT / 2;
-    top.castShadow = true;
-    blockGroup.add(top);
-    const blockLabel = makeTextSprite(name, "#102033");
-    blockLabel.scale.set(0.045, 0.018, 1);
-    blockLabel.position.z = BLOCK_SIZE / 2 + BLOCK_TOP_HEIGHT + 0.001;
-    blockGroup.add(blockLabel);
     boardGroup.add(blockGroup);
     blockMeshes.set(name, blockGroup);
   });
+  $("blockMagnifier")?.removeAttribute("hidden");
   renderBlockBoard();
   updateBlockVisuals();
 }
@@ -985,6 +1025,7 @@ function resetBlocks(silent = false) {
     name,
     position: SAMPLE_BLOCK_POSITIONS[name],
     color: BLOCK_COLORS[index],
+    objectClass: objectClassForBlock(name),
     carried: false,
   }));
   techcampSim.position = null;
@@ -1323,7 +1364,11 @@ function renderState() {
 function renderJointControls() {
   $("jointControls").innerHTML = JOINT_NAMES.map(
     (name, i) =>
-      `<div class="joint-row"><label for="joint-range-${i}">${name}</label><input id="joint-range-${i}" class="range" data-joint-range="${i}" type="range" min="${JOINT_LIMITS_DEG[i][0]}" max="${JOINT_LIMITS_DEG[i][1]}" step="0.1" value="${state.targetDeg[i]}" aria-label="${name} target"><input class="number" data-joint-number="${i}" type="number" min="${JOINT_LIMITS_DEG[i][0]}" max="${JOINT_LIMITS_DEG[i][1]}" step="0.1" value="${fmt(state.targetDeg[i])}" aria-label="${name} target in degrees"><span class="joint-limit">${JOINT_LIMITS_DEG[i][0]}° … ${JOINT_LIMITS_DEG[i][1]}°</span></div>`,
+      `<div class="joint-row" style="--joint-color:${JOINT_COLORS[i].css}"><label for="joint-range-${i}"><span class="joint-color-dot" aria-hidden="true"></span>${name}</label><input id="joint-range-${i}" class="range" data-joint-range="${i}" type="range" min="${JOINT_LIMITS_DEG[i][0]}" max="${JOINT_LIMITS_DEG[i][1]}" step="0.1" value="${state.targetDeg[i]}" aria-label="${name} target"><input class="number" data-joint-number="${i}" type="number" min="${JOINT_LIMITS_DEG[i][0]}" max="${JOINT_LIMITS_DEG[i][1]}" step="0.1" value="${fmt(state.targetDeg[i])}" aria-label="${name} target in degrees"><span class="joint-limit">${JOINT_LIMITS_DEG[i][0]}° … ${JOINT_LIMITS_DEG[i][1]}°</span></div>`,
+  ).join("");
+  $("jointColorLegend").innerHTML = JOINT_NAMES.map(
+    (name, i) =>
+      `<span><i style="background:${JOINT_COLORS[i].css}" aria-hidden="true"></i>${name}</span>`,
   ).join("");
   document
     .querySelectorAll("[data-joint-range]")
@@ -1393,6 +1438,12 @@ function renderTargetInputs() {
       updateTargetMarker();
     }),
   );
+}
+
+function setJointVisualization(active) {
+  jointMaterials.forEach((material, index) => {
+    material.color.setHex(active ? JOINT_COLORS[Math.min(index, 5)].hex : ROBOT_SHELL_COLOR);
+  });
 }
 
 function updateTargetMarker() {
@@ -1600,11 +1651,13 @@ function initScene() {
   scene.background = new THREE.Color(0xf4f6f8);
   camera = new THREE.PerspectiveCamera(38, 1, 0.01, 20);
   camera.position.set(1.35, 1.08, 1.45);
+  magnifierCamera = new THREE.PerspectiveCamera(24, 1, 0.01, 20);
   renderer = new THREE.WebGLRenderer({
     antialias: true,
     powerPreference: "high-performance",
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.autoClear = false;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -1665,9 +1718,47 @@ function initScene() {
     requestAnimationFrame(loop);
     advanceLiveInterpolation(now);
     controls.update();
-    renderer.render(scene, camera);
+    renderScene();
   };
   loop(performance.now());
+}
+
+function updateMagnifierCamera() {
+  if (!magnifierCamera || !boardGroup) return;
+  const focus = new THREE.Vector3();
+  const target = boardGroup.userData.magnifierTarget;
+  if (!target) return;
+  target.getWorldPosition(focus);
+  magnifierCamera.position.copy(focus).add(new THREE.Vector3(0.28, 0.36, 0.36));
+  magnifierCamera.lookAt(focus);
+}
+
+function renderScene() {
+  if (!renderer || !scene || !camera) return;
+  const buffer = renderer.getDrawingBufferSize(new THREE.Vector2());
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, buffer.x, buffer.y);
+  renderer.clear(true, true, true);
+  renderer.render(scene, camera);
+
+  const lens = $("blockMagnifier");
+  const canvasRect = renderer.domElement.getBoundingClientRect();
+  if (!lens || lens.hidden || !boardGroup || !canvasRect.width || !canvasRect.height) return;
+  const lensRect = lens.getBoundingClientRect();
+  const x = Math.round((lensRect.left - canvasRect.left) * (buffer.x / canvasRect.width));
+  const y = Math.round((canvasRect.bottom - lensRect.bottom) * (buffer.y / canvasRect.height));
+  const width = Math.round(lensRect.width * (buffer.x / canvasRect.width));
+  const height = Math.round(lensRect.height * (buffer.y / canvasRect.height));
+  if (width <= 0 || height <= 0) return;
+  updateMagnifierCamera();
+  magnifierCamera.aspect = width / height;
+  magnifierCamera.updateProjectionMatrix();
+  renderer.clearDepth();
+  renderer.setScissorTest(true);
+  renderer.setScissor(x, y, width, height);
+  renderer.setViewport(x, y, width, height);
+  renderer.render(scene, magnifierCamera);
+  renderer.setScissorTest(false);
 }
 
 function loadSTL(loader, file) {
@@ -1783,15 +1874,21 @@ async function loadGripper(j6Rotator) {
 async function loadModel() {
   initScene();
   const loader = new STLLoader();
-  const material = new THREE.MeshStandardMaterial({
-    color: ROBOT_SHELL_COLOR,
-    roughness: 0.62,
-    metalness: 0.12,
-  });
-  modelMaterials.push(material);
+  modelMaterials = [];
+  jointMaterials = [];
+  const makeRobotMaterial = () => {
+    const material = new THREE.MeshStandardMaterial({
+      color: ROBOT_SHELL_COLOR,
+      roughness: 0.62,
+      metalness: 0.12,
+    });
+    modelMaterials.push(material);
+    jointMaterials.push(material);
+    return material;
+  };
   try {
     const baseGeometry = await loadSTL(loader, "base_link");
-    const baseMesh = new THREE.Mesh(baseGeometry, material);
+    const baseMesh = new THREE.Mesh(baseGeometry, makeRobotMaterial());
     baseMesh.castShadow = true;
     baseMesh.receiveShadow = true;
     robotRoot.add(baseMesh);
@@ -1805,7 +1902,7 @@ async function loadModel() {
       frame.add(rotator);
       jointRotators.push(rotator);
       const geometry = await loadSTL(loader, LINK_FILES[i + 1]);
-      const mesh = new THREE.Mesh(geometry, material);
+      const mesh = new THREE.Mesh(geometry, makeRobotMaterial());
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       rotator.add(mesh);
@@ -1813,6 +1910,7 @@ async function loadModel() {
     }
     await loadGripper(jointRotators.at(-1));
     state.modelReady = true;
+    setJointVisualization($("controlTab")?.classList.contains("active"));
     await loadCalibratedPoints();
     $("loadingCard")?.classList.add("hidden");
     if ($("modelStatus"))
@@ -1838,7 +1936,11 @@ function setHomeCameraView(index) {
     ((index % HOME_CAMERA_VIEWS.length) + HOME_CAMERA_VIEWS.length) %
     HOME_CAMERA_VIEWS.length;
   const view = HOME_CAMERA_VIEWS[cameraViewIndex];
-  camera.position.set(...view.position);
+  const frameScale = 100 / state.cameraZoom;
+  camera
+    .position
+    .set(...HOME_CAMERA_TARGET)
+    .lerp(new THREE.Vector3(...view.position), frameScale);
   controls.target.set(...HOME_CAMERA_TARGET);
   controls.update();
   const button = $("changeViewBtn");
@@ -1849,6 +1951,18 @@ function setHomeCameraView(index) {
       `Change view. Góc hiện tại: ${view.name}, ${cameraViewIndex + 1} trên 4`,
     );
   }
+}
+
+function setCameraZoom(value) {
+  state.cameraZoom = clamp(
+    Number(value) || HOME_CAMERA_ZOOM_DEFAULT,
+    ...HOME_CAMERA_ZOOM_RANGE,
+  );
+  localStorage.setItem("fr3-home-camera-zoom", String(state.cameraZoom));
+  if ($("cameraZoomRange")) $("cameraZoomRange").value = String(state.cameraZoom);
+  if ($("cameraZoomOutput")) $("cameraZoomOutput").textContent = `${state.cameraZoom}%`;
+  if ($("cameraZoomBtn")) $("cameraZoomBtn").textContent = `View ${state.cameraZoom}%`;
+  setHomeCameraView(cameraViewIndex < 0 ? 0 : cameraViewIndex);
 }
 
 function changeView() {
@@ -2609,6 +2723,20 @@ function bindUI() {
   );
   $("changeViewBtn").addEventListener("click", changeView);
   $("homeViewBtn").addEventListener("click", homeView);
+  const cameraZoomButton = $("cameraZoomBtn");
+  const cameraZoomPopover = $("cameraZoomPopover");
+  const cameraZoomRange = $("cameraZoomRange");
+  const setCameraZoomPopover = (open) => {
+    if (!cameraZoomButton || !cameraZoomPopover) return;
+    cameraZoomPopover.hidden = !open;
+    cameraZoomButton.setAttribute("aria-expanded", String(open));
+  };
+  const savedCameraZoom = Number(localStorage.getItem("fr3-home-camera-zoom"));
+  setCameraZoom(Number.isFinite(savedCameraZoom) ? savedCameraZoom : HOME_CAMERA_ZOOM_DEFAULT);
+  cameraZoomButton?.addEventListener("click", () =>
+    setCameraZoomPopover(cameraZoomPopover?.hidden),
+  );
+  cameraZoomRange?.addEventListener("input", () => setCameraZoom(cameraZoomRange.value));
   const speedButton = $("speedBtn");
   const speedPopover = $("speedPopover");
   const speedRange = $("speedRange");
@@ -2628,11 +2756,14 @@ function bindUI() {
     api.SetSpeed(speedRange.value);
   });
   document.addEventListener("pointerdown", (event) => {
-    if (!speedPopover || speedPopover.hidden) return;
-    if (!event.target.closest(".speed-control")) setSpeedPopover(false);
+    if (speedPopover && !speedPopover.hidden && !event.target.closest(".speed-control")) setSpeedPopover(false);
+    if (cameraZoomPopover && !cameraZoomPopover.hidden && !event.target.closest(".camera-control")) setCameraZoomPopover(false);
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") setSpeedPopover(false);
+    if (event.key === "Escape") {
+      setSpeedPopover(false);
+      setCameraZoomPopover(false);
+    }
   });
   $("applyBtn").addEventListener("click", () => api.MoveJ(state.targetDeg));
   $("moveLBtn").addEventListener("click", () =>
