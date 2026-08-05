@@ -668,11 +668,11 @@ function makeTextSprite(text, color = "#cfe0f2") {
 
 function makeFrontBoardLabel(text, color = "#dcecff") {
   const canvas = document.createElement("canvas");
-  canvas.width = 192;
-  canvas.height = 84;
+  canvas.width = 256;
+  canvas.height = 112;
   const context = canvas.getContext("2d");
   context.fillStyle = color;
-  context.font = "800 42px Consolas, monospace";
+  context.font = "800 58px Consolas, monospace";
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.fillText(text, canvas.width / 2, canvas.height / 2);
@@ -684,7 +684,7 @@ function makeFrontBoardLabel(text, color = "#dcecff") {
   texture.offset.x = 1;
   texture.needsUpdate = true;
   const label = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.05, 0.022),
+    new THREE.PlaneGeometry(0.07, 0.032),
     new THREE.MeshBasicMaterial({
       map: texture,
       transparent: true,
@@ -758,7 +758,7 @@ function buildBlockBoard() {
   // Keep a block's centre at the gripper jaw centre while its base rests on the table.
   const boardSurfaceZ = boardCenter.z / 1000 - BLOCK_SIZE / 2;
   // Keep the original tabletop depth; only make the table thicker vertically.
-  const boardSize = { length: 0.56, depth: 0.18, thickness: 0.055 };
+  const boardSize = { length: 0.56, depth: 0.18, thickness: 0.028 };
   const boardMaterial = new THREE.MeshStandardMaterial({
     color: 0x24364b,
     roughness: 0.76,
@@ -809,9 +809,10 @@ function buildBlockBoard() {
     );
     cellEdge.position.copy(cell.position);
     boardGroup.add(cellEdge);
+    const frontLabelName = BLOCK_POSITIONS[BLOCK_POSITIONS.length - 1 - index];
     const frontLabel = makeFrontBoardLabel(
-      name,
-      index === 0 ? "#f7b0a8" : "#dcecff",
+      frontLabelName,
+      frontLabelName === "P1" ? "#f7b0a8" : "#dcecff",
     );
     frontLabel.position.set(
       cart[0] / 1000,
