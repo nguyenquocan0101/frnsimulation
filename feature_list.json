@@ -29,6 +29,36 @@
       "evidence": "Python runner accepted 32 actions; local simulator replay returned P1-P6 to the sample order and P7 to empty.",
       "notes": "",
       "priority": "P1"
+    },
+    {
+      "id": "gripper-close-animation",
+      "title": "Hoạt ảnh đóng hai ngón tay gắp",
+      "user_visible_behavior": "Học sinh nhìn thấy lệnh bot.grip() tác động trực tiếp lên tay gắp.",
+      "verification_command": "Hai ngón nâu đóng trong 300 ms và giữ trạng thái đóng.",
+      "status": "passing-unverified",
+      "evidence": "fast mode — no test evidence",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "gripper-pickup-visual-sync",
+      "title": "Đồng bộ kẹp với block theo TCP",
+      "user_visible_behavior": "Block gần tool chỉ đi theo robot sau khi bot.grip() hoàn tất.",
+      "verification_command": "Block hợp lệ trong vùng lấy được gắn vào TCP sau hoạt ảnh đóng.",
+      "status": "passing-unverified",
+      "evidence": "fast mode — no test evidence",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "gripper-release-animation",
+      "title": "Hoạt ảnh mở và thả block",
+      "user_visible_behavior": "Học sinh nhìn thấy bot.release() mở tay gắp và để block tại vị trí hiện tại.",
+      "verification_command": "Hai ngón nâu mở trong 300 ms và block được đặt tại vị trí tool hiện tại.",
+      "status": "passing-unverified",
+      "evidence": "fast mode — no test evidence",
+      "notes": "",
+      "priority": "P1"
     }
   ]
 }

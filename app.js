@@ -3,6 +3,18 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 
 const MODEL_BASE = "./assets/fr3_v6/";
+const GRIPPER_FILE = "Assieme_pinza_dita_parallele.stp";
+// The STEP assembly is authored in millimetres; its mounting face is at the J6 tool flange.
+const GRIPPER_MOUNT_OFFSET = [-0.03, 0.014, 0.16];
+const GRIPPER_MOUNT_ROTATION = [Math.PI, 0, 0];
+const GRIPPER_SCALE = 0.0008;
+const GRIPPER_FINGER_COLOR = 0x694d3b;
+const GRIPPER_FINGER_TRAVEL = 16;
+const GRIPPER_ANIMATION_MS = 220;
+const GRIPPER_JAW_CENTER_CAD = [40.35, 17.5, -37.75];
+const BLOCK_SIZE = 0.04;
+const BLOCK_TOP_SIZE = 0.033;
+const BLOCK_TOP_HEIGHT = 0.005;
 const JOINT_NAMES = ["J1", "J2", "J3", "J4", "J5", "J6"];
 const JOINT_LIMITS_DEG = [
   [-175, 175],
@@ -75,8 +87,6 @@ const rad = (v) => THREE.MathUtils.radToDeg(v);
 const fmt = (v) => Number(v).toFixed(1);
 const sleepFrame = () =>
   new Promise((resolve) => requestAnimationFrame(resolve));
-const sleep = (milliseconds) =>
-  new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const state = {
   jointsDeg: [...DEFAULT_HOME_JOINTS],
@@ -126,6 +136,11 @@ let cameraViewIndex = -1;
 let jointRotators = [];
 let modelMaterials = [];
 const blockMeshes = new Map();
+const gripperVisual = {
+  fingers: [],
+  closed: false,
+  animation: null,
+};
 let logElement;
 
 function applyTheme(theme) {
@@ -546,6 +561,27 @@ function pointRecord(name) {
   return state.calibratedPoints[name] || null;
 }
 
+function gripperJawOffset() {
+  return new THREE.Vector3(...GRIPPER_JAW_CENTER_CAD)
+    .multiplyScalar(GRIPPER_SCALE)
+    .applyEuler(new THREE.Euler(...GRIPPER_MOUNT_ROTATION))
+    .add(new THREE.Vector3(...GRIPPER_MOUNT_OFFSET));
+}
+
+function gripperJawMatrix(jointsDeg) {
+  return fk(jointsDeg.map(deg)).end.multiply(
+    new THREE.Matrix4().makeTranslation(...gripperJawOffset()),
+  );
+}
+
+function gripperJawPose(jointsDeg) {
+  return matrixToPose(gripperJawMatrix(jointsDeg));
+}
+
+function workpiecePose(point) {
+  return gripperJawPose(point.joints);
+}
+
 function normalizePointData(data) {
   return Object.fromEntries(
     (data.points || []).map((point) => [
@@ -612,6 +648,15 @@ function buildBlockBoard() {
   boardGroup = new THREE.Group();
   boardGroup.name = "TechCampBlockBoard";
   robotRoot.add(boardGroup);
+  const workpiecePoses = BLOCK_POSITIONS.map((name) =>
+    workpiecePose(pointRecord(name)),
+  );
+  const boardCenter = workpiecePoses.reduce(
+    (center, pose) => center.add(new THREE.Vector3(...pose.slice(0, 3))),
+    new THREE.Vector3(),
+  ).multiplyScalar(1 / workpiecePoses.length);
+  // Keep a block's centre at the gripper jaw centre while its base rests on the table.
+  const boardSurfaceZ = boardCenter.z / 1000 - BLOCK_SIZE / 2;
   const boardMaterial = new THREE.MeshStandardMaterial({
     color: 0x24364b,
     roughness: 0.76,
@@ -621,7 +666,7 @@ function buildBlockBoard() {
     new THREE.BoxGeometry(0.56, 0.18, 0.018),
     boardMaterial,
   );
-  board.position.set(-0.012, 0.5, 0.145);
+  board.position.set(boardCenter.x / 1000, boardCenter.y / 1000, boardSurfaceZ - 0.009);
   board.receiveShadow = true;
   boardGroup.add(board);
   const edgeMaterial = new THREE.LineBasicMaterial({
@@ -637,7 +682,7 @@ function buildBlockBoard() {
   boardGroup.add(edge);
   BLOCK_POSITIONS.forEach((name, index) => {
     const point = pointRecord(name);
-    const cart = point.cart;
+    const cart = workpiecePose(point);
     const cell = new THREE.Mesh(
       new THREE.BoxGeometry(0.062, 0.165, 0.004),
       new THREE.MeshBasicMaterial({
@@ -646,16 +691,16 @@ function buildBlockBoard() {
         opacity: 0.38,
       }),
     );
-    cell.position.set(cart[0] / 1000, cart[1] / 1000, 0.158);
+    cell.position.set(cart[0] / 1000, cart[1] / 1000, boardSurfaceZ + 0.002);
     boardGroup.add(cell);
     const label = makeTextSprite(name, index === 0 ? "#f7b0a8" : "#b9cbe0");
-    label.position.set(cart[0] / 1000, cart[1] / 1000, 0.17);
+    label.position.set(cart[0] / 1000, cart[1] / 1000, boardSurfaceZ + 0.013);
     boardGroup.add(label);
     if (name === BUFFER_POSITION) return;
     const blockGroup = new THREE.Group();
     blockGroup.name = `block-${name}`;
     const body = new THREE.Mesh(
-      new THREE.BoxGeometry(0.052, 0.052, 0.052),
+      new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE),
       new THREE.MeshStandardMaterial({
         color: BLOCK_COLORS[index],
         roughness: 0.55,
@@ -666,19 +711,19 @@ function buildBlockBoard() {
     body.receiveShadow = true;
     blockGroup.add(body);
     const top = new THREE.Mesh(
-      new THREE.BoxGeometry(0.043, 0.043, 0.006),
+      new THREE.BoxGeometry(BLOCK_TOP_SIZE, BLOCK_TOP_SIZE, BLOCK_TOP_HEIGHT),
       new THREE.MeshStandardMaterial({
         color: 0xf2f7ff,
         roughness: 0.35,
         metalness: 0.05,
       }),
     );
-    top.position.z = 0.029;
+    top.position.z = BLOCK_SIZE / 2 + BLOCK_TOP_HEIGHT / 2;
     top.castShadow = true;
     blockGroup.add(top);
     const blockLabel = makeTextSprite(name, "#102033");
     blockLabel.scale.set(0.045, 0.018, 1);
-    blockLabel.position.z = 0.033;
+    blockLabel.position.z = BLOCK_SIZE / 2 + BLOCK_TOP_HEIGHT + 0.001;
     blockGroup.add(blockLabel);
     boardGroup.add(blockGroup);
     blockMeshes.set(name, blockGroup);
@@ -697,7 +742,7 @@ function blockAt(position) {
 
 function updateBlockVisuals() {
   if (!blockMeshes.size) return;
-  const tcp = matrixToPose(tcpMatrix(state.jointsDeg.map(deg)));
+  const gripCenter = gripperJawPose(state.jointsDeg);
   blockMeshes.forEach((mesh) => {
     mesh.visible = false;
   });
@@ -705,14 +750,14 @@ function updateBlockVisuals() {
     const mesh = blockMeshes.get(block.name);
     if (!mesh) return;
     const point = block.carried
-      ? tcp
-      : pointRecord(block.position === "HOMECHESS" ? "HOME" : block.position)
-          ?.cart;
-    if (!point) return;
+      ? gripCenter
+      : pointRecord(block.position === "HOMECHESS" ? "HOME" : block.position);
+    const cart = Array.isArray(point) ? point : point ? workpiecePose(point) : null;
+    if (!cart) return;
     mesh.position.set(
-      point[0] / 1000,
-      point[1] / 1000,
-      point[2] / 1000 - 0.035,
+      cart[0] / 1000,
+      cart[1] / 1000,
+      cart[2] / 1000,
     );
     mesh.visible = true;
   });
@@ -1630,6 +1675,107 @@ function loadSTL(loader, file) {
   );
 }
 
+function buildStepMesh(stepMesh) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(stepMesh.attributes.position.array, 3),
+  );
+  if (stepMesh.attributes.normal) {
+    geometry.setAttribute(
+      "normal",
+      new THREE.Float32BufferAttribute(stepMesh.attributes.normal.array, 3),
+    );
+  } else {
+    geometry.computeVertexNormals();
+  }
+  geometry.setIndex(
+    new THREE.BufferAttribute(Uint32Array.from(stepMesh.index.array), 1),
+  );
+  geometry.computeBoundingSphere();
+  const [red = 0.44, green = 0.31, blue = 0.22] = stepMesh.color || [];
+  const material = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(red, green, blue),
+    roughness: 0.52,
+    metalness: 0.28,
+  });
+  return new THREE.Mesh(geometry, material);
+}
+
+function setGripperClosed(closed) {
+  if (!gripperVisual.fingers.length || gripperVisual.closed === closed) {
+    return Promise.resolve();
+  }
+  if (gripperVisual.animation) return gripperVisual.animation;
+  const fingers = gripperVisual.fingers.map(({ mesh, openPosition, direction }) => ({
+    mesh,
+    from: mesh.position.clone(),
+    to: openPosition.clone().addScaledVector(
+      new THREE.Vector3(1, 0, 0),
+      closed ? direction * GRIPPER_FINGER_TRAVEL : 0,
+    ),
+  }));
+  gripperVisual.animation = new Promise((resolve) => {
+    const startedAt = performance.now();
+    const tick = (now) => {
+      const progress = clamp((now - startedAt) / GRIPPER_ANIMATION_MS, 0, 1);
+      const eased = progress * progress * (3 - 2 * progress);
+      fingers.forEach(({ mesh, from, to }) => mesh.position.lerpVectors(from, to, eased));
+      if (progress < 1) {
+        requestAnimationFrame(tick);
+        return;
+      }
+      gripperVisual.closed = closed;
+      gripperVisual.animation = null;
+      resolve();
+    };
+    requestAnimationFrame(tick);
+  });
+  return gripperVisual.animation;
+}
+
+async function loadGripper(j6Rotator) {
+  if (typeof window.occtimportjs !== "function") {
+    throw new Error("STEP importer không sẵn sàng");
+  }
+  const response = await fetch(`${MODEL_BASE}${GRIPPER_FILE}`);
+  if (!response.ok) throw new Error(`Không tải được tay gắp (HTTP ${response.status})`);
+  const occt = await window.occtimportjs();
+  const result = occt.ReadStepFile(new Uint8Array(await response.arrayBuffer()), {
+    linearUnit: "millimeter",
+    linearDeflectionType: "bounding_box_ratio",
+    linearDeflection: 0.001,
+    angularDeflection: 0.5,
+  });
+  if (!result.success || !result.meshes?.length) {
+    throw new Error("File STEP không có hình học hợp lệ");
+  }
+  const gripper = new THREE.Group();
+  gripper.name = "parallel_gripper";
+  gripper.position.fromArray(GRIPPER_MOUNT_OFFSET);
+  gripper.rotation.set(...GRIPPER_MOUNT_ROTATION);
+  gripper.scale.setScalar(GRIPPER_SCALE);
+  gripperVisual.fingers = [];
+  gripperVisual.closed = false;
+  result.meshes.forEach((stepMesh) => {
+    const mesh = buildStepMesh(stepMesh);
+    if (mesh.material.color.getHex() === GRIPPER_FINGER_COLOR) {
+      const bounds = new THREE.Box3().setFromBufferAttribute(
+        mesh.geometry.getAttribute("position"),
+      );
+      gripperVisual.fingers.push({
+        mesh,
+        openPosition: mesh.position.clone(),
+        direction: bounds.getCenter(new THREE.Vector3()).x < 40 ? 1 : -1,
+      });
+    }
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    gripper.add(mesh);
+  });
+  j6Rotator.add(gripper);
+}
+
 async function loadModel() {
   initScene();
   const loader = new STLLoader();
@@ -1661,6 +1807,7 @@ async function loadModel() {
       rotator.add(mesh);
       parent = rotator;
     }
+    await loadGripper(jointRotators.at(-1));
     state.modelReady = true;
     await loadCalibratedPoints();
     $("loadingCard")?.classList.add("hidden");
@@ -1813,6 +1960,7 @@ const techcampSim = {
     startTechCamp();
     if (this.gripping) return true;
     this.gripping = true;
+    await setGripperClosed(true);
     const block = this.low && this.position ? blockAt(this.position) : null;
     if (block) {
       block.carried = true;
@@ -1820,12 +1968,12 @@ const techcampSim = {
       log(`grip() -> ${block.name} attached`);
     } else log("grip() -> gripper closed");
     renderBlockBoard();
-    await sleep(220);
     return true;
   },
   async release() {
     startTechCamp();
     if (!this.gripping) return true;
+    await setGripperClosed(false);
     const block = this.carriedBlock
       ? state.blocks.find((item) => item.name === this.carriedBlock)
       : null;
@@ -1840,7 +1988,6 @@ const techcampSim = {
     this.carriedBlock = null;
     renderBlockBoard();
     updateBlockVisuals();
-    await sleep(220);
     return true;
   },
   async get_image() {

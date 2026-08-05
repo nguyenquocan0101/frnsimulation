@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CNC Shield Controller</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+      body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #111820; color: #f7f9fb; }
+      main { width: min(440px, calc(100% - 32px)); padding: 24px; border: 1px solid #354353; border-radius: 16px; background: #18212b; box-shadow: 0 18px 40px #0006; }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      p { color: #b9c5d1; font-size: 14px; line-height: 1.45; }
+      .top, .actions, .step-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      button, input { font: inherit; border-radius: 9px; }
+      button { min-height: 44px; border: 1px solid #4d5b6a; padding: 0 14px; background: #263341; color: #fff; cursor: pointer; }
+      button:hover { background: #344353; }
+      button:active { transform: translateY(1px); }
+      button.primary { border-color: #ed6a1f; background: #ed6a1f; font-weight: 700; }
+      button.danger { color: #ffb1ad; border-color: #7d4545; }
+      .status { font-size: 13px; color: #ffc28c; }
+      label { display: grid; gap: 6px; margin: 18px 0 12px; font-size: 13px; color: #b9c5d1; }
+      input { width: 110px; border: 1px solid #4d5b6a; padding: 10px; background: #10171e; color: #fff; }
+      .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 270px; margin: 16px auto; }
+      .pad button { font-size: 28px; padding: 0; }
+      .up { grid-column: 2; } .left { grid-column: 1; grid-row: 2; } .right { grid-column: 3; grid-row: 2; } .down { grid-column: 2; grid-row: 2; }
+      .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 12px; color: #9dabb9; text-align: center; }
+      pre { min-height: 96px; max-height: 170px; overflow: auto; margin: 18px 0 0; padding: 12px; border-radius: 10px; background: #0d1319; color: #c8d7e6; font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; }
+      .hint { margin-bottom: 0; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Điều khiển CNC Shield</h1>
+      <p>Kết nối Arduino Uno, sau đó bấm mũi tên hoặc dùng phím mũi tên trên bàn phím.</p>
+
+      <div class="top">
+        <button class="primary" id="connectBtn" type="button">Kết nối Arduino</button>
+        <button id="disconnectBtn" type="button" disabled>Ngắt kết nối</button>
+        <span class="status" id="status">Chưa kết nối</span>
+      </div>
+
+      <label>
+        Bước mỗi lần bấm
+        <input id="stepInput" type="number" min="1" value="150" inputmode="numeric" />
+      </label>
+
+      <div class="pad" aria-label="Điều khiển X và Z">
+        <button class="up" data-axis="Z" data-direction="1" type="button" aria-label="Z dương">↑</button>
+        <button class="left" data-axis="X" data-direction="-1" type="button" aria-label="X âm">←</button>
+        <button class="right" data-axis="X" data-direction="1" type="button" aria-label="X dương">→</button>
+        <button class="down" data-axis="Z" data-direction="-1" type="button" aria-label="Z âm">↓</button>
+      </div>
+      <div class="legend"><span>←/→: trục X</span><span>↑/↓: trục Z</span></div>
+
+      <div class="actions" style="margin-top:18px">
+        <button id="enableBtn" type="button">Enable</button>
+        <button id="homeBtn" type="button">Home (đặt 0)</button>
+        <button id="stopBtn" class="danger" type="button">STOP</button>
+        <button id="statusBtn" type="button">Status</button>
+      </div>
+
+      <pre id="log" aria-live="polite">Sẵn sàng.</pre>
+      <p class="hint">Trang này chỉ hoạt động trên Chrome hoặc Edge. Chiều quay phụ thuộc cách bạn cắm dây NEMA17.</p>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let port;
+      let writer;
+      let reader;
+      let keepReading = false;
+      let decoder;
+
+      const log = (message) => {
+        const box = $("log");
+        box.textContent += `\n${message}`;
+        box.scrollTop = box.scrollHeight;
+      };
+
+      const connected = () => Boolean(writer);
+
+      const setConnected = (value) => {
+        $("connectBtn").disabled = value;
+        $("disconnectBtn").disabled = !value;
+        $("status").textContent = value ? "Đã kết nối" : "Chưa kết nối";
+      };
+
+      async function readSerial() {
+        while (keepReading && port?.readable) {
+          reader = port.readable.getReader();
+          try {
+            while (keepReading) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              if (value) log(decoder.decode(value, { stream: true }).trim());
+            }
+          } catch (error) {
+            if (keepReading) log(`Lỗi đọc: ${error.message}`);
+          } finally {
+            reader.releaseLock();
+            reader = undefined;
+          }
+        }
+      }
+
+      async function send(command) {
+        if (!connected()) {
+          log("Hãy bấm Kết nối Arduino trước.");
+          return;
+        }
+        await writer.write(new TextEncoder().encode(`${command}\n`));
+        log(`> ${command}`);
+      }
+
+      async function connect() {
+        if (!('serial' in navigator)) {
+          log("Trình duyệt này không hỗ trợ Web Serial. Hãy dùng Chrome hoặc Edge.");
+          return;
+        }
+        try {
+          port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 115200 });
+          writer = port.writable.getWriter();
+          decoder = new TextDecoder();
+          keepReading = true;
+          setConnected(true);
+          log("Đã kết nối. Arduino có thể khởi động lại trong khoảng 2 giây.");
+          readSerial();
+        } catch (error) {
+          log(`Không kết nối được: ${error.message}`);
+          await disconnect();
+        }
+      }
+
+      async function disconnect() {
+        keepReading = false;
+        try { await reader?.cancel(); } catch (_) {}
+        try { writer?.releaseLock(); } catch (_) {}
+        writer = undefined;
+        try { await port?.close(); } catch (_) {}
+        port = undefined;
+        setConnected(false);
+      }
+
+      function jog(axis, direction) {
+        const amount = Math.max(1, Math.trunc(Number($("stepInput").value) || 150));
+        send(`MOVE ${axis} ${direction * amount}`);
+      }
+
+      $("connectBtn").addEventListener("click", connect);
+      $("disconnectBtn").addEventListener("click", disconnect);
+      $("enableBtn").addEventListener("click", () => send("ENABLE"));
+      $("homeBtn").addEventListener("click", () => send("HOME"));
+      $("stopBtn").addEventListener("click", () => send("STOP"));
+      $("statusBtn").addEventListener("click", () => send("STATUS"));
+      document.querySelectorAll("[data-axis]").forEach((button) => {
+        button.addEventListener("click", () => jog(button.dataset.axis, Number(button.dataset.direction)));
+      });
+      window.addEventListener("keydown", (event) => {
+        if (event.repeat || event.target.matches("input")) return;
+        const mapping = {
+          ArrowUp: ["Z", 1], ArrowDown: ["Z", -1],
+          ArrowLeft: ["X", -1], ArrowRight: ["X", 1],
+        };
+        if (!mapping[event.key]) return;
+        event.preventDefault();
+        jog(...mapping[event.key]);
+      });
+      window.addEventListener("beforeunload", () => { disconnect(); });
+    </script>
+  </body>
+</html>
