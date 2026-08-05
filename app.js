@@ -91,11 +91,11 @@ const TECHCAMP_MAX_SPEED = 40;
 const TECHCAMP_MAX_ACC = 20;
 const DEFAULT_HOME_JOINTS = [-90, -135, 126, 8.8, 85.2, 0];
 // Keep the robot and the worktable together in the primary teaching view.
-const HOME_CAMERA_TARGET = [0, 0.3, -0.24];
+const HOME_CAMERA_TARGET = [0, 0.24, -0.3];
 const HOME_CAMERA_ZOOM_DEFAULT = 118;
 const HOME_CAMERA_ZOOM_RANGE = [100, 135];
 const HOME_CAMERA_VIEWS = [
-  { name: "Chính diện", position: [0, 0.62, -1.55] },
+  { name: "Chính diện", position: [0, 0.34, -1.55] },
   { name: "Phải", position: [1.55, 0.85, 0] },
   { name: "Sau", position: [-1.55, 0.85, 0] },
   { name: "Trái", position: [0, 0.85, 1.55] },
@@ -144,7 +144,6 @@ const state = {
 
 let scene,
   camera,
-  magnifierCamera,
   renderer,
   controls,
   robotRoot,
@@ -667,6 +666,39 @@ function makeTextSprite(text, color = "#cfe0f2") {
   return sprite;
 }
 
+function makeFrontBoardLabel(text, color = "#dcecff") {
+  const canvas = document.createElement("canvas");
+  canvas.width = 192;
+  canvas.height = 84;
+  const context = canvas.getContext("2d");
+  context.fillStyle = color;
+  context.font = "800 42px Consolas, monospace";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(text, canvas.width / 2, canvas.height / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.flipY = false;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.repeat.x = -1;
+  texture.offset.x = 1;
+  texture.needsUpdate = true;
+  const label = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.05, 0.022),
+    new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.FrontSide,
+    }),
+  );
+  label.renderOrder = 3;
+  // Plane faces the table's front (local +Y), which is the Home-camera side.
+  label.rotation.x = -Math.PI / 2;
+  return label;
+}
+
 function objectClassForBlock(blockName) {
   return OBJECT_CLASSES[SORTABLE_BLOCK_NAMES.indexOf(blockName)] || null;
 }
@@ -688,13 +720,24 @@ function objectClassMaterials(objectClass) {
   const texture = objectClassTexture(objectClass);
   return Array.from(
     { length: 6 },
-    () =>
+    (_, faceIndex) => {
+      // BoxGeometry material 2 is the local +Y face visible in Home camera.
+      const map = faceIndex === 2 ? texture.clone() : texture;
+      if (faceIndex === 2) {
+        map.wrapT = THREE.RepeatWrapping;
+        map.repeat.y = -1;
+        map.offset.y = 1;
+        map.needsUpdate = true;
+      }
+      return (
       new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        map: texture,
+        map,
         roughness: 0.52,
         metalness: 0.02,
-      }),
+      })
+      );
+    },
   );
 }
 
@@ -714,26 +757,33 @@ function buildBlockBoard() {
   ).multiplyScalar(1 / workpiecePoses.length);
   // Keep a block's centre at the gripper jaw centre while its base rests on the table.
   const boardSurfaceZ = boardCenter.z / 1000 - BLOCK_SIZE / 2;
+  // Keep the original tabletop depth; only make the table thicker vertically.
+  const boardSize = { length: 0.56, depth: 0.18, thickness: 0.055 };
   const boardMaterial = new THREE.MeshStandardMaterial({
     color: 0x24364b,
     roughness: 0.76,
     metalness: 0.08,
   });
   const board = new THREE.Mesh(
-    new THREE.BoxGeometry(0.56, 0.18, 0.018),
+    new THREE.BoxGeometry(boardSize.length, boardSize.depth, boardSize.thickness),
     boardMaterial,
   );
-  board.position.set(boardCenter.x / 1000, boardCenter.y / 1000, boardSurfaceZ - 0.009);
+  board.position.set(
+    boardCenter.x / 1000,
+    boardCenter.y / 1000,
+    boardSurfaceZ - boardSize.thickness / 2,
+  );
   board.receiveShadow = true;
   boardGroup.add(board);
-  boardGroup.userData.magnifierTarget = board;
   const edgeMaterial = new THREE.LineBasicMaterial({
     color: 0x6c87a3,
     transparent: true,
     opacity: 0.72,
   });
   const edge = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(0.56, 0.18, 0.02)),
+    new THREE.EdgesGeometry(
+      new THREE.BoxGeometry(boardSize.length, boardSize.depth, boardSize.thickness),
+    ),
     edgeMaterial,
   );
   edge.position.copy(board.position);
@@ -742,7 +792,7 @@ function buildBlockBoard() {
     const point = pointRecord(name);
     const cart = workpiecePose(point);
     const cell = new THREE.Mesh(
-      new THREE.BoxGeometry(0.062, 0.165, 0.004),
+      new THREE.BoxGeometry(0.066, boardSize.depth - 0.012, 0.004),
       new THREE.MeshBasicMaterial({
         color: 0x34506b,
         transparent: true,
@@ -751,9 +801,24 @@ function buildBlockBoard() {
     );
     cell.position.set(cart[0] / 1000, cart[1] / 1000, boardSurfaceZ + 0.002);
     boardGroup.add(cell);
-    const label = makeTextSprite(name, index === 0 ? "#f7b0a8" : "#b9cbe0");
-    label.position.set(cart[0] / 1000, cart[1] / 1000, boardSurfaceZ + 0.013);
-    boardGroup.add(label);
+    const cellEdge = new THREE.LineSegments(
+      new THREE.EdgesGeometry(
+        new THREE.BoxGeometry(0.066, boardSize.depth - 0.012, 0.006),
+      ),
+      edgeMaterial,
+    );
+    cellEdge.position.copy(cell.position);
+    boardGroup.add(cellEdge);
+    const frontLabel = makeFrontBoardLabel(
+      name,
+      index === 0 ? "#f7b0a8" : "#dcecff",
+    );
+    frontLabel.position.set(
+      cart[0] / 1000,
+      board.position.y + boardSize.depth / 2 + 0.002,
+      board.position.z,
+    );
+    boardGroup.add(frontLabel);
     if (name === BUFFER_POSITION) return;
     const objectClass = objectClassForBlock(name);
     const blockGroup = new THREE.Group();
@@ -768,7 +833,6 @@ function buildBlockBoard() {
     boardGroup.add(blockGroup);
     blockMeshes.set(name, blockGroup);
   });
-  $("blockMagnifier")?.removeAttribute("hidden");
   renderBlockBoard();
   updateBlockVisuals();
 }
@@ -1651,7 +1715,6 @@ function initScene() {
   scene.background = new THREE.Color(0xf4f6f8);
   camera = new THREE.PerspectiveCamera(38, 1, 0.01, 20);
   camera.position.set(1.35, 1.08, 1.45);
-  magnifierCamera = new THREE.PerspectiveCamera(24, 1, 0.01, 20);
   renderer = new THREE.WebGLRenderer({
     antialias: true,
     powerPreference: "high-performance",
@@ -1723,16 +1786,6 @@ function initScene() {
   loop(performance.now());
 }
 
-function updateMagnifierCamera() {
-  if (!magnifierCamera || !boardGroup) return;
-  const focus = new THREE.Vector3();
-  const target = boardGroup.userData.magnifierTarget;
-  if (!target) return;
-  target.getWorldPosition(focus);
-  magnifierCamera.position.copy(focus).add(new THREE.Vector3(0.28, 0.36, 0.36));
-  magnifierCamera.lookAt(focus);
-}
-
 function renderScene() {
   if (!renderer || !scene || !camera) return;
   const buffer = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -1740,25 +1793,6 @@ function renderScene() {
   renderer.setViewport(0, 0, buffer.x, buffer.y);
   renderer.clear(true, true, true);
   renderer.render(scene, camera);
-
-  const lens = $("blockMagnifier");
-  const canvasRect = renderer.domElement.getBoundingClientRect();
-  if (!lens || lens.hidden || !boardGroup || !canvasRect.width || !canvasRect.height) return;
-  const lensRect = lens.getBoundingClientRect();
-  const x = Math.round((lensRect.left - canvasRect.left) * (buffer.x / canvasRect.width));
-  const y = Math.round((canvasRect.bottom - lensRect.bottom) * (buffer.y / canvasRect.height));
-  const width = Math.round(lensRect.width * (buffer.x / canvasRect.width));
-  const height = Math.round(lensRect.height * (buffer.y / canvasRect.height));
-  if (width <= 0 || height <= 0) return;
-  updateMagnifierCamera();
-  magnifierCamera.aspect = width / height;
-  magnifierCamera.updateProjectionMatrix();
-  renderer.clearDepth();
-  renderer.setScissorTest(true);
-  renderer.setScissor(x, y, width, height);
-  renderer.setViewport(x, y, width, height);
-  renderer.render(scene, magnifierCamera);
-  renderer.setScissorTest(false);
 }
 
 function loadSTL(loader, file) {
