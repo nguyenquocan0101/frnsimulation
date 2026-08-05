@@ -8,7 +8,8 @@ const GRIPPER_FILE = "Assieme_pinza_dita_parallele.stp";
 const GRIPPER_MOUNT_OFFSET = [-0.03, 0.014, 0.16];
 const GRIPPER_MOUNT_ROTATION = [Math.PI, 0, 0];
 const GRIPPER_SCALE = 0.0008;
-const GRIPPER_FINGER_COLOR = 0x694d3b;
+const ROBOT_SHELL_COLOR = 0xbfc9d4;
+const GRIPPER_FINGER_SOURCE_COLOR = 0x694d3b;
 const GRIPPER_FINGER_TRAVEL = 16;
 const GRIPPER_ANIMATION_MS = 220;
 const GRIPPER_JAW_CENTER_CAD = [40.35, 17.5, -37.75];
@@ -1695,11 +1696,14 @@ function buildStepMesh(stepMesh) {
   geometry.computeBoundingSphere();
   const [red = 0.44, green = 0.31, blue = 0.22] = stepMesh.color || [];
   const material = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(red, green, blue),
-    roughness: 0.52,
-    metalness: 0.28,
+    color: ROBOT_SHELL_COLOR,
+    roughness: 0.62,
+    metalness: 0.12,
   });
-  return new THREE.Mesh(geometry, material);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.userData.isGripperFinger =
+    new THREE.Color(red, green, blue).getHex() === GRIPPER_FINGER_SOURCE_COLOR;
+  return mesh;
 }
 
 function setGripperClosed(closed) {
@@ -1759,7 +1763,7 @@ async function loadGripper(j6Rotator) {
   gripperVisual.closed = false;
   result.meshes.forEach((stepMesh) => {
     const mesh = buildStepMesh(stepMesh);
-    if (mesh.material.color.getHex() === GRIPPER_FINGER_COLOR) {
+    if (mesh.userData.isGripperFinger) {
       const bounds = new THREE.Box3().setFromBufferAttribute(
         mesh.geometry.getAttribute("position"),
       );
@@ -1780,7 +1784,7 @@ async function loadModel() {
   initScene();
   const loader = new STLLoader();
   const material = new THREE.MeshStandardMaterial({
-    color: 0xbfc9d4,
+    color: ROBOT_SHELL_COLOR,
     roughness: 0.62,
     metalness: 0.12,
   });
