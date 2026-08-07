@@ -152,11 +152,11 @@
     },
     {
       "id": "orange-token-completion-flow",
-      "title": "Xác nhận hoàn thành bằng chu trình P1–P7–P1",
-      "user_visible_behavior": "Học sinh được sắp xếp tự do; simulator chỉ báo hoàn thành sau khi khối cam đi P1 → P7 → P1.",
-      "verification_command": "P1→P7 chuyển TOKEN AT P7; cùng token P7→P1 chuyển COMPLETED; thao tác sort năm block còn lại không khóa và không tự hoàn thành (chỉ từ chối ô P7 khi token đang ở đó).",
+      "title": "Khối cam làm marker start/end, không tự chấm bài",
+      "user_visible_behavior": "Học sinh được sắp xếp tự do; khối cam chỉ là marker có thể kéo/gắp tới các ô trống, còn giáo viên tự quyết định kết quả.",
+      "verification_command": "Marker có thể di chuyển giữa các ô trống theo mọi hướng, không tạo trạng thái READY/TOKEN AT P7/COMPLETED và không khóa thao tác sort.",
       "status": "passing",
-      "evidence": "Node checkpoint tests: P1→P7→P1 completion, invalid paths, occupied-slot rejection, reset, and free-sort contract verified.",
+      "evidence": "Node marker tests: free placement, no completion metadata, occupied-slot rejection, reset, and free-sort contract verified.",
       "notes": "",
       "priority": "P1"
     }

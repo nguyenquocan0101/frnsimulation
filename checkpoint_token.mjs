@@ -1,9 +1,4 @@
 export const CHECKPOINT_TOKEN_ID = "orange-checkpoint-token";
-export const CHECKPOINT_PROGRESS = Object.freeze({
-  READY: "READY",
-  AT_P7: "TOKEN_AT_P7",
-  COMPLETED: "COMPLETED",
-});
 
 const VALID_POSITIONS = new Set(["P1", "P2", "P3", "P4", "P5", "P6", "P7"]);
 
@@ -12,7 +7,6 @@ export function createCheckpointToken() {
     id: CHECKPOINT_TOKEN_ID,
     position: "P1",
     carried: false,
-    progress: CHECKPOINT_PROGRESS.READY,
   };
 }
 
@@ -33,11 +27,8 @@ export function createInitialSortableBlocks() {
 function copyToken(token) {
   return {
     id: CHECKPOINT_TOKEN_ID,
-    position: token?.position === "P7" ? "P7" : "P1",
+    position: VALID_POSITIONS.has(token?.position) ? token.position : "P1",
     carried: Boolean(token?.carried),
-    progress: Object.values(CHECKPOINT_PROGRESS).includes(token?.progress)
-      ? token.progress
-      : CHECKPOINT_PROGRESS.READY,
   };
 }
 
@@ -58,28 +49,14 @@ export function transitionCheckpointToken(token, event, context = {}) {
 
   if (!eventValid) return { accepted: false, token: current, event: null };
 
-  const validStart =
-    current.progress === CHECKPOINT_PROGRESS.READY &&
-    event.from === "P1" &&
-    event.to === "P7";
-  const validFinish =
-    current.progress === CHECKPOINT_PROGRESS.AT_P7 &&
-    event.from === "P7" &&
-    event.to === "P1";
-  if (!validStart && !validFinish)
-    return { accepted: false, token: current, event: null };
-
   const next = {
     ...current,
     position: event.to,
     carried: false,
-    progress: validFinish
-      ? CHECKPOINT_PROGRESS.COMPLETED
-      : CHECKPOINT_PROGRESS.AT_P7,
   };
   return {
     accepted: true,
     token: next,
-    event: validFinish ? "COMPLETED" : "TOKEN_AT_P7",
+    event: "MARKER_PLACED",
   };
 }

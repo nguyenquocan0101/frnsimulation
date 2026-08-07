@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  CHECKPOINT_TOKEN_ID,
   createCheckpointToken,
   createInitialSortableBlocks,
   resetCheckpointToken,
@@ -24,13 +25,11 @@ const release = (token, from, to, overrides = {}) =>
     { sortableBlocks: blocks(), ...overrides },
   );
 
-test("checkpoint token starts stable at P1 and fixture has exact five semantic blocks", () => {
-  const token = createCheckpointToken();
-  assert.deepEqual(token, {
-    id: "orange-checkpoint-token",
+test("orange marker starts at P1 and fixture has five sortable blocks", () => {
+  assert.deepEqual(createCheckpointToken(), {
+    id: CHECKPOINT_TOKEN_ID,
     position: "P1",
     carried: false,
-    progress: "READY",
   });
   assert.deepEqual(blocks(), EXPECTED_BLOCKS);
   assert.equal(blocks().some((block) => block.id === "P2"), false);
@@ -38,74 +37,47 @@ test("checkpoint token starts stable at P1 and fixture has exact five semantic b
   assert.equal(blocks().some((block) => block.position === "P2" && block.id === "P7"), true);
 });
 
-test("same token completes only after explicit P1 to P7 then P7 to P1 releases", () => {
+test("marker can be placed freely without completion or route validation", () => {
   const initial = { ...createCheckpointToken(), carried: true };
-  const checkpoint = release(initial, "P1", "P7");
-  assert.equal(checkpoint.accepted, true);
-  assert.equal(checkpoint.token.progress, "TOKEN_AT_P7");
-  assert.equal(checkpoint.token.position, "P7");
-  assert.equal(checkpoint.token.carried, false);
-
-  const completed = release(
-    { ...checkpoint.token, carried: true },
-    "P7",
-    "P1",
-  );
-  assert.equal(completed.accepted, true);
-  assert.equal(completed.token.progress, "COMPLETED");
-  assert.equal(completed.token.position, "P1");
-  assert.equal(completed.token.carried, false);
-});
-
-test("invalid, direct, duplicate, unknown, malformed, or occupied releases fail closed", () => {
-  const initial = { ...createCheckpointToken(), carried: true };
-  const invalidEvents = [
-    ["P1", "P1"],
-    ["P1", "P3"],
-    ["P1", "P2"],
-    ["P7", "P1"],
-    ["P1", "P8"],
-  ];
-  for (const [from, to] of invalidEvents) {
-    const result = release(initial, from, to);
-    assert.equal(result.accepted, false, `${from}->${to}`);
-    assert.equal(result.token.progress, "READY", `${from}->${to}`);
-    assert.equal(result.token.position, "P1", `${from}->${to}`);
-  }
-
-  const unknown = transitionCheckpointToken(
-    initial,
-    { type: "release", tokenId: "not-the-orange-token", from: "P1", to: "P7" },
-    { sortableBlocks: blocks() },
-  );
-  assert.equal(unknown.accepted, false);
-  assert.equal(unknown.token.progress, "READY");
-
-  const checkpoint = release(initial, "P1", "P7");
-  const repeated = release({ ...checkpoint.token, carried: true }, "P7", "P7");
-  assert.equal(repeated.accepted, false);
-  assert.equal(repeated.token.progress, "TOKEN_AT_P7");
-  assert.equal(repeated.token.position, "P7");
-});
-
-test("reset clears carrying/progress and returns token to P1 READY", () => {
-  const token = { ...createCheckpointToken(), carried: true };
-  const checkpoint = release(token, "P1", "P7");
-  const reset = resetCheckpointToken({ ...checkpoint.token, carried: true });
-  assert.deepEqual(reset, {
-    id: "orange-checkpoint-token",
+  const toP1 = release(initial, "P1", "P1");
+  assert.equal(toP1.accepted, true);
+  assert.deepEqual(toP1.token, {
+    id: CHECKPOINT_TOKEN_ID,
     position: "P1",
     carried: false,
-    progress: "READY",
+  });
+
+  const toP7 = release({ ...toP1.token, carried: true }, "P1", "P7");
+  assert.equal(toP7.accepted, true);
+  assert.equal(toP7.token.position, "P7");
+  assert.equal(Object.prototype.hasOwnProperty.call(toP7.token, "progress"), false);
+});
+
+test("invalid or occupied marker drops fail closed, but no success state is created", () => {
+  const initial = { ...createCheckpointToken(), carried: true };
+  const invalid = release(initial, "P1", "P8");
+  assert.equal(invalid.accepted, false);
+  assert.deepEqual(invalid.token, initial);
+
+  const occupied = release(initial, "P1", "P3");
+  assert.equal(occupied.accepted, false);
+  assert.deepEqual(occupied.token, initial);
+});
+
+test("reset returns marker to P1 without progress metadata", () => {
+  assert.deepEqual(resetCheckpointToken({ position: "P6", carried: true }), {
+    id: CHECKPOINT_TOKEN_ID,
+    position: "P1",
+    carried: false,
   });
 });
 
-test("token is separate from sortable records and API position payload", async () => {
+test("marker stays separate from sortable records and API positions", async () => {
   const module = await import("./slot_layout.mjs");
   const apiPositions = module.getApiPositions(blocks());
   assert.deepEqual(Object.keys(apiPositions), ["P1", "P2", "P3", "P4", "P5", "P6", "P7"]);
   assert.equal(apiPositions.P2, true);
   assert.equal(apiPositions.P7, false);
-  assert.equal(Object.prototype.hasOwnProperty.call(apiPositions, "orange-checkpoint-token"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(apiPositions, CHECKPOINT_TOKEN_ID), false);
   assert.equal(blocks().length, 5);
 });

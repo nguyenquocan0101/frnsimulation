@@ -147,32 +147,11 @@
                 <textarea class="code" id="program" spellcheck="false">
 from techcamp_api import TechCamp
 
-# Demo checkpoint: move the orange token P1 -> P7 -> P1.
-# Sorting blocks remains free; this script only demonstrates the checkpoint.
+# Sorting exercise: write your own robot sequence below.
+# The orange block is only a visual start/end marker; the simulator does not
+# decide whether the lesson is complete.
 with TechCamp() as bot:
-    # Pick the orange token from P1.
-    bot.move_to("P1")
-    bot.move_down()
-    bot.grip()
-    bot.move_up()
-
-    # Place it at the checkpoint slot P7.
-    bot.move_to("P7")
-    bot.move_down()
-    bot.release()
-    bot.move_up()
-
-    # Return the same token to P1 to confirm completion.
-    bot.move_to("P7")
-    bot.move_down()
-    bot.grip()
-    bot.move_up()
-    bot.move_to("P1")
-    bot.move_down()
-    bot.release()
-    bot.move_up()
-
-    print("Checkpoint complete: P1 -> P7 -> P1")</textarea
+    bot.close()</textarea
                 >
               </div>
             </div>

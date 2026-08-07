@@ -26,16 +26,16 @@ The page loads Three.js from a CDN, so the first visit needs Internet access. FR
 - `get_positions()` remains a simulator-only compatibility extension.
 - The Python runner response remains `{ok, actions, output}`. No step telemetry, SDK calls, DO pulses, camera capture, `run_status.json`, or `robot_done` feedback is exposed in the browser.
 
-## Orange checkpoint lesson
+## Orange start/end marker
 
 After reset, the classroom layout is intentionally:
 
-- P1: orange checkpoint token
+- P1: orange marker
 - P2: block labelled P7
 - P3–P6: the existing blocks unchanged
-- P7: empty checkpoint destination/buffer
+- P7: empty marker destination/buffer
 
-The old block at P1 and semantic P2 block are removed from this fixture. Students may sort the five remaining blocks freely. Completion is shown only when the orange token is explicitly released P1 → P7 → P1; the progress indicator reports `READY`, `TOKEN AT P7`, or `COMPLETED`. The token is not included in `get_positions()` or object-class counts. While the token occupies P7, another block cannot be dropped into that occupied slot.
+The old block at P1 and semantic P2 block are removed from this fixture. Students may sort the five remaining blocks freely. The orange marker is draggable/grippable like a classroom start/end marker; the simulator does not enforce a route or decide whether the lesson is complete. The marker is not included in `get_positions()` or object-class counts. While it occupies a slot, another block cannot be dropped into that occupied slot.
 
 ## Live monitor
 

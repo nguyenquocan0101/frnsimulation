@@ -4,7 +4,6 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { stabilizeJointTarget, validateLivePacket } from "./live_state.mjs";
 import {
   CHECKPOINT_TOKEN_ID,
-  CHECKPOINT_PROGRESS,
   createCheckpointToken,
   resetCheckpointToken,
   transitionCheckpointToken,
@@ -13,6 +12,7 @@ import { getApiPositions } from "./slot_layout.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
+const LEGACY_CHECKPOINT_PROGRAM_MARKER = "# Demo checkpoint: move the orange token P1 -> P7 -> P1.";
 const GRIPPER_FILE = "Assieme_pinza_dita_parallele.stp";
 const GRIPPER_BASE = "./assets/fr3_v6/";
 // The STEP assembly is authored in millimetres; its mounting face is at the J6 tool flange.
@@ -302,7 +302,14 @@ function initCodeEditor() {
   const lineNumbers = $("codeLineNumbers");
   if (!editor || !highlight || !highlightCode || !lineNumbers) return;
   const storedSource = localStorage.getItem(PROGRAM_STORAGE_KEY);
-  if (storedSource !== null) editor.value = storedSource;
+  if (storedSource !== null) {
+    // Migrate only the old built-in checkpoint demo; preserve any student code.
+    if (storedSource.includes(LEGACY_CHECKPOINT_PROGRAM_MARKER)) {
+      localStorage.removeItem(PROGRAM_STORAGE_KEY);
+    } else {
+      editor.value = storedSource;
+    }
+  }
   const decrease = $("codeFontDecrease");
   const increase = $("codeFontIncrease");
   const storedSize = Number(localStorage.getItem("fr3-code-font-size"));
@@ -817,15 +824,6 @@ function checkpointTokenCarried() {
   return Boolean(state.checkpointToken?.carried);
 }
 
-function renderCheckpointProgress() {
-  const progress = $("checkpointProgress");
-  if (!progress) return;
-  const current = state.checkpointToken?.progress || CHECKPOINT_PROGRESS.READY;
-  progress.textContent = current.replaceAll("_", " ");
-  progress.dataset.state = current;
-  progress.setAttribute("aria-label", `Checkpoint progress: ${progress.textContent}`);
-}
-
 function updateCheckpointTokenVisual() {
   if (!checkpointTokenMesh) return;
   if (!state.sceneObjectsVisible) {
@@ -849,9 +847,8 @@ function applyCheckpointTokenPlacement(from, to, carried = true) {
   );
   if (!result.accepted) return false;
   state.checkpointToken = result.token;
-  renderCheckpointProgress();
   updateCheckpointTokenVisual();
-  log(`Checkpoint token ${from} -> ${to} · ${result.token.progress}`);
+  log(`Orange marker placed at ${to}`);
   return true;
 }
 
@@ -1100,7 +1097,7 @@ function renderBlockBoardLegacy() {
   if ($("boardChip")) $("boardChip").textContent = `${remaining} BLOCKS`;
   if ($("boardState"))
     $("boardState").textContent =
-      `${remaining} blocks${carrying ? ` · carrying ${carrying.name}` : " · P1 → P7"}`;
+      `${remaining} blocks${carrying ? ` · carrying ${carrying.name}` : " · orange marker available"}`;
   if ($("blockLegend"))
     $("blockLegend").innerHTML = BLOCK_POSITIONS.map(
       (name, index) =>
@@ -1141,7 +1138,7 @@ function moveBlockToPosition(blockName, position) {
     position === state.checkpointToken?.position &&
     !checkpointTokenCarried()
   ) {
-    log(`Checkpoint token occupies ${position}; block move rejected`);
+    log(`Orange marker occupies ${position}; block move rejected`);
     return;
   }
   const previous = block.position;
@@ -1262,7 +1259,7 @@ function renderBlockBoard() {
           ? "#f47b20"
           : "transparent";
       const slotState = tokenHere
-        ? "checkpoint token"
+        ? "orange marker"
         : block
           ? "occupied"
           : carrying
@@ -1300,7 +1297,7 @@ function renderBlockBoard() {
     $("boardState").textContent =
       remaining +
       " blocks" +
-      (carrying ? " · carrying " + carrying.name : " · P1 → P7");
+      (carrying ? " · carrying " + carrying.name : " · orange marker available");
   if ($("blockLegend")) {
     $("blockLegend").innerHTML = BLOCK_POSITIONS.map((position, index) => {
       const blocks = state.blocks.filter(
@@ -1331,7 +1328,7 @@ function renderBlockBoard() {
             )
             .join("")
         : tokenHere
-          ? '<span class="slot-empty">CHECKPOINT TOKEN</span>'
+          ? '<span class="slot-empty">ORANGE MARKER</span>'
           : '<span class="slot-empty">DROP HERE</span>';
       return (
         '<div class="block-slot" data-drop-position="' +
@@ -1367,7 +1364,6 @@ function resetBlocks(silent = false) {
   techcampSim.carriedToken = false;
   renderBlockBoard();
   updateBlockVisuals();
-  renderCheckpointProgress();
   if (!silent) log("Scene reset -> P1 token · P2=P7 · P3…P6 unchanged · P7 empty");
 }
 
@@ -1785,7 +1781,6 @@ function updateVisuals() {
   updateBlockVisuals();
   renderTcp();
   renderState();
-  renderCheckpointProgress();
   renderSafeZone();
 }
 
@@ -2624,7 +2619,6 @@ const techcampSim = {
       log(`grip() -> ${block.name} attached`);
     } else if (
       this.low &&
-      ["P1", "P7"].includes(this.position) &&
       state.checkpointToken.position === this.position &&
       !checkpointTokenCarried()
     ) {
@@ -2633,7 +2627,6 @@ const techcampSim = {
       log(`grip() -> ${CHECKPOINT_TOKEN_ID} attached`);
     } else log("grip() -> gripper closed");
     renderBlockBoard();
-    renderCheckpointProgress();
     return true;
   },
   async release() {
@@ -2649,14 +2642,14 @@ const techcampSim = {
       this.carriedToken = false;
       log(
         accepted
-          ? `release() -> checkpoint token placed at ${this.position}`
-          : `release() -> checkpoint token kept at ${from}`,
+          ? `release() -> orange marker placed at ${this.position}`
+          : `release() -> orange marker kept at ${from}`,
       );
       renderBlockBoard();
       updateBlockVisuals();
       return true;
     }
-      const block = this.carriedBlock
+    const block = this.carriedBlock
       ? state.blocks.find((item) => item.name === this.carriedBlock)
       : null;
     if (block) {
