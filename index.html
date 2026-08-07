@@ -147,31 +147,32 @@
                 <textarea class="code" id="program" spellcheck="false">
 from techcamp_api import TechCamp
 
-
-def transfer(bot, source, target):
-    """Pick a block at source and place it at target."""
-    bot.move_to(source)
+# Demo checkpoint: move the orange token P1 -> P7 -> P1.
+# Sorting blocks remains free; this script only demonstrates the checkpoint.
+with TechCamp() as bot:
+    # Pick the orange token from P1.
+    bot.move_to("P1")
     bot.move_down()
     bot.grip()
     bot.move_up()
-    bot.move_to(target)
+
+    # Place it at the checkpoint slot P7.
+    bot.move_to("P7")
     bot.move_down()
     bot.release()
     bot.move_up()
 
+    # Return the same token to P1 to confirm completion.
+    bot.move_to("P7")
+    bot.move_down()
+    bot.grip()
+    bot.move_up()
+    bot.move_to("P1")
+    bot.move_down()
+    bot.release()
+    bot.move_up()
 
-def sort_sample():
-    # Start: P1=green, P3=red, P4=yellow; P7 is empty.
-    # Use P7 as the buffer, then restore P1 -> P6 color order.
-    with TechCamp() as bot:
-        transfer(bot, "P1", "P7")
-        transfer(bot, "P3", "P1")
-        transfer(bot, "P4", "P3")
-        transfer(bot, "P7", "P4")
-
-
-if __name__ == "__main__":
-    sort_sample()</textarea
+    print("Checkpoint complete: P1 -> P7 -> P1")</textarea
                 >
               </div>
             </div>
