@@ -59,6 +59,36 @@
       "evidence": "fast mode — no test evidence",
       "notes": "",
       "priority": "P1"
+    },
+    {
+      "id": "robot-model-selector",
+      "title": "Chọn mô hình hiển thị FR3 hoặc FR5",
+      "user_visible_behavior": "Người dùng có thể hiển thị đúng mô hình cánh tay robot mong muốn trên cùng simulator.",
+      "verification_command": "Một selector chuyển được cả hai bộ model bảy mesh mà không reload trang hoặc tạo robot trùng lặp.",
+      "status": "passing-unverified",
+      "evidence": "FR5 assets served with HTTP 200; app.js syntax passes. Browser visual switching unavailable in this environment.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "techcamp-home-api-parity",
+      "title": "Hỗ trợ move_to HOME theo TechCamp API hiện tại",
+      "user_visible_behavior": "Học sinh dùng cùng contract HOME trên web và API robot hiện tại.",
+      "verification_command": "Validator, JavaScript simulator, Python runner, tài liệu và point lookup chấp nhận HOME; HOMECHESS vẫn là alias của cùng point HOME.",
+      "status": "passing",
+      "evidence": "7 unittest cases pass; HOME and HOMECHESS endpoint replay canonicalizes to HOME.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "simulator-safety-compatibility",
+      "title": "Giữ nguyên safety và idempotency của simulator",
+      "user_visible_behavior": "Đồng bộ API không làm mất các bảo vệ an toàn đang có trên web.",
+      "verification_command": "Di chuyển ngang khi đang thấp vẫn tự nâng, lệnh lặp là no-op an toàn và move_down tại HOME bị từ chối.",
+      "status": "passing",
+      "evidence": "Unit tests cover HOME-down rejection, low-travel auto-raise, and idempotent move/gripper calls.",
+      "notes": "",
+      "priority": "P1"
     }
   ]
 }

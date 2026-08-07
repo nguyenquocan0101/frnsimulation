@@ -47,7 +47,7 @@ Move the gripper to the **safe travel height** above a square.
 
 | Argument | Values |
 |---|---|
-| `position` | `"P1"` ... `"P7"`, `"HOMECHESS"` |
+| `position` | `"P1"` ... `"P7"`, `"HOME"` (`"HOMECHESS"` is a legacy alias) |
 
 - Always travels at the safe UP height (z = 255mm) -- never drags low.
 - If the gripper is currently low, the API **automatically raises it first**.
@@ -58,7 +58,7 @@ Move the gripper to the **safe travel height** above a square.
 
 Lower the gripper to **grab/place height** over the current square.
 
-- Only valid after `move_to("P1".."P7")` (not at HOMECHESS).
+- Only valid after `move_to("P1".."P7")` (not at HOME).
 - Safe no-op if already down (idempotent).
 
 ### `move_up() -> bool`

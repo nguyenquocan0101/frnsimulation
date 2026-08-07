@@ -51,18 +51,18 @@ const runPythonSimulator = (payload) => new Promise((resolve) => {
   runner.stderr.on('data', (chunk) => { error += chunk; });
   runner.on('error', () => {
     clearTimeout(timeout);
-    resolve({ ok: false, error: { message: 'Không chạy được Python runner trên máy này.' } });
+    resolve({ ok: false, error: { message: 'The Python runner could not start on this machine.' } });
   });
   runner.on('close', () => {
     clearTimeout(timeout);
     if (timedOut) {
-      resolve({ ok: false, error: { message: 'Chương trình chạy quá 2.5 giây nên đã dừng.' } });
+      resolve({ ok: false, error: { message: 'The program exceeded the 2.5 second limit and was stopped.' } });
       return;
     }
     try {
       resolve(JSON.parse(output));
     } catch {
-      resolve({ ok: false, error: { message: 'Python runner trả về kết quả không hợp lệ.' }, detail: error.slice(0, 400) });
+      resolve({ ok: false, error: { message: 'The Python runner returned an invalid response.' }, detail: error.slice(0, 400) });
     }
   });
   runner.stdin.end(JSON.stringify(payload));
@@ -74,12 +74,12 @@ const server = http.createServer(async (request, response) => {
     try {
       const payload = JSON.parse(await readBody(request));
       if (typeof payload.source !== 'string' || payload.source.length > 40_000) {
-        json(response, 400, { ok: false, error: { message: 'Code phải là chuỗi tối đa 40.000 ký tự.' } });
+        json(response, 400, { ok: false, error: { message: 'Code must be a string of at most 40,000 characters.' } });
         return;
       }
       json(response, 200, await runPythonSimulator({ source: payload.source, positions: payload.positions || {} }));
     } catch (error) {
-      json(response, 400, { ok: false, error: { message: error.message || 'Yêu cầu Python không hợp lệ.' } });
+      json(response, 400, { ok: false, error: { message: error.message || 'Invalid Python request.' } });
     }
     return;
   }

@@ -31,7 +31,7 @@ from pathlib import Path
 
 from fairino_robot import FairinoFR5
 
-POSITIONS = ("P1", "P2", "P3", "P4", "P5", "P6", "P7", "HOMECHESS")
+POSITIONS = ("P1", "P2", "P3", "P4", "P5", "P6", "P7", "HOME")
 MAX_SPEED = 40.0   # speed cap for all moves (%)
 MAX_ACC = 20.0     # accel cap (%)
 GRIP_DELAY = 0.5   # seconds to wait after grip/release
@@ -68,8 +68,7 @@ class TechCamp:
         self._low = False          # True when gripper is at grab height
         self._gripping = False     # True when gripper is closed
         self._points = _load_points()
-        # Map HOMECHESS -> HOME (points.json uses HOME)
-        self._points["HOMECHESS"] = self._points["HOME"]
+        # HOMECHESS remains a legacy input alias for the canonical HOME point.
 
     # ------------------------------------------------------------------
     # Public API for contestants
@@ -90,8 +89,8 @@ class TechCamp:
         if self._position == pos:
             return True  # already there (idempotent)
 
-        if pos == "HOMECHESS":
-            pts = self._points["HOMECHESS"]
+        if pos == "HOME":
+            pts = self._points["HOME"]
         else:
             pts = self._points[pos + "UP"]  # travel at UP height
 
@@ -111,7 +110,7 @@ class TechCamp:
 
         Uses the calibrated Pn joint angles. No-op if already down.
         """
-        if self._position is None or self._position == "HOMECHESS":
+        if self._position is None or self._position == "HOME":
             raise TechCampError(
                 "move_down() requires move_to('P1'..'P7') first."
             )
@@ -133,8 +132,8 @@ class TechCamp:
 
         Uses the calibrated PnUP joint angles. No-op if already up.
         """
-        if self._position is None or self._position == "HOMECHESS":
-            self.move_to("HOMECHESS")
+        if self._position is None or self._position == "HOME":
+            self.move_to("HOME")
             return True
         if not self._low:
             return True  # already up (idempotent)
@@ -211,10 +210,12 @@ class TechCamp:
 
     def _validate(self, position: str) -> str:
         pos = str(position).upper()
+        if pos == "HOMECHESS":
+            pos = "HOME"
         if pos not in POSITIONS:
             raise TechCampError(
                 f"Invalid position '{position}'. "
-                f"Valid: {list(POSITIONS)}"
+                f"Valid: {list(POSITIONS)} (HOMECHESS is a legacy alias)"
             )
         return pos
 
@@ -263,4 +264,4 @@ if __name__ == "__main__":
         print("move_down:", bot.move_down())
         print("release:", bot.release())
         print("move_up:", bot.move_up())
-        print("move_to HOMECHESS:", bot.move_to("HOMECHESS"))
+        print("move_to HOME:", bot.move_to("HOME"))

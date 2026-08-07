@@ -1,4 +1,4 @@
-"""Isolated Python runner for the FR3 browser simulator; never imports the real robot SDK."""
+"""Isolated Python runner for the FAIRINO browser simulator; never imports the real robot SDK."""
 
 import ast
 import builtins
@@ -8,7 +8,13 @@ import sys
 import traceback
 import types
 
-VALID_POINTS = {"P1", "P2", "P3", "P4", "P5", "P6", "P7", "HOMECHESS"}
+VALID_POINTS = {"P1", "P2", "P3", "P4", "P5", "P6", "P7", "HOME", "HOMECHESS"}
+BLOCK_POINTS = {"P1", "P2", "P3", "P4", "P5", "P6", "P7"}
+
+
+def normalize_point(position):
+    point = str(position).upper()
+    return "HOME" if point == "HOMECHESS" else point
 FORBIDDEN_NAMES = {
     "breakpoint", "compile", "delattr", "dir", "eval", "exec", "getattr",
     "globals", "help", "input", "locals", "open", "setattr", "vars",
@@ -21,26 +27,26 @@ class TechCampError(Exception):
 
 class SafetyVisitor(ast.NodeVisitor):
     def visit_Import(self, node):
-        raise TechCampError("Chỉ dùng: from techcamp_api import TechCamp")
+        raise TechCampError("Only use: from techcamp_api import TechCamp")
 
     def visit_ImportFrom(self, node):
         allowed = {"TechCamp", "TechCampError"}
         if node.module != "techcamp_api" or any(item.name not in allowed for item in node.names):
-            raise TechCampError("Chỉ dùng: from techcamp_api import TechCamp")
+            raise TechCampError("Only use: from techcamp_api import TechCamp")
 
     def visit_Name(self, node):
         if (node.id.startswith("__") and node.id != "__name__") or node.id in FORBIDDEN_NAMES:
-            raise TechCampError(f"'{node.id}' không được phép trong simulator.")
+            raise TechCampError(f"'{node.id}' is not allowed in the simulator.")
         self.generic_visit(node)
 
     def visit_Attribute(self, node):
         if node.attr.startswith("__"):
-            raise TechCampError("Không dùng thuộc tính bắt đầu bằng __ trong simulator.")
+            raise TechCampError("Attributes beginning with __ are not allowed in the simulator.")
         self.generic_visit(node)
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Name) and node.func.id in FORBIDDEN_NAMES:
-            raise TechCampError(f"'{node.func.id}()' không được phép trong simulator.")
+            raise TechCampError(f"'{node.func.id}()' is not allowed in the simulator.")
         self.generic_visit(node)
 
 
@@ -69,9 +75,9 @@ class SimTechCamp:
         return False
 
     def move_to(self, position):
-        point = str(position).upper()
+        point = normalize_point(position)
         if point not in VALID_POINTS:
-            raise TechCampError(f"Invalid position '{position}'. Valid: P1…P7, HOMECHESS")
+            raise TechCampError(f"Invalid position '{position}'. Valid: P1…P7, HOME")
         if self._low:
             self.move_up()
         if self._position != point:
@@ -80,7 +86,7 @@ class SimTechCamp:
         return True
 
     def move_down(self):
-        if self._position is None or self._position == "HOMECHESS":
+        if self._position is None or self._position == "HOME":
             raise TechCampError("move_down() requires move_to('P1'..'P7') first.")
         if not self._low:
             self._record("move_down")
@@ -88,8 +94,10 @@ class SimTechCamp:
         return True
 
     def move_up(self):
-        if self._position is None or self._position == "HOMECHESS":
-            return self.move_to("HOMECHESS")
+        if self._position is None:
+            return self.move_to("HOME")
+        if self._position == "HOME":
+            return True
         if self._low:
             self._record("move_up")
         self._low = False
@@ -120,7 +128,7 @@ class SimTechCamp:
 def execute(payload):
     source = payload.get("source", "")
     if not isinstance(source, str):
-        return {"ok": False, "error": {"message": "Code phải là chuỗi."}}
+        return {"ok": False, "error": {"message": "Code must be a string."}}
     try:
         tree = ast.parse(source, filename="<student>", mode="exec")
         SafetyVisitor().visit(tree)
@@ -134,14 +142,18 @@ def execute(payload):
     raw_positions = payload.get("positions", {})
     if not isinstance(raw_positions, dict):
         raw_positions = {}
-    positions = {point: bool(value) for point, value in raw_positions.items() if point in VALID_POINTS}
+    positions = {
+        normalize_point(point): bool(value)
+        for point, value in raw_positions.items()
+        if normalize_point(point) in BLOCK_POINTS
+    }
 
     def classroom_print(*values, sep=" ", end="\n", **_):
         output.append(sep.join(str(value) for value in values) + end)
 
     def only_techcamp_import(name, *_args, **_kwargs):
         if name != "techcamp_api":
-            raise TechCampError("Chỉ được import techcamp_api trong simulator.")
+            raise TechCampError("Only techcamp_api may be imported in the simulator.")
         return module
 
     module = types.ModuleType("techcamp_api")
@@ -170,4 +182,4 @@ if __name__ == "__main__":
     try:
         print(json.dumps(execute(json.load(sys.stdin)), ensure_ascii=True))
     except Exception:
-        print(json.dumps({"ok": False, "error": {"message": "Python runner gặp lỗi nội bộ."}}))
+        print(json.dumps({"ok": False, "error": {"message": "The Python runner encountered an internal error."}}))

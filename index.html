@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="vi" data-theme="dark">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>FR3 Classroom · TechCamp IDE</title>
+    <title>FAIRINO Classroom · TechCamp IDE</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,6 +14,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./robot-profile.css" />
     <script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.min.js"></script>
     <script type="importmap">
       {
@@ -25,7 +26,7 @@
     </script>
   </head>
   <body>
-    <a class="skip-link" href="#main-content">Bỏ qua tới nội dung chính</a>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="app-shell">
       <div class="ide-layout" id="ideLayout">
         <main id="main-content" class="code-column">
@@ -34,14 +35,14 @@
               <div class="techx-logo" aria-label="FPTU TechX Camp">
                 FPTU TECH<span>X</span> CAMP
               </div>
-              <span>FR3 SIMULATION</span>
+              <span>FAIRINO SIMULATION</span>
             </div>
             <button
               class="theme-button header-theme-button"
               id="themeToggleBtn"
               type="button"
               aria-pressed="true"
-              aria-label="Đổi chế độ sáng tối"
+              aria-label="Toggle light and dark mode"
             >
               <span class="theme-icon">☀</span
               ><span class="theme-label sr-only">Light mode</span>
@@ -50,12 +51,12 @@
 
           <section
             class="panel code-panel"
-            aria-label="Khu vực Code và Điều khiển"
+            aria-label="Code and controls"
           >
             <div
               class="workspace-tabs"
               role="tablist"
-              aria-label="Khu vực làm việc"
+              aria-label="Workspace"
             >
               <button
                 class="workspace-tab active"
@@ -76,7 +77,7 @@
                 aria-controls="controlTabPanel"
                 tabindex="-1"
               >
-                Điều khiển
+                Controls
               </button>
             </div>
             <div id="codeTabPanel" role="tabpanel" aria-labelledby="codeTab">
@@ -94,12 +95,12 @@
                     <span class="code-validation-dot" aria-hidden="true"></span>
                     <span id="codeValidationSummary"></span>
                   </span>
-                  <div class="editor-font-controls" aria-label="Cỡ chữ code">
+                  <div class="editor-font-controls" aria-label="Code font size">
                     <button
                       class="editor-font-button"
                       id="codeFontDecrease"
                       type="button"
-                      aria-label="Giảm cỡ chữ code"
+                      aria-label="Decrease code font size"
                     >
                       −
                     </button>
@@ -107,7 +108,7 @@
                       class="editor-font-button"
                       id="codeFontIncrease"
                       type="button"
-                      aria-label="Tăng cỡ chữ code"
+                      aria-label="Increase code font size"
                     >
                       +
                     </button>
@@ -178,7 +179,11 @@ if __name__ == "__main__":
                     <strong>Joint jog</strong>
                   </div>
                   <div class="joints" id="jointControls"></div>
-                  <div class="joint-color-legend" id="jointColorLegend" aria-label="Chú thích màu các khớp"></div>
+                  <div
+                    class="joint-color-legend"
+                    id="jointColorLegend"
+                    aria-label="Joint color legend"
+                  ></div>
                   <div class="toolbar">
                     <button class="button" id="applyBtn">Apply target</button>
                   </div>
@@ -207,36 +212,48 @@ if __name__ == "__main__":
           id="layoutSplitter"
           role="separator"
           aria-orientation="vertical"
-          aria-label="Kéo để thay đổi độ rộng Code và Mô phỏng"
+          aria-label="Drag to resize Code and Simulation"
           tabindex="0"
         ></div>
 
         <section class="simulation-column" aria-labelledby="viewport-title">
           <div class="simulation-header">
             <h2 id="viewport-title">Simulation</h2>
+            <div class="simulation-actions" id="robotProfileControl">
+              <label class="robot-profile-label" for="robotProfileSelect">Robot model</label>
+              <select id="robotProfileSelect" class="robot-profile-select" aria-describedby="fr5CalibrationNotice">
+                <option value="fr3">FAIRINO FR3</option>
+                <option value="fr5">FAIRINO FR5</option>
+              </select>
+              <span id="modelStatus" class="robot-model-status">Loading FAIRINO FR3…</span>
+              <span id="robotProfileStatus" class="sr-only" aria-live="polite"></span>
+            </div>
+          </div>
+          <div id="fr5CalibrationNotice" class="calibration-notice" role="note" hidden>
+            FR5 display mode only: TCP, IK, and calibrated points are provisional and not FR5-calibrated.
           </div>
           <div class="viewport-wrap" id="viewportWrap">
             <div
               id="viewport"
-              aria-label="Mô hình 3D FAIRINO FR3 tương tác bằng chuột hoặc cảm ứng"
+              aria-label="FAIRINO FR3 3D model interactive with mouse or touch"
             ></div>
             <div class="loading-card" id="loadingCard">
               <span class="loader"></span
-              ><span>Đang tải mô hình 3D chính thức…</span>
+              ><span>Loading the official 3D model…</span>
             </div>
             <button
               class="viewport-home-button"
               id="homeBtn"
               type="button"
-              aria-label="Đưa cánh tay về Home"
-              title="Đưa cánh tay về Home"
+              aria-label="Move the robot arm to Home"
+              title="Move the robot arm to Home"
             >
               <span aria-hidden="true">⌂</span><span class="sr-only">Home</span>
             </button>
             <div
               class="block-state-strip"
               id="blockStateStrip"
-              aria-label="Vị trí các block màu P1 đến P7"
+              aria-label="Colored block positions P1 through P7"
             ></div>
           </div>
           <div class="toolbar primary-tools">
@@ -254,39 +271,36 @@ if __name__ == "__main__":
             <button
               class="button quiet"
               id="changeViewBtn"
-              title="Đổi góc nhìn camera"
+              title="Change camera view"
             >
               Change view</button
             ><button class="button quiet" id="homeViewBtn">Home camera</button>
             <div class="camera-control">
-              <button class="button quiet speed-button" id="cameraZoomBtn" type="button" aria-expanded="false" aria-controls="cameraZoomPopover">View 118%</button>
-              <div class="speed-popover camera-popover" id="cameraZoomPopover" hidden>
-                <label for="cameraZoomRange">Khung nhìn <output id="cameraZoomOutput">118%</output></label>
-                <input id="cameraZoomRange" type="range" min="100" max="135" step="1" value="118" aria-label="Độ gần camera tổng quan" />
-              </div>
-            </div>
-            <div class="speed-control">
               <button
                 class="button quiet speed-button"
-                id="speedBtn"
+                id="cameraZoomBtn"
                 type="button"
                 aria-expanded="false"
-                aria-controls="speedPopover"
+                aria-controls="cameraZoomPopover"
               >
-                Speed 25%
+                View 118%
               </button>
-              <div class="speed-popover" id="speedPopover" hidden>
-                <label for="speedRange"
-                  >Speed <output id="speedOutput">25%</output></label
+              <div
+                class="speed-popover camera-popover"
+                id="cameraZoomPopover"
+                hidden
+              >
+                <label for="cameraZoomRange"
+                  >Camera view <output id="cameraZoomOutput">118%</output></label
                 >
                 <input
-                  id="speedRange"
+                  id="cameraZoomRange"
                   type="range"
-                  min="5"
-                  max="100"
-                  step="5"
-                  value="25"
-                  aria-label="Tốc độ cánh tay"
+                  min="100"
+                  max="135"
+                  step="1"
+                  value="118"
+                  aria-label="Overall camera zoom"
                 />
               </div>
             </div>
@@ -303,7 +317,7 @@ if __name__ == "__main__":
         </section>
       </div>
       <footer class="safety-note">
-        Demo mô phỏng — không dùng để điều khiển robot thật.
+        Simulator demo — never use it to control a real robot.
       </footer>
     </div>
     <script type="module" src="./app.js"></script>

@@ -2,8 +2,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 
-const MODEL_BASE = "./assets/fr3_v6/";
+const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const GRIPPER_FILE = "Assieme_pinza_dita_parallele.stp";
+const GRIPPER_BASE = "./assets/fr3_v6/";
 // The STEP assembly is authored in millimetres; its mounting face is at the J6 tool flange.
 const GRIPPER_MOUNT_OFFSET = [-0.03, 0.014, 0.16];
 const GRIPPER_MOUNT_ROTATION = [Math.PI, 0, 0];
@@ -46,7 +47,7 @@ const LINK_FILES = [
   "wrist2_link",
   "wrist3_link",
 ];
-const JOINT_ORIGINS = [
+const FR3_KINEMATIC_ORIGINS = [
   [0, 0, 0],
   [0, 0, 0.14],
   [-0.28, 0, 0],
@@ -54,7 +55,7 @@ const JOINT_ORIGINS = [
   [0, 0, 0.102],
   [0, 0, 0.102],
 ];
-const JOINT_RPY = [
+const FR3_KINEMATIC_RPY = [
   [0, 0, 0],
   [Math.PI / 2, 0, 0],
   [0, 0, 0],
@@ -76,16 +77,42 @@ const SAMPLE_BLOCK_POSITIONS = {
 const BLOCK_COLORS = [
   0xf06b62, 0xf3a64a, 0xe7c85f, 0x6fc88f, 0x56a9d9, 0x7187d8, 0xa879d6,
 ];
+const ROBOT_PROFILES = Object.freeze({
+  fr3: Object.freeze({
+    id: "fr3",
+    label: "FAIRINO FR3",
+    meshBase: "./assets/fr3_v6/",
+    visualJointOrigins: FR3_KINEMATIC_ORIGINS,
+    visualJointRpy: FR3_KINEMATIC_RPY,
+    provisional: false,
+  }),
+  fr5: Object.freeze({
+    id: "fr5",
+    label: "FAIRINO FR5",
+    meshBase: "./assets/fr5_v6/",
+    visualJointOrigins: [
+      [0, 0, 0],
+      [0, 0, 0.152],
+      [-0.425, 0, 0],
+      [-0.39501, 0, 0],
+      [0, 0, 0.1021],
+      [0, 0, 0.102],
+    ],
+    visualJointRpy: FR3_KINEMATIC_RPY,
+    provisional: true,
+  }),
+});
+const getRobotProfile = (id) => ROBOT_PROFILES[id] || ROBOT_PROFILES.fr3;
 const OBJECT_CLASSES = [
-  { value: 1, id: "chicken", label: "Gà" },
-  { value: 2, id: "tree", label: "Cây" },
-  { value: 3, id: "dog", label: "Chó" },
-  { value: 4, id: "car", label: "Ô tô" },
-  { value: 5, id: "chair", label: "Ghế" },
-  { value: 6, id: "umbrella", label: "Dù" },
-  { value: 7, id: "elephant", label: "Voi" },
-  { value: 8, id: "airplane", label: "Máy bay" },
-  { value: 9, id: "house", label: "Nhà" },
+  { value: 1, id: "chicken", label: "Chicken" },
+  { value: 2, id: "tree", label: "Tree" },
+  { value: 3, id: "dog", label: "Dog" },
+  { value: 4, id: "car", label: "Car" },
+  { value: 5, id: "chair", label: "Chair" },
+  { value: 6, id: "umbrella", label: "Umbrella" },
+  { value: 7, id: "elephant", label: "Elephant" },
+  { value: 8, id: "airplane", label: "Airplane" },
+  { value: 9, id: "house", label: "House" },
 ];
 const TECHCAMP_MAX_SPEED = 40;
 const TECHCAMP_MAX_ACC = 20;
@@ -95,10 +122,10 @@ const HOME_CAMERA_TARGET = [0, 0.24, -0.3];
 const HOME_CAMERA_ZOOM_DEFAULT = 118;
 const HOME_CAMERA_ZOOM_RANGE = [100, 135];
 const HOME_CAMERA_VIEWS = [
-  { name: "Chính diện", position: [0, 0.34, -1.55] },
-  { name: "Phải", position: [1.55, 0.85, 0] },
-  { name: "Sau", position: [-1.55, 0.85, 0] },
-  { name: "Trái", position: [0, 0.85, 1.55] },
+  { name: "Front", position: [0, 0.34, -1.55] },
+  { name: "Right", position: [1.55, 0.85, 0] },
+  { name: "Back", position: [-1.55, 0.85, 0] },
+  { name: "Left", position: [0, 0.85, 1.55] },
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -117,6 +144,8 @@ const state = {
   running: false,
   speed: 25,
   modelReady: false,
+  robotProfileId: "fr3",
+  robotLoading: false,
   calibratedPoints: {},
   blocks: [],
   activeMotion: null,
@@ -158,9 +187,14 @@ let cameraViewIndex = -1;
 let jointRotators = [];
 let modelMaterials = [];
 let jointMaterials = [];
+let activeRobotGroup = null;
+let robotLoadGeneration = 0;
+const robotGeometryCache = new Map();
 const blockMeshes = new Map();
 const objectClassTextures = new Map();
 const gripperVisual = {
+  group: null,
+  loadPromise: null,
   fingers: [],
   closed: false,
   animation: null,
@@ -384,9 +418,10 @@ function fixedMatrix(origin, rpy) {
   return matrix;
 }
 
-const FIXED_MATRICES = JOINT_ORIGINS.map((origin, i) =>
-  fixedMatrix(origin, JOINT_RPY[i]),
+const FR3_FIXED_MATRICES = FR3_KINEMATIC_ORIGINS.map((origin, i) =>
+  fixedMatrix(origin, FR3_KINEMATIC_RPY[i]),
 );
+const FIXED_MATRICES = FR3_FIXED_MATRICES;
 
 function makePoseMatrix(pose) {
   const matrix = new THREE.Matrix4();
@@ -623,23 +658,16 @@ function normalizePointData(data) {
 }
 
 function homePointRecord() {
-  const preferred = pointRecord("HOMELESS");
-  if (preferred) return { name: "HOMELESS", point: preferred, fallback: false };
-  const fallback = pointRecord("HOME");
-  return fallback
-    ? { name: "HOME", point: fallback, fallback: true }
-    : { name: "HOMELESS", point: null, fallback: true };
+  const point = pointRecord("HOME");
+  return { name: "HOME", point, fallback: false };
 }
 
 function renderHomePoint() {
   const selection = homePointRecord();
   const badge = $("homePointBadge");
-  if (badge) badge.textContent = selection.fallback ? "HOME" : "HOMELESS";
+  if (badge) badge.textContent = selection.point ? "HOME" : "MISSING";
   const home = $("homeBtn");
-  if (home)
-    home.title = selection.fallback
-      ? "HOMELESS chưa có trong points.json · đang dùng HOME"
-      : "Dùng tọa độ HOMELESS trong points.json";
+  if (home) home.title = selection.point ? "Move robot to HOME" : "HOME point is missing";
 }
 
 function makeTextSprite(text, color = "#cfe0f2") {
@@ -1009,7 +1037,7 @@ function renderBlockBoard() {
       const color = block
         ? "#" + block.color.toString(16).padStart(6, "0")
         : "transparent";
-      const slotState = block ? "block" : carrying ? "đang nhấc block" : "trống";
+      const slotState = block ? "occupied" : carrying ? "carrying" : "empty";
       return (
         '<button class="block-state-slot' +
         (block ? " is-occupied" : " is-empty") +
@@ -1053,9 +1081,9 @@ function renderBlockBoard() {
               (block) =>
                 '<button class="block-card" type="button" draggable="true" data-block-name="' +
                 block.name +
-                '" aria-label="Kéo khối ' +
+                '" aria-label="Drag block ' +
                 block.name +
-                " từ " +
+                " from " +
                 position +
                 '"><span class="block-swatch" style="background:' +
                 color +
@@ -1070,12 +1098,12 @@ function renderBlockBoard() {
       return (
         '<div class="block-slot" data-drop-position="' +
         position +
-        '" aria-label="Ô ' +
+        '" aria-label="Slot ' +
         position +
         '"><div class="block-slot-head"><strong>' +
         position +
         "</strong><span>" +
-        (blocks.length ? blocks.length + " khối" : "trống") +
+        (blocks.length ? blocks.length + " blocks" : "empty") +
         '</span></div><div class="block-slot-body">' +
         cards +
         "</div></div>"
@@ -1160,7 +1188,7 @@ function evaluateSafeZoneAt(jointsDeg) {
     label: outside.length
       ? `OUTSIDE · ${outside.join(", ")}`
       : clearance <= margin
-        ? `NEAR EDGE · còn ${Math.max(0, clearance).toFixed(0)} mm`
+        ? `NEAR EDGE · ${Math.max(0, clearance).toFixed(0)} mm remaining`
         : `IN ZONE · clearance ${clearance.toFixed(0)} mm`,
     clearance,
     outside,
@@ -1171,7 +1199,7 @@ function evaluateSafeZone() {
   if (!state.safeZone.enabled)
     return {
       status: "disabled",
-      label: "OFF · kiểm tra đang tắt",
+      label: "OFF · checks disabled",
       clearance: null,
       outside: [],
     };
@@ -1219,7 +1247,7 @@ function controllerSafetyText() {
       (value) => value === null || value === undefined,
     )
   )
-    return "Chưa có qua transport hiện tại";
+    return "No current transport data";
   const alarms = [];
   if (safety.safety_plane_alarm === 1) alarms.push("Safety Wall");
   if (safety.interference_alarm === 1) alarms.push("Interference Zone");
@@ -1326,7 +1354,7 @@ function buildCartesianTrajectory(targetPose) {
     if (!result.ok)
       return {
         ok: false,
-        reason: `IK không hội tụ tại waypoint ${i}/${steps}`,
+        reason: `IK did not converge at waypoint ${i}/${steps}`,
         worst,
       };
     seed = result.q;
@@ -1406,12 +1434,22 @@ function renderState() {
         : "STOPPED";
   $("enableBtn").textContent = state.enabled ? "Disable" : "Enable";
   $("modeBtn").textContent = state.automatic ? "Manual mode" : "Automatic mode";
-  const speed = Math.round(state.speed);
-  if ($("speedBtn")) $("speedBtn").textContent = `Speed ${speed}%`;
-  if ($("speedRange")) $("speedRange").value = String(speed);
-  if ($("speedOutput")) $("speedOutput").textContent = `${speed}%`;
   const runButton = $("runBtn");
   const programRunning = state.running || Boolean(state.programRun);
+  const profileSelector = $("robotProfileSelect");
+  const profileLocked =
+    programRunning || state.live || state.robotLoading || Boolean(gripperVisual.animation);
+  if (profileSelector) {
+    profileSelector.disabled = profileLocked;
+    profileSelector.setAttribute("aria-busy", String(state.robotLoading));
+  }
+  const profileStatus = $("robotProfileStatus");
+  if (profileStatus)
+    profileStatus.textContent = state.robotLoading
+      ? `Loading ${getRobotProfile(state.robotProfileId).label} model`
+      : profileLocked && (programRunning || state.live)
+        ? "Robot model selection is locked while the simulator is running"
+        : `${getRobotProfile(state.robotProfileId).label} selected`;
   if (runButton) {
     runButton.classList.toggle("primary", !programRunning);
     runButton.classList.toggle("danger", programRunning);
@@ -1632,7 +1670,7 @@ function disconnectLive() {
   }
   setLiveControlLock(false);
   if ($("liveState")) $("liveState").textContent = "OFFLINE";
-  setStatus("SIMULATOR READY · FR3 V6", state.modelReady ? "ready" : "");
+  setStatus(readyStatus(), state.modelReady ? "ready" : "");
   renderState();
   log("Live monitor disconnected");
 }
@@ -1796,9 +1834,9 @@ function renderScene() {
   renderer.render(scene, camera);
 }
 
-function loadSTL(loader, file) {
+function loadSTL(loader, profile, file) {
   return new Promise((resolve, reject) =>
-    loader.load(`${MODEL_BASE}${file}.STL`, resolve, undefined, reject),
+    loader.load(`${profile.meshBase}${file}.STL`, resolve, undefined, reject),
   );
 }
 
@@ -1864,12 +1902,15 @@ function setGripperClosed(closed) {
   return gripperVisual.animation;
 }
 
-async function loadGripper(j6Rotator) {
+async function loadSharedGripper() {
+  if (gripperVisual.group) return gripperVisual.group;
+  if (gripperVisual.loadPromise) return gripperVisual.loadPromise;
+  gripperVisual.loadPromise = (async () => {
   if (typeof window.occtimportjs !== "function") {
-    throw new Error("STEP importer không sẵn sàng");
+    throw new Error("STEP importer is not available");
   }
-  const response = await fetch(`${MODEL_BASE}${GRIPPER_FILE}`);
-  if (!response.ok) throw new Error(`Không tải được tay gắp (HTTP ${response.status})`);
+  const response = await fetch(`${GRIPPER_BASE}${GRIPPER_FILE}`);
+  if (!response.ok) throw new Error(`Unable to load gripper (HTTP ${response.status})`);
   const occt = await window.occtimportjs();
   const result = occt.ReadStepFile(new Uint8Array(await response.arrayBuffer()), {
     linearUnit: "millimeter",
@@ -1878,15 +1919,15 @@ async function loadGripper(j6Rotator) {
     angularDeflection: 0.5,
   });
   if (!result.success || !result.meshes?.length) {
-    throw new Error("File STEP không có hình học hợp lệ");
+    throw new Error("The gripper STEP file has no valid geometry");
   }
   const gripper = new THREE.Group();
   gripper.name = "parallel_gripper";
+  gripper.userData.robotVisualRole = "shared-gripper";
   gripper.position.fromArray(GRIPPER_MOUNT_OFFSET);
   gripper.rotation.set(...GRIPPER_MOUNT_ROTATION);
   gripper.scale.setScalar(GRIPPER_SCALE);
   gripperVisual.fingers = [];
-  gripperVisual.closed = false;
   result.meshes.forEach((stepMesh) => {
     const mesh = buildStepMesh(stepMesh);
     if (mesh.userData.isGripperFinger) {
@@ -1903,65 +1944,210 @@ async function loadGripper(j6Rotator) {
     mesh.receiveShadow = true;
     gripper.add(mesh);
   });
-  j6Rotator.add(gripper);
+  gripperVisual.group = gripper;
+  return gripper;
+  })().catch((error) => {
+    gripperVisual.loadPromise = null;
+    throw error;
+  });
+  return gripperVisual.loadPromise;
 }
 
-async function loadModel() {
-  initScene();
+function disposeRobotArm(candidate) {
+  if (!candidate?.group) return;
+  candidate.group.traverse((object) => {
+    if (!object.isMesh) return;
+    object.geometry?.dispose();
+    const materials = Array.isArray(object.material)
+      ? object.material
+      : [object.material];
+    materials.forEach((material) => material?.dispose?.());
+  });
+}
+
+async function buildRobotArm(profile) {
   const loader = new STLLoader();
-  modelMaterials = [];
-  jointMaterials = [];
+  const candidate = {
+    group: new THREE.Group(),
+    jointRotators: [],
+    modelMaterials: [],
+    jointMaterials: [],
+  };
+  candidate.group.name = `robot-arm-${profile.id}`;
+  candidate.group.userData.robotVisualRole = "arm";
   const makeRobotMaterial = () => {
     const material = new THREE.MeshStandardMaterial({
       color: ROBOT_SHELL_COLOR,
       roughness: 0.62,
       metalness: 0.12,
     });
-    modelMaterials.push(material);
-    jointMaterials.push(material);
+    candidate.modelMaterials.push(material);
+    candidate.jointMaterials.push(material);
     return material;
   };
   try {
-    const baseGeometry = await loadSTL(loader, "base_link");
+    const baseGeometry = await loadSTL(loader, profile, "base_link");
     const baseMesh = new THREE.Mesh(baseGeometry, makeRobotMaterial());
+    baseMesh.name = `${profile.id}-base_link`;
+    baseMesh.userData.robotVisualRole = "arm-link";
     baseMesh.castShadow = true;
     baseMesh.receiveShadow = true;
-    robotRoot.add(baseMesh);
-    let parent = robotRoot;
+    candidate.group.add(baseMesh);
+    let parent = candidate.group;
     for (let i = 0; i < 6; i++) {
       const frame = new THREE.Group();
-      frame.position.fromArray(JOINT_ORIGINS[i]);
-      frame.rotation.set(...JOINT_RPY[i]);
+      frame.name = `${profile.id}-joint-frame-${i + 1}`;
+      frame.position.fromArray(profile.visualJointOrigins[i]);
+      frame.rotation.set(...profile.visualJointRpy[i]);
       parent.add(frame);
       const rotator = new THREE.Group();
+      rotator.name = `${profile.id}-joint-rotator-${i + 1}`;
+      rotator.userData.robotVisualRole = "joint-rotator";
       frame.add(rotator);
-      jointRotators.push(rotator);
-      const geometry = await loadSTL(loader, LINK_FILES[i + 1]);
+      candidate.jointRotators.push(rotator);
+      const geometry = await loadSTL(loader, profile, LINK_FILES[i + 1]);
       const mesh = new THREE.Mesh(geometry, makeRobotMaterial());
+      mesh.name = `${profile.id}-${LINK_FILES[i + 1]}`;
+      mesh.userData.robotVisualRole = "arm-link";
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       rotator.add(mesh);
       parent = rotator;
     }
-    await loadGripper(jointRotators.at(-1));
-    state.modelReady = true;
-    setJointVisualization($("controlTab")?.classList.contains("active"));
-    await loadCalibratedPoints();
-    $("loadingCard")?.classList.add("hidden");
-    if ($("modelStatus"))
-      $("modelStatus").textContent =
-        "Loaded fairino3_v6 mesh · TechCamp points.json active";
-    setStatus("SIMULATOR READY · TECHCAMP", "ready");
-    updateVisuals();
+    return candidate;
   } catch (error) {
-    console.error(error);
+    disposeRobotArm(candidate);
+    throw error;
+  }
+}
+
+function readyStatus(profile = getRobotProfile(state.robotProfileId)) {
+  return `${profile.label} simulator ready`;
+}
+
+function syncRobotProfileUi(profile = getRobotProfile(state.robotProfileId)) {
+  const selector = $("robotProfileSelect");
+  if (selector) selector.value = profile.id;
+  const modelStatus = $("modelStatus");
+  if (modelStatus)
+    modelStatus.textContent = `${profile.label} visual model loaded · TechCamp points remain FR3-calibrated`;
+  const notice = $("fr5CalibrationNotice");
+  if (notice) notice.hidden = !profile.provisional;
+  const viewport = $("viewport");
+  if (viewport)
+    viewport.setAttribute(
+      "aria-label",
+      `${profile.label} 3D model interactive with mouse or touch`,
+    );
+}
+
+function getRobotVisualDiagnostics() {
+  const armGroups = [];
+  let linkCount = 0;
+  let gripperCount = 0;
+  let gripperParent = null;
+  robotRoot?.traverse((object) => {
+    if (object.userData?.robotVisualRole === "arm") armGroups.push(object.name);
+    if (object.userData?.robotVisualRole === "arm-link") linkCount += 1;
+    if (object.userData?.robotVisualRole === "shared-gripper") {
+      gripperCount += 1;
+      gripperParent = object.parent?.name || null;
+    }
+  });
+  return Object.freeze({
+    profile: state.robotProfileId,
+    loading: state.robotLoading,
+    generation: robotLoadGeneration,
+    armGroups: armGroups.length,
+    linkCount,
+    gripperCount,
+    gripperParent,
+  });
+}
+window.getRobotVisualDiagnostics = getRobotVisualDiagnostics;
+
+async function switchRobotProfile(profileId, { initial = false } = {}) {
+  const profile = getRobotProfile(profileId);
+  if (!initial && (state.running || state.programRun || state.live || gripperVisual.animation)) {
+    syncRobotProfileUi();
+    log("Robot model changes are unavailable while the simulator is running");
+    return false;
+  }
+  const generation = ++robotLoadGeneration;
+  const previous = activeRobotGroup;
+  state.robotLoading = true;
+  state.modelReady = false;
+  renderState();
+  if ($("loadingCard")) {
+    $("loadingCard").classList.remove("hidden");
+    $("loadingCard").innerHTML = `<span class="loader"></span><span>Loading ${profile.label} model…</span>`;
+  }
+  setStatus(`Loading ${profile.label} model…`);
+  let candidate = null;
+  try {
+    candidate = await buildRobotArm(profile);
+    if (generation !== robotLoadGeneration) {
+      disposeRobotArm(candidate);
+      candidate = null;
+      return false;
+    }
+    const gripper = await loadSharedGripper();
+    if (generation !== robotLoadGeneration) {
+      disposeRobotArm(candidate);
+      candidate = null;
+      return false;
+    }
+    if (gripper.parent) gripper.parent.remove(gripper);
+    if (previous) robotRoot.remove(previous);
+    robotRoot.add(candidate.group);
+    candidate.jointRotators.at(-1).add(gripper);
+    if (previous) disposeRobotArm({ group: previous });
+    activeRobotGroup = candidate.group;
+    jointRotators = candidate.jointRotators;
+    modelMaterials = candidate.modelMaterials;
+    jointMaterials = candidate.jointMaterials;
+    state.robotProfileId = profile.id;
+    state.modelReady = true;
+    state.robotLoading = false;
+    localStorage.setItem(ROBOT_PROFILE_STORAGE_KEY, profile.id);
+    syncRobotProfileUi(profile);
+    setJointVisualization($("controlTab")?.classList.contains("active"));
+    $("loadingCard")?.classList.add("hidden");
+    setStatus(readyStatus(profile), "ready");
+    updateVisuals();
+    renderState();
+    return true;
+  } catch (error) {
+    if (candidate) disposeRobotArm(candidate);
+    if (generation !== robotLoadGeneration) return false;
+    state.robotLoading = false;
+    state.modelReady = Boolean(previous);
+    syncRobotProfileUi();
     if ($("loadingCard"))
-      $("loadingCard").innerHTML =
-        "<span>Không tải được mesh. Hãy chạy bằng web server local.</span>";
+      $("loadingCard").innerHTML = "<span>Unable to load the selected model. Check the local web server.</span>";
     setStatus("MODEL LOAD ERROR", "error");
-    if ($("modelStatus"))
-      $("modelStatus").textContent = "Không tải được asset 3D";
     log(`Model load error: ${error.message}`);
+    renderState();
+    return false;
+  }
+}
+
+async function loadModel() {
+  initScene();
+  state.robotLoading = true;
+  renderState();
+  await loadCalibratedPoints();
+  const loaded = await switchRobotProfile("fr3", { initial: true });
+  if (!loaded) return;
+  const stored = localStorage.getItem(ROBOT_PROFILE_STORAGE_KEY);
+  if (stored === "fr5") {
+    const restored = await switchRobotProfile("fr5");
+    if (!restored) {
+      localStorage.setItem(ROBOT_PROFILE_STORAGE_KEY, "fr3");
+      state.robotProfileId = "fr3";
+      syncRobotProfileUi();
+      setStatus("FR5 model unavailable · FR3 remains active", "error");
+    }
   }
 }
 
@@ -1980,10 +2166,10 @@ function setHomeCameraView(index) {
   controls.update();
   const button = $("changeViewBtn");
   if (button) {
-    button.title = `Góc nhìn ${view.name} (${cameraViewIndex + 1}/4)`;
+    button.title = `View ${view.name} (${cameraViewIndex + 1}/4)`;
     button.setAttribute(
       "aria-label",
-      `Change view. Góc hiện tại: ${view.name}, ${cameraViewIndex + 1} trên 4`,
+      `Change view. Current view: ${view.name}, ${cameraViewIndex + 1} of 4`,
     );
   }
 }
@@ -2023,8 +2209,7 @@ function startTechCamp() {
 
 function calibratedPointFor(position) {
   const name = String(position).toUpperCase();
-  const pointName = name === "HOMECHESS" ? "HOME" : name;
-  return pointRecord(pointName);
+  return pointRecord(name === "HOMECHESS" ? "HOME" : name);
 }
 
 async function techCampMove(point, speed) {
@@ -2049,15 +2234,16 @@ const techcampSim = {
   carriedBlock: null,
   async move_to(position) {
     startTechCamp();
-    const pos = String(position).toUpperCase();
-    if (!["P1", "P2", "P3", "P4", "P5", "P6", "P7", "HOMECHESS"].includes(pos))
+    const raw = String(position).toUpperCase();
+    const pos = raw === "HOMECHESS" ? "HOME" : raw;
+    if (!["P1", "P2", "P3", "P4", "P5", "P6", "P7", "HOME"].includes(pos))
       throw new TechCampError(
-        `Invalid position '${position}'. Valid: P1…P7, HOMECHESS`,
+        `Invalid position '${position}'. Valid: P1…P7, HOME`,
       );
     if (this.low) await this.move_up();
     if (this.position === pos) return true;
     const point = calibratedPointFor(
-      pos === "HOMECHESS" ? "HOMECHESS" : `${pos}UP`,
+      pos === "HOME" ? "HOME" : `${pos}UP`,
     );
     if (!point)
       throw new TechCampError(`Missing calibrated point for ${pos}UP`);
@@ -2073,7 +2259,7 @@ const techcampSim = {
   },
   async move_down() {
     startTechCamp();
-    if (!this.position || this.position === "HOMECHESS")
+    if (!this.position || this.position === "HOME")
       throw new TechCampError(
         "move_down() requires move_to('P1'..'P7') first.",
       );
@@ -2091,8 +2277,8 @@ const techcampSim = {
   },
   async move_up() {
     startTechCamp();
-    if (!this.position || this.position === "HOMECHESS") {
-      await this.move_to("HOMECHESS");
+    if (!this.position || this.position === "HOME") {
+      await this.move_to("HOME");
       return true;
     }
     if (!this.low) return true;
@@ -2304,6 +2490,7 @@ const TECHCAMP_STUDENT_POINTS = new Set([
   "P5",
   "P6",
   "P7",
+  "HOME",
   "HOMECHESS",
 ]);
 const TECHCAMP_EMPTY_METHODS = new Set([
@@ -2352,12 +2539,12 @@ function findPythonSyntaxIssue(line) {
     if (char === "(" || char === "[" || char === "{") stack.push(char);
     else if (pairs[char]) {
       if (stack.at(-1) !== pairs[char])
-        return `Dấu '${char}' không có dấu mở tương ứng.`;
+        return `Character '${char}' has no matching opening quote.`;
       stack.pop();
     }
   }
-  if (quote) return "Chuỗi ký tự chưa đóng dấu nháy.";
-  if (stack.length) return `Thiếu dấu đóng cho '${stack.at(-1)}'.`;
+  if (quote) return "Unterminated string literal.";
+  if (stack.length) return `Missing closing delimiter for '${stack.at(-1)}'.`;
   return null;
 }
 
@@ -2389,15 +2576,15 @@ function renderCodeValidation(validation) {
   badge.classList.toggle("is-valid", errors.length === 0);
   badge.classList.toggle("has-errors", errors.length > 0);
   summary.textContent = errors.length
-    ? `${errors.length} lỗi cần sửa`
-    : "Code hợp lệ";
+    ? `${errors.length} error(s) to fix`
+    : "Code is valid";
   list.replaceChildren();
   list.hidden = errors.length === 0;
   for (const error of errors) {
     const item = document.createElement("button");
     item.type = "button";
     item.className = "code-error-item";
-    item.textContent = `Dòng ${error.line}: ${error.message}`;
+    item.textContent = `Line ${error.line}: ${error.message}`;
     item.addEventListener("click", () => focusProgramLine(error.line));
     list.append(item);
   }
@@ -2429,7 +2616,7 @@ function validateStudentProgram(source) {
 
   for (const [index, raw] of source.split(/\r?\n/).entries()) {
     const lineNumber = index + 1;
-    if (/\t/.test(raw)) addError(lineNumber, "Dùng dấu cách để thụt lề, không dùng Tab.");
+    if (/\t/.test(raw)) addError(lineNumber, "Use spaces for indentation; tabs are not allowed.");
     const uncommented = stripPythonComment(raw);
     const trimmed = uncommented.trim();
     if (!trimmed) continue;
@@ -2437,15 +2624,15 @@ function validateStudentProgram(source) {
     const syntaxIssue = findPythonSyntaxIssue(uncommented);
     if (syntaxIssue) addError(lineNumber, syntaxIssue);
     if (codeOnly.includes(";"))
-      addError(lineNumber, "Mỗi dòng chỉ được có một lệnh; không dùng dấu chấm phẩy (;).");
+      addError(lineNumber, "Use one statement per line; semicolons are not allowed.");
     if (/\/\//.test(codeOnly))
-      addError(lineNumber, "Python dùng # để ghi chú, không dùng //.");
+      addError(lineNumber, "Python comments use #, not //.");
 
     const indent = uncommented.match(/^ */)[0].length;
     while (indent < indentation.at(-1)) indentation.pop();
     if (indent !== indentation.at(-1)) {
       if (indent > indentation.at(-1) && previousOpenedBlock) indentation.push(indent);
-      else addError(lineNumber, "Thụt lề không đúng: chỉ thụt lề ngay sau dòng kết thúc bằng dấu :.");
+      else addError(lineNumber, "Invalid indentation: indent only after a line ending with :.");
     }
 
     const unsupportedKeyword = codeOnly.match(
@@ -2454,7 +2641,7 @@ function validateStudentProgram(source) {
     if (unsupportedKeyword) {
       addError(
         lineNumber,
-        `'${unsupportedKeyword[1]}' chưa được dùng trong bài học này. Chỉ gọi các hàm TechCamp có sẵn.`,
+          `'${unsupportedKeyword[1]}' is not available in this lesson. Use the TechCamp API only.`,
       );
       previousOpenedBlock = trimmed.endsWith(":");
       continue;
@@ -2468,7 +2655,7 @@ function validateStudentProgram(source) {
       } else {
         addError(
           lineNumber,
-          "Chỉ được import TechCamp: from techcamp_api import TechCamp",
+          "Only import TechCamp: from techcamp_api import TechCamp",
         );
       }
       previousOpenedBlock = false;
@@ -2478,11 +2665,11 @@ function validateStudentProgram(source) {
     if (/^with\b/.test(trimmed)) {
       if (/^with\s+TechCamp\(\)\s+as\s+bot:$/.test(trimmed)) {
         if (!importedTechCamp)
-          addError(lineNumber, "Thiếu dòng import TechCamp ở đầu chương trình.");
+          addError(lineNumber, "Add the TechCamp import at the top of the program.");
         botCreated = true;
         knownPosition = false;
       } else {
-        addError(lineNumber, "Dùng đúng mẫu: with TechCamp() as bot:");
+        addError(lineNumber, "Use this exact form: with TechCamp() as bot:");
       }
       previousOpenedBlock = true;
       continue;
@@ -2491,19 +2678,19 @@ function validateStudentProgram(source) {
     if (/^if\b/.test(trimmed)) {
       const condition = trimmed.match(/^if\s+(\w+)\.get\(\s*["'](P[1-7])["']\s*\):$/);
       if (!condition)
-        addError(lineNumber, 'Chỉ hỗ trợ điều kiện: if blocks.get("P3"):');
+          addError(lineNumber, 'Supported condition: if blocks.get("P3"):');
       else if (!variables.has(condition[1]))
-        addError(lineNumber, `'${condition[1]}' chưa có dữ liệu. Hãy gọi blocks = bot.get_positions() trước.`);
+          addError(lineNumber, `'${condition[1]}' has no data. Call blocks = bot.get_positions() first.`);
       previousOpenedBlock = true;
       continue;
     }
 
     if (/^bot\s*=/.test(trimmed)) {
       if (!/^bot\s*=\s*TechCamp\(\)$/.test(trimmed))
-        addError(lineNumber, "Dùng đúng mẫu khởi tạo: bot = TechCamp()");
+        addError(lineNumber, "Use this exact initialization: bot = TechCamp()");
       else {
         if (!importedTechCamp)
-          addError(lineNumber, "Thiếu dòng import TechCamp ở đầu chương trình.");
+          addError(lineNumber, "Add the TechCamp import at the top of the program.");
         botCreated = true;
         knownPosition = false;
       }
@@ -2513,13 +2700,13 @@ function validateStudentProgram(source) {
 
     const readAssignment = trimmed.match(/^(\w+)\s*=\s*bot\.(get_positions|get_image)\(\s*\)$/);
     if (readAssignment) {
-      if (!botCreated) addError(lineNumber, "Hãy tạo bot = TechCamp() trước khi gọi hàm.");
+      if (!botCreated) addError(lineNumber, "Create bot = TechCamp() before calling methods.");
       variables.add(readAssignment[1]);
       previousOpenedBlock = false;
       continue;
     }
     if (/^\w+\s*=\s*bot\./.test(trimmed)) {
-      addError(lineNumber, "Chỉ có thể gán kết quả từ bot.get_positions() hoặc bot.get_image().");
+      addError(lineNumber, "Only assign results from bot.get_positions() or bot.get_image().");
       previousOpenedBlock = false;
       continue;
     }
@@ -2527,32 +2714,32 @@ function validateStudentProgram(source) {
     const botCall = trimmed.match(/^bot\.(\w+)\((.*)\)$/);
     if (botCall) {
       const [, method, argument] = botCall;
-      if (!botCreated) addError(lineNumber, "Hãy tạo bot = TechCamp() trước khi gọi hàm.");
+      if (!botCreated) addError(lineNumber, "Create bot = TechCamp() before calling methods.");
       if (method === "move_to") {
         const point = quotedArgument(argument);
-        if (!point) addError(lineNumber, 'move_to() cần một tên điểm có nháy, ví dụ move_to("P3").');
+        if (!point) addError(lineNumber, 'move_to() needs a quoted point, for example move_to("P3").');
         else if (!TECHCAMP_STUDENT_POINTS.has(point.toUpperCase()))
-          addError(lineNumber, `Điểm '${point}' không có. Chỉ dùng P1 đến P7 hoặc HOMECHESS.`);
+          addError(lineNumber, `Point '${point}' is invalid. Use P1 to P7 or HOME.`);
         else {
-          knownPosition = point.toUpperCase() !== "HOMECHESS";
+          knownPosition = !["HOME", "HOMECHESS"].includes(point.toUpperCase());
           hasRobotCommand = true;
         }
       } else if (TECHCAMP_EMPTY_METHODS.has(method)) {
-        if (argument.trim()) addError(lineNumber, `${method}() không nhận tham số.`);
+        if (argument.trim()) addError(lineNumber, `${method}() does not accept arguments.`);
         if (method === "move_down" && !knownPosition)
-          addError(lineNumber, "move_down() cần có move_to(\"P1\" đến \"P7\") trước đó.");
+          addError(lineNumber, "move_down() requires move_to(\"P1\" through \"P7\") first.");
         hasRobotCommand = true;
       } else if (TECHCAMP_READ_METHODS.has(method)) {
-        addError(lineNumber, `Hãy lưu kết quả: data = bot.${method}().`);
+        addError(lineNumber, `Store the result: data = bot.${method}().`);
       } else {
-        addError(lineNumber, `bot.${method}() không nằm trong TechCamp API của bài học.`);
+        addError(lineNumber, `bot.${method}() is not part of the TechCamp lesson API.`);
       }
       previousOpenedBlock = false;
       continue;
     }
 
     if (/^bot\./.test(trimmed)) {
-      addError(lineNumber, "Cú pháp gọi hàm chưa đúng; cần đủ dấu ngoặc ().");
+      addError(lineNumber, "Invalid method call syntax; include parentheses ().");
       previousOpenedBlock = false;
       continue;
     }
@@ -2563,17 +2750,17 @@ function validateStudentProgram(source) {
     }
 
     if (/^TechCamp\(/.test(trimmed))
-      addError(lineNumber, "Gán đối tượng robot vào biến bot: bot = TechCamp().");
+      addError(lineNumber, "Assign the robot object: bot = TechCamp().");
     else
-      addError(lineNumber, "Không nhận diện được câu lệnh. Chỉ dùng các hàm TechCamp trong bài học.");
+      addError(lineNumber, "Command not recognized. Use the TechCamp lesson methods only.");
     previousOpenedBlock = trimmed.endsWith(":");
   }
 
   if (!importedTechCamp && source.trim())
-    addError(1, "Thiếu: from techcamp_api import TechCamp");
-  if (!botCreated && source.trim()) addError(1, "Thiếu: bot = TechCamp()");
+    addError(1, "Missing: from techcamp_api import TechCamp");
+  if (!botCreated && source.trim()) addError(1, "Missing: bot = TechCamp()");
   if (!hasRobotCommand && botCreated)
-    addError(1, "Chưa có lệnh điều khiển robot (move_to, move_down, move_up, grip hoặc release).");
+    addError(1, "Add a robot command (move_to, move_down, move_up, grip, or release).");
   return { errors: errors.sort((a, b) => a.line - b.line) };
 }
 
@@ -2601,7 +2788,7 @@ async function runTechCampLine(trimmed, indent, context) {
   );
   if (positionMatch) {
     const position = quotedArgument(positionMatch[1]);
-    if (!position) throw new TechCampError('move_to() cần tên điểm dạng "P3"');
+    if (!position) throw new TechCampError('move_to() needs a point such as "P3"');
     await techcampSim.move_to(position);
     return true;
   }
@@ -2644,10 +2831,10 @@ function clearCodeValidation() {
 function showPythonError(error) {
   const line = Number(error?.line) || 1;
   const column = Number(error?.column);
-  const location = column ? "Dòng " + line + ", cột " + column : "Dòng " + line;
-  const message = error?.message || "Lỗi Python.";
+  const location = column ? "Line " + line + ", column " + column : "Line " + line;
+  const message = error?.message || "Python error.";
   renderCodeValidation({
-    errors: [{ line, message: (column ? "Cột " + column + ": " : "") + message }],
+    errors: [{ line, message: (column ? "Column " + column + ": " : "") + message }],
   });
   focusProgramLine(line);
   log(location + " · PythonError: " + message);
@@ -2673,7 +2860,7 @@ async function runPythonProgram(token) {
   if (token.cancelled) return;
   if (!response.ok || !payload?.ok) {
     showPythonError(payload?.error || {
-      message: "Không nhận được kết quả từ Python runner. Hãy khởi động lại serve.mjs.",
+      message: "No result from the Python runner. Restart serve.mjs.",
     });
     return;
   }
@@ -2710,7 +2897,7 @@ async function runProgram() {
   } catch (error) {
     if (!token.cancelled)
       showPythonError({
-        message: error?.message || "Không kết nối được Python runner. Hãy khởi động lại serve.mjs.",
+      message: error?.message || "Could not connect to the Python runner. Restart serve.mjs.",
       });
   } finally {
     if (state.programRun === token) {
@@ -2732,11 +2919,19 @@ function bindUI() {
   renderTargetInputs();
   renderState();
   renderSafeZone();
+  $("robotProfileSelect")?.addEventListener("change", async (event) => {
+    const requested = getRobotProfile(event.target.value).id;
+    if (state.running || state.programRun || state.live || gripperVisual.animation) {
+      syncRobotProfileUi();
+      return;
+    }
+    await switchRobotProfile(requested);
+  });
   $("enableBtn").addEventListener("click", () => {
     state.enabled = !state.enabled;
     renderState();
     setStatus(
-      state.enabled ? "SIM ENABLED · API RPC" : "SIMULATOR READY · FR3 V6",
+      state.enabled ? "SIMULATOR ENABLED · API RPC" : readyStatus(),
       state.enabled ? "ready" : "",
     );
     log(state.enabled ? "Enable() -> 0" : "Disable() -> 0");
@@ -2744,13 +2939,11 @@ function bindUI() {
   $("homeBtn").addEventListener("click", async () => {
     const selection = homePointRecord();
     if (!selection.point) {
-      log("Home -> -2 (HOMELESS/HOME chưa có trong points.json)");
+      log("Home -> -2 (HOME point is missing from points.json)");
       return;
     }
     const result = await api.MoveJ(selection.point.joints);
-    log(
-      `Home -> ${result} · ${selection.name}${selection.fallback ? " (fallback from HOMELESS)" : ""}`,
-    );
+    log(`Home -> ${result} · ${selection.name}`);
   });
   $("stopBtn").addEventListener("click", () => api.StopMotion());
   $("modeBtn").addEventListener("click", () =>
@@ -2772,31 +2965,11 @@ function bindUI() {
     setCameraZoomPopover(cameraZoomPopover?.hidden),
   );
   cameraZoomRange?.addEventListener("input", () => setCameraZoom(cameraZoomRange.value));
-  const speedButton = $("speedBtn");
-  const speedPopover = $("speedPopover");
-  const speedRange = $("speedRange");
-  const setSpeedPopover = (open) => {
-    if (!speedButton || !speedPopover) return;
-    speedPopover.hidden = !open;
-    speedButton.setAttribute("aria-expanded", String(open));
-  };
-  speedButton?.addEventListener("click", () =>
-    setSpeedPopover(speedPopover?.hidden),
-  );
-  speedRange?.addEventListener("input", () => {
-    state.speed = clamp(Number(speedRange.value) || 25, 5, 100);
-    renderState();
-  });
-  speedRange?.addEventListener("change", () => {
-    api.SetSpeed(speedRange.value);
-  });
   document.addEventListener("pointerdown", (event) => {
-    if (speedPopover && !speedPopover.hidden && !event.target.closest(".speed-control")) setSpeedPopover(false);
     if (cameraZoomPopover && !cameraZoomPopover.hidden && !event.target.closest(".camera-control")) setCameraZoomPopover(false);
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      setSpeedPopover(false);
       setCameraZoomPopover(false);
     }
   });
