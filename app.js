@@ -714,13 +714,9 @@ function gripperJawPose(jointsDeg) {
 }
 
 function workpiecePose(point) {
-  if (
-    Array.isArray(point?.cart) &&
-    point.cart.length >= 3 &&
-    point.cart.slice(0, 3).every((value) => Number.isFinite(Number(value)))
-  ) {
-    return point.cart.map(Number);
-  }
+  // Keep scene blocks in the same FK frame as the rendered gripper. The
+  // calibrated cart field is controller/world-frame data and is only used
+  // for readouts; mixing it here offsets blocks from the visual tool center.
   return gripperJawPose(point.joints);
 }
 
