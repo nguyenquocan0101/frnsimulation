@@ -223,7 +223,7 @@ if __name__ == "__main__":
             <h2 id="viewport-title">Simulation</h2>
             <div class="simulation-actions" id="robotProfileControl">
               <label class="robot-profile-label" for="robotProfileSelect">Model</label>
-              <select id="robotProfileSelect" class="robot-profile-select" aria-describedby="fr5CalibrationNotice">
+              <select id="robotProfileSelect" class="robot-profile-select">
                 <option value="fr3">FAIRINO FR3</option>
                 <option value="fr5">FAIRINO FR5</option>
               </select>
@@ -232,12 +232,6 @@ if __name__ == "__main__":
               <span id="liveState" class="live-state" aria-live="polite">OFFLINE</span>
               <span id="robotProfileStatus" class="sr-only" aria-live="polite"></span>
             </div>
-          </div>
-          <div id="fr5CalibrationNotice" class="calibration-notice" role="note" hidden>
-            FR5 display mode only: TCP, IK, and calibrated points are provisional and not FR5-calibrated.
-          </div>
-          <div class="live-telemetry-note" aria-live="polite">
-            <span>Controller safety</span><strong id="controllerSafety">No current transport data</strong>
           </div>
           <div class="viewport-wrap" id="viewportWrap">
             <div

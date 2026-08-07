@@ -168,7 +168,6 @@ const state = {
   livePacketReceivedAt: 0,
   liveStaleTimer: null,
   liveTcpPose: null,
-  controllerSafety: null,
   sceneObjectsVisible: true,
   safeZone: {
     enabled: true,
@@ -1313,25 +1312,6 @@ function blockUnsafeMotion(safety) {
   log(`COLLISION BLOCKED · ${reason}`);
 }
 
-function controllerSafetyText() {
-  const safety = state.controllerSafety;
-  if (
-    !safety ||
-    Object.values(safety).every(
-      (value) => value === null || value === undefined,
-    )
-  )
-    return state.live ? "Safety unavailable · 8083 payload" : "No current transport data";
-  const alarms = [];
-  if (safety.safety_plane_alarm === 1) alarms.push("Safety Wall");
-  if (safety.interference_alarm === 1) alarms.push("Interference Zone");
-  if (safety.collision_state === 1) alarms.push("Collision");
-  if (safety.emergency_stop === 1) alarms.push("E-Stop");
-  if (safety.safety_stop0 === 1 || safety.safety_stop1 === 1)
-    alarms.push("Safety Stop");
-  return alarms.length ? `ALARM · ${alarms.join(" · ")}` : "SDK flags normal";
-}
-
 function updateSafeZoneVisual() {
   if (!safeZoneGroup) return;
   const { bounds } = state.safeZone;
@@ -1395,12 +1375,6 @@ function renderSafeZone() {
     toggle.setAttribute("aria-pressed", String(state.safeZone.enabled));
     toggle.classList.toggle("primary", state.safeZone.enabled);
     toggle.classList.toggle("quiet", !state.safeZone.enabled);
-  }
-  if ($("controllerSafety")) {
-    $("controllerSafety").textContent = controllerSafetyText();
-    $("controllerSafety").className = controllerSafetyText().startsWith("ALARM")
-      ? "alarm"
-      : "";
   }
   updateSafeZoneVisual();
 }
@@ -1715,7 +1689,6 @@ function applyLiveState(payload) {
   state.lastLiveAt = Number.isFinite(Number(payload.timestamp))
     ? Number(payload.timestamp)
     : Date.now() / 1000;
-  state.controllerSafety = payload.controller_safety || null;
   state.liveTcpPose = tcp;
   const now = performance.now();
   const targetChanged =
@@ -1762,7 +1735,6 @@ function disconnectLive() {
   state.liveAnimationStart = 0;
   state.livePacketReceivedAt = 0;
   state.liveTcpPose = null;
-  state.controllerSafety = null;
   if (state.liveStaleTimer) {
     clearInterval(state.liveStaleTimer);
     state.liveStaleTimer = null;
@@ -1885,7 +1857,6 @@ function connectLive() {
     state.liveAnimationStart = 0;
     state.livePacketReceivedAt = 0;
     state.liveTcpPose = null;
-    state.controllerSafety = null;
     if (state.liveStaleTimer) {
       clearInterval(state.liveStaleTimer);
       state.liveStaleTimer = null;
@@ -2195,8 +2166,6 @@ function syncRobotProfileUi(profile = getRobotProfile(state.robotProfileId)) {
     modelStatus.textContent = `${profile.label} visual model loaded · TechCamp points remain FR3-calibrated`;
   if (modelStatus)
     modelStatus.title = `${profile.label} visual model loaded · TechCamp points remain FR3-calibrated`;
-  const notice = $("fr5CalibrationNotice");
-  if (notice) notice.hidden = !profile.provisional;
   const viewport = $("viewport");
   if (viewport)
     viewport.setAttribute(
