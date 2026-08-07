@@ -786,8 +786,9 @@ function makeFrontBoardLabel(text, color = "#dcecff") {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.flipY = false;
   texture.wrapS = THREE.RepeatWrapping;
-  texture.repeat.x = -1;
-  texture.offset.x = 1;
+  const mirroredTeachingView = cameraViewIndex === 0;
+  texture.repeat.x = mirroredTeachingView ? 1 : -1;
+  texture.offset.x = mirroredTeachingView ? 0 : 1;
   texture.needsUpdate = true;
   const label = new THREE.Mesh(
     new THREE.PlaneGeometry(0.07, 0.032),
@@ -796,9 +797,11 @@ function makeFrontBoardLabel(text, color = "#dcecff") {
       transparent: true,
       depthTest: false,
       depthWrite: false,
-      side: THREE.FrontSide,
+      // The teaching camera can be viewed from either side of the board.
+      side: THREE.DoubleSide,
     }),
   );
+  label.userData.boardLabelTexture = texture;
   label.renderOrder = 3;
   // Plane faces the table's front (local +Y), which is the Home-camera side.
   label.rotation.x = -Math.PI / 2;
@@ -850,6 +853,17 @@ function applyCheckpointTokenPlacement(from, to, carried = true) {
   updateCheckpointTokenVisual();
   log(`Checkpoint token ${from} -> ${to} · ${result.token.progress}`);
   return true;
+}
+
+function syncBoardLabelMirroring() {
+  const mirroredTeachingView = cameraViewIndex === 0;
+  boardGroup?.traverse((object) => {
+    const texture = object.userData?.boardLabelTexture;
+    if (!texture) return;
+    texture.repeat.x = mirroredTeachingView ? 1 : -1;
+    texture.offset.x = mirroredTeachingView ? 0 : 1;
+    texture.needsUpdate = true;
+  });
 }
 
 function objectClassTexture(objectClass) {
@@ -2052,12 +2066,14 @@ function initScene() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   $("viewport").appendChild(renderer.domElement);
+  renderer.domElement.style.transformOrigin = "center center";
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.target.set(0, 0.5, 0);
   controls.minDistance = 0.35;
   controls.maxDistance = 4;
+  setHomeCameraView(0);
   const hemi = new THREE.HemisphereLight(0xdcecff, 0x1d2e3d, 2.1);
   scene.add(hemi);
   const key = new THREE.DirectionalLight(0xffffff, 3.2);
@@ -2452,6 +2468,12 @@ function setHomeCameraView(index) {
     .lerp(new THREE.Vector3(...view.position), frameScale);
   controls.target.set(...HOME_CAMERA_TARGET);
   controls.update();
+  const mirroredTeachingView = cameraViewIndex === 0;
+  if (renderer?.domElement) {
+    renderer.domElement.style.transform = mirroredTeachingView ? "scaleX(-1)" : "";
+  }
+  controls.rotateSpeed = mirroredTeachingView ? -1 : 1;
+  syncBoardLabelMirroring();
   const button = $("changeViewBtn");
   if (button) {
     button.title = `View ${view.name} (${cameraViewIndex + 1}/4)`;
