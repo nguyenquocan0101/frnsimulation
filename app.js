@@ -1002,7 +1002,10 @@ function buildBlockBoard() {
       board.position.z,
     );
     boardGroup.add(frontLabel);
+  });
+  SORTABLE_BLOCK_NAMES.forEach((name) => {
     const objectClass = objectClassForBlock(name);
+    if (!objectClass) return;
     const blockGroup = new THREE.Group();
     blockGroup.name = `block-${name}`;
     const body = new THREE.Mesh(
