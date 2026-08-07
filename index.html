@@ -113,6 +113,15 @@
                       +
                     </button>
                   </div>
+                  <button
+                    class="button quiet editor-download-button"
+                    id="downloadProgramBtn"
+                    type="button"
+                    aria-label="Download Python file"
+                    title="Download Python file"
+                  >
+                    Download .py
+                  </button>
                   <button class="button primary editor-run-button" id="runBtn">
                     <span class="button-symbol">▶</span> Run program
                   </button>
@@ -179,14 +188,6 @@ if __name__ == "__main__":
                     <strong>Joint jog</strong>
                   </div>
                   <div class="joints" id="jointControls"></div>
-                  <div
-                    class="joint-color-legend"
-                    id="jointColorLegend"
-                    aria-label="Joint color legend"
-                  ></div>
-                  <div class="toolbar">
-                    <button class="button" id="applyBtn">Apply target</button>
-                  </div>
                 </div>
                 <div>
                   <div class="subheading">
@@ -198,9 +199,10 @@ if __name__ == "__main__":
                     <strong>MoveL target</strong>
                   </div>
                   <div class="pose-grid target-grid" id="targetPose"></div>
-                  <button class="button primary full" id="moveLBtn">
-                    MoveL to target
-                  </button>
+                </div>
+                <div class="control-actions" role="group" aria-label="Manual motion commands">
+                  <button class="button primary" id="applyBtn">Apply target</button>
+                  <button class="button primary" id="moveLBtn">MoveL to target</button>
                 </div>
               </div>
             </div>
@@ -316,9 +318,6 @@ if __name__ == "__main__":
           ></pre>
         </section>
       </div>
-      <footer class="safety-note">
-        Simulator demo — never use it to control a real robot.
-      </footer>
     </div>
     <script type="module" src="./app.js"></script>
   </body>

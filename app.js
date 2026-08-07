@@ -3,6 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
+const PROGRAM_STORAGE_KEY = "techcamp-program-source";
 const GRIPPER_FILE = "Assieme_pinza_dita_parallele.stp";
 const GRIPPER_BASE = "./assets/fr3_v6/";
 // The STEP assembly is authored in millimetres; its mounting face is at the J6 tool flange.
@@ -277,6 +278,8 @@ function initCodeEditor() {
   const highlightCode = highlight?.querySelector("code");
   const lineNumbers = $("codeLineNumbers");
   if (!editor || !highlight || !highlightCode || !lineNumbers) return;
+  const storedSource = localStorage.getItem(PROGRAM_STORAGE_KEY);
+  if (storedSource !== null) editor.value = storedSource;
   const decrease = $("codeFontDecrease");
   const increase = $("codeFontIncrease");
   const storedSize = Number(localStorage.getItem("fr3-code-font-size"));
@@ -298,7 +301,12 @@ function initCodeEditor() {
     lineNumbers.scrollTop = editor.scrollTop;
     clearCodeValidation();
   };
-  editor.addEventListener("input", render);
+  const persistSource = () =>
+    localStorage.setItem(PROGRAM_STORAGE_KEY, editor.value);
+  editor.addEventListener("input", () => {
+    persistSource();
+    render();
+  });
   editor.addEventListener("scroll", () => {
     highlight.scrollTop = editor.scrollTop;
     highlight.scrollLeft = editor.scrollLeft;
@@ -310,6 +318,7 @@ function initCodeEditor() {
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
     editor.setRangeText("  ", start, end, "end");
+    persistSource();
     render();
   });
   decrease?.addEventListener("click", () => {
@@ -322,6 +331,49 @@ function initCodeEditor() {
   });
   applyFontSize();
   render();
+}
+
+function pythonFilename(value) {
+  const trimmed = String(value || "").trim() || "main.py";
+  return trimmed.toLowerCase().endsWith(".py") ? trimmed : `${trimmed}.py`;
+}
+
+async function downloadPythonProgram() {
+  const source = $("program")?.value ?? "";
+  const suggestedName = "main.py";
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [
+          {
+            description: "Python source file",
+            accept: { "text/x-python": [".py"] },
+          },
+        ],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(source);
+      await writable.close();
+      log(`Saved ${handle.name}`);
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+
+  const requestedName = window.prompt("File name", suggestedName);
+  if (requestedName === null) return;
+  const blob = new Blob([source], { type: "text/x-python;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = pythonFilename(requestedName);
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  log(`Downloaded ${anchor.download}`);
 }
 
 function initWorkspaceTabs() {
@@ -1468,10 +1520,6 @@ function renderJointControls() {
   $("jointControls").innerHTML = JOINT_NAMES.map(
     (name, i) =>
       `<div class="joint-row" style="--joint-color:${JOINT_COLORS[i].css}"><label for="joint-range-${i}"><span class="joint-color-dot" aria-hidden="true"></span>${name}</label><input id="joint-range-${i}" class="range" data-joint-range="${i}" type="range" min="${JOINT_LIMITS_DEG[i][0]}" max="${JOINT_LIMITS_DEG[i][1]}" step="0.1" value="${state.targetDeg[i]}" aria-label="${name} target"><input class="number" data-joint-number="${i}" type="number" min="${JOINT_LIMITS_DEG[i][0]}" max="${JOINT_LIMITS_DEG[i][1]}" step="0.1" value="${fmt(state.targetDeg[i])}" aria-label="${name} target in degrees"><span class="joint-limit">${JOINT_LIMITS_DEG[i][0]}° … ${JOINT_LIMITS_DEG[i][1]}°</span></div>`,
-  ).join("");
-  $("jointColorLegend").innerHTML = JOINT_NAMES.map(
-    (name, i) =>
-      `<span><i style="background:${JOINT_COLORS[i].css}" aria-hidden="true"></i>${name}</span>`,
   ).join("");
   document
     .querySelectorAll("[data-joint-range]")
@@ -2978,6 +3026,7 @@ function bindUI() {
     api.MoveL(state.lastTargetPose),
   );
   $("runBtn").addEventListener("click", runProgram);
+  $("downloadProgramBtn")?.addEventListener("click", downloadPythonProgram);
   $("clearLogBtn").addEventListener("click", () => {
     $("console").textContent = "";
   });
