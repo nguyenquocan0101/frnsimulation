@@ -987,7 +987,9 @@ function buildBlockBoard() {
     );
     cellEdge.position.copy(cell.position);
     boardGroup.add(cellEdge);
-    const frontLabelName = BLOCK_POSITIONS[BLOCK_POSITIONS.length - 1 - index];
+    // Keep the visible board label tied to the same calibrated point ID.
+    // Reversing this list makes a physical P1 look like P7 in the camera.
+    const frontLabelName = name;
     const frontLabel = makeFrontBoardLabel(
       frontLabelName,
       frontLabelName === "P1" ? "#f7b0a8" : "#dcecff",
