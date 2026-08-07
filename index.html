@@ -222,17 +222,22 @@ if __name__ == "__main__":
           <div class="simulation-header">
             <h2 id="viewport-title">Simulation</h2>
             <div class="simulation-actions" id="robotProfileControl">
-              <label class="robot-profile-label" for="robotProfileSelect">Robot model</label>
+              <label class="robot-profile-label" for="robotProfileSelect">Model</label>
               <select id="robotProfileSelect" class="robot-profile-select" aria-describedby="fr5CalibrationNotice">
                 <option value="fr3">FAIRINO FR3</option>
                 <option value="fr5">FAIRINO FR5</option>
               </select>
-              <span id="modelStatus" class="robot-model-status">Loading FAIRINO FR3…</span>
+              <span id="modelStatus" class="robot-model-status sr-only">Loading FAIRINO FR3…</span>
+              <button class="button quiet live-button" id="liveBtn" type="button" title="Connect to read-only FR5 telemetry">Connect</button>
+              <span id="liveState" class="live-state" aria-live="polite">OFFLINE</span>
               <span id="robotProfileStatus" class="sr-only" aria-live="polite"></span>
             </div>
           </div>
           <div id="fr5CalibrationNotice" class="calibration-notice" role="note" hidden>
             FR5 display mode only: TCP, IK, and calibrated points are provisional and not FR5-calibrated.
+          </div>
+          <div class="live-telemetry-note" aria-live="polite">
+            <span>Controller safety</span><strong id="controllerSafety">No current transport data</strong>
           </div>
           <div class="viewport-wrap" id="viewportWrap">
             <div
@@ -277,6 +282,15 @@ if __name__ == "__main__":
             >
               Change view</button
             ><button class="button quiet" id="homeViewBtn">Home camera</button>
+            <button
+              class="button quiet"
+              id="toggleSceneObjectsBtn"
+              type="button"
+              aria-pressed="false"
+              title="Hide or show the table and blocks"
+            >
+              Hide table &amp; blocks
+            </button>
             <div class="camera-control">
               <button
                 class="button quiet speed-button"

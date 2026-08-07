@@ -1,14 +1,13 @@
-# FR3 read-only telemetry bridge
+# FR5 read-only telemetry bridge
 
-Bridge này nối telemetry FAIRINO với simulator web. Mặc định nó đọc frame trạng
-thái TCP/8083 (`jt_cur_pos`, `tl_cur_pos`) rồi phát JSON qua WebSocket; không có
-endpoint nhận lệnh chuyển động.
+Bridge này nối telemetry FAIRINO FR5 với simulator web. Nó chỉ đọc frame trạng
+thái TCP/8083 rồi phát JSON qua WebSocket; không có endpoint nhận lệnh chuyển động.
 
 Bridge chỉ báo `connected: true` sau khi nhận được frame hợp lệ. Trang Web App
 tại `http://192.168.58.2` có thể mở được nhưng không cần đăng nhập để đọc cổng
 telemetry 8083.
 
-## Chạy trên máy đang cắm LAN với FR3
+## Chạy trên máy đang cắm LAN với FR5
 
 ```powershell
 cd W:\farino_fr3\07_web_simulator
@@ -38,5 +37,12 @@ Bridge này là mirror telemetry, không phải bộ điều khiển. Khi **Conn
 được bật, các nút motion của simulator bị khóa và dữ liệu chỉ đi một chiều:
 robot thật → TCP/8083 → bridge → mô hình 3D.
 
-Nếu cần dùng SDK/CNDE thay vì 8083, chạy `--transport sdk`. Chế độ `auto` thử
-8083 trước rồi mới dùng SDK.
+Bridge strict chỉ nhận `--transport 8083`; không có SDK/CNDE fallback vì các
+transport đó có thể mở kênh cấu hình realtime trên controller. Safety fields nằm
+ngoài payload 8083 hiện tại nên được phát dưới dạng `null`/Unavailable, không tự
+suy đoán.
+
+Payload đã kiểm chứng trên controller đang kết nối: `program_state` byte 0,
+`robot_state` byte 1, status byte 2, 6 joint doubles byte 3, 6 TCP doubles
+byte 51. Joint dùng độ; TCP dùng mm và độ. Error/safety fields không có trong
+stream này nên được phát dưới dạng `null`.

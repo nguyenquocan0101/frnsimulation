@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import { stabilizeJointTarget, validateLivePacket } from "./live_state.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -33,6 +34,10 @@ const JOINT_LIMITS_DEG = [
   [-175, 175],
   [-175, 175],
 ];
+// Controller telemetry may report calibrated/unwrapped values outside the
+// teaching slider ranges; keep a finite ±360° envelope for read-only packets.
+const LIVE_JOINT_LIMITS_DEG = JOINT_LIMITS_DEG.map(() => [-360, 360]);
+const LIVE_JOINT_DEADBAND_DEG = 0.02;
 const JOINT_LIMITS_RAD = JOINT_LIMITS_DEG.map(([lo, hi]) => [
   THREE.MathUtils.degToRad(lo),
   THREE.MathUtils.degToRad(hi),
@@ -161,7 +166,10 @@ const state = {
   liveAnimationStart: 0,
   liveAnimationDuration: 100,
   livePacketReceivedAt: 0,
+  liveStaleTimer: null,
+  liveTcpPose: null,
   controllerSafety: null,
+  sceneObjectsVisible: true,
   safeZone: {
     enabled: true,
     example: true,
@@ -821,12 +829,26 @@ function objectClassMaterials(objectClass) {
   );
 }
 
+function setSceneObjectsVisible(visible) {
+  state.sceneObjectsVisible = Boolean(visible);
+  if (boardGroup) boardGroup.visible = state.sceneObjectsVisible;
+  const button = $("toggleSceneObjectsBtn");
+  if (!button) return;
+  const hidden = !state.sceneObjectsVisible;
+  button.setAttribute("aria-pressed", String(hidden));
+  button.textContent = hidden ? "Show table & blocks" : "Hide table & blocks";
+  button.title = hidden
+    ? "Show the table and blocks"
+    : "Hide the table and blocks";
+}
+
 function buildBlockBoard() {
   if (!robotRoot || !BLOCK_POSITIONS.every((name) => pointRecord(name))) return;
   if (boardGroup) robotRoot.remove(boardGroup);
   blockMeshes.clear();
   boardGroup = new THREE.Group();
   boardGroup.name = "TechCampBlockBoard";
+  boardGroup.visible = state.sceneObjectsVisible;
   robotRoot.add(boardGroup);
   const workpiecePoses = BLOCK_POSITIONS.map((name) =>
     workpiecePose(pointRecord(name)),
@@ -1299,7 +1321,7 @@ function controllerSafetyText() {
       (value) => value === null || value === undefined,
     )
   )
-    return "No current transport data";
+    return state.live ? "Safety unavailable · 8083 payload" : "No current transport data";
   const alarms = [];
   if (safety.safety_plane_alarm === 1) alarms.push("Safety Wall");
   if (safety.interference_alarm === 1) alarms.push("Interference Zone");
@@ -1569,7 +1591,7 @@ function renderPoseGrid(containerId, values, editable = false) {
 }
 
 function renderTcp() {
-  const pose = currentPose();
+  const pose = state.live && state.liveTcpPose ? state.liveTcpPose : currentPose();
   if ($("tcpReadout").querySelectorAll("output").length !== 6)
     renderPoseGrid("tcpReadout", pose, false);
   $("tcpReadout")
@@ -1656,51 +1678,79 @@ function setLiveControlLock(locked) {
     "applyBtn",
     "moveLBtn",
     "runBtn",
+    "robotProfileSelect",
   ].forEach((id) => {
     if ($(id)) $(id).disabled = locked;
   });
+  document
+    .querySelectorAll("[data-joint-range], [data-joint-number], [data-target-pose]")
+    .forEach((input) => {
+      input.disabled = locked;
+    });
   if ($("liveBtn")) {
-    $("liveBtn").textContent = locked ? "Disconnect live" : "Connect live";
+    $("liveBtn").textContent = locked ? "Disconnect" : "Connect";
+    $("liveBtn").title = locked
+      ? "Disconnect read-only FR5 telemetry"
+      : "Connect to read-only FR5 telemetry";
   }
 }
 
 function applyLiveState(payload) {
-  if (!Array.isArray(payload.joints) || payload.joints.length < 6) return;
+  const validation = validateLivePacket(payload, LIVE_JOINT_LIMITS_DEG, "FR5");
+  if (!validation.ok) {
+    log(`Live packet rejected: ${validation.reason}`);
+    return false;
+  }
+  const { joints: rawTarget, tcp } = validation;
+  const nextTarget = stabilizeJointTarget(
+    rawTarget,
+    state.liveTargetDeg,
+    LIVE_JOINT_DEADBAND_DEG,
+  );
   if (state.running) {
     if (state.activeMotion) state.activeMotion.cancelled = true;
     state.running = false;
   }
   state.live = true;
-  state.lastLiveAt = payload.timestamp || Date.now() / 1000;
+  state.lastLiveAt = Number.isFinite(Number(payload.timestamp))
+    ? Number(payload.timestamp)
+    : Date.now() / 1000;
   state.controllerSafety = payload.controller_safety || null;
-  const nextTarget = payload.joints
-    .slice(0, 6)
-    .map((value, index) =>
-      clamp(Number(value) || 0, ...JOINT_LIMITS_DEG[index]),
-    );
+  state.liveTcpPose = tcp;
   const now = performance.now();
-  if (!state.liveTargetDeg) {
-    state.jointsDeg = [...nextTarget];
-    state.liveFromDeg = [...nextTarget];
-    updateVisuals();
-  } else {
-    state.liveFromDeg = [...state.jointsDeg];
-    state.liveAnimationStart = now;
-    state.liveAnimationDuration = clamp(
-      (state.livePacketReceivedAt ? now - state.livePacketReceivedAt : 100) *
-        0.95,
-      60,
-      160,
+  const targetChanged =
+    !state.liveTargetDeg ||
+    nextTarget.some(
+      (value, index) =>
+        Math.abs(value - state.liveTargetDeg[index]) >= LIVE_JOINT_DEADBAND_DEG,
     );
+  if (targetChanged) {
+    if (!state.liveTargetDeg) {
+      state.jointsDeg = [...nextTarget];
+      state.liveFromDeg = [...nextTarget];
+      updateVisuals();
+    } else {
+      state.liveFromDeg = [...state.jointsDeg];
+      state.liveAnimationStart = now;
+      state.liveAnimationDuration = clamp(
+        (state.livePacketReceivedAt ? now - state.livePacketReceivedAt : 100) *
+          0.95,
+        60,
+        160,
+      );
+    }
+    state.liveTargetDeg = nextTarget;
   }
-  state.liveTargetDeg = nextTarget;
   state.livePacketReceivedAt = now;
   state.targetDeg = [...nextTarget];
   syncDisplayedJointValues();
-  if ($("liveState"))
-    $("liveState").textContent =
-      `LIVE · ${new Date(state.lastLiveAt * 1000).toLocaleTimeString()}`;
+  if ($("liveState")) {
+    $("liveState").textContent = "LIVE";
+    $("liveState").title = `Last update ${new Date(state.lastLiveAt * 1000).toLocaleTimeString()}`;
+  }
+  renderTcp();
   renderSafeZone();
+  return true;
 }
 
 function disconnectLive() {
@@ -1711,15 +1761,24 @@ function disconnectLive() {
   state.liveTargetDeg = null;
   state.liveAnimationStart = 0;
   state.livePacketReceivedAt = 0;
+  state.liveTcpPose = null;
   state.controllerSafety = null;
+  if (state.liveStaleTimer) {
+    clearInterval(state.liveStaleTimer);
+    state.liveStaleTimer = null;
+  }
   if (socket) {
     socket.onclose = null;
     socket.close();
   }
   setLiveControlLock(false);
-  if ($("liveState")) $("liveState").textContent = "OFFLINE";
+  if ($("liveState")) {
+    $("liveState").textContent = "OFFLINE";
+    $("liveState").title = "Live telemetry is offline";
+  }
   setStatus(readyStatus(), state.modelReady ? "ready" : "");
   renderState();
+  renderTcp();
   log("Live monitor disconnected");
 }
 
@@ -1728,26 +1787,66 @@ function connectLive() {
     disconnectLive();
     return;
   }
+  if (state.robotProfileId !== "fr5") {
+    if ($("liveState")) {
+      $("liveState").textContent = "SELECT FR5 FIRST";
+      $("liveState").title = "Select FAIRINO FR5 before connecting";
+    }
+    setStatus("SELECT FAIRINO FR5 BEFORE LIVE", "error");
+    log("Live monitor requires the FAIRINO FR5 model");
+    return;
+  }
   const configured =
     new URLSearchParams(location.search).get("ws") || "ws://127.0.0.1:8765";
   let socket;
   try {
     socket = new WebSocket(configured);
   } catch (error) {
-    if ($("liveState")) $("liveState").textContent = "URL ERROR";
+    if ($("liveState")) {
+      $("liveState").textContent = "URL ERROR";
+      $("liveState").title = "The telemetry WebSocket URL is invalid";
+    }
     setStatus("LIVE URL ERROR", "error");
     log(`Live connect error: ${error.message}`);
     return;
   }
   state.liveSocket = socket;
-  if ($("liveState")) $("liveState").textContent = "CONNECTING…";
+  // Lock every motion/program control while the socket is CONNECTING as well
+  // as when it becomes LIVE.  Unlocking is handled only from onclose.
+  setLiveControlLock(true);
+  if ($("liveState")) {
+    $("liveState").textContent = "CONNECTING";
+    $("liveState").title = "Connecting to read-only FR5 telemetry";
+  }
   setStatus("CONNECTING FAIRINO TELEMETRY…");
   log(`Live monitor -> ${configured}`);
   socket.onopen = () => {
     state.live = true;
+    // Start the stale watchdog at connection time so a socket that never
+    // delivers a valid frame cannot leave the UI locked forever.
+    state.livePacketReceivedAt = performance.now();
     setLiveControlLock(true);
     setStatus("LIVE TELEMETRY · READ ONLY", "ready");
-    if ($("liveState")) $("liveState").textContent = "LIVE · waiting state";
+    if ($("liveState")) {
+      $("liveState").textContent = "LIVE";
+      $("liveState").title = "Waiting for FR5 telemetry";
+    }
+    if (state.liveStaleTimer) clearInterval(state.liveStaleTimer);
+    state.liveStaleTimer = setInterval(() => {
+      if (
+        state.live &&
+        state.livePacketReceivedAt &&
+        performance.now() - state.livePacketReceivedAt > 2000
+      ) {
+        if ($("liveState")) {
+          $("liveState").textContent = "STALE";
+          $("liveState").title = "No valid telemetry received for 2 seconds";
+        }
+        setStatus("LIVE TELEMETRY STALE", "error");
+        log("Live telemetry stale for 2 seconds; closing connection");
+        socket.close();
+      }
+    }, 250);
     renderState();
     log("Live WebSocket connected; motion controls locked");
   };
@@ -1756,11 +1855,13 @@ function connectLive() {
       const payload = JSON.parse(event.data);
       if (payload.type === "robot_state") applyLiveState(payload);
       else if (payload.type === "error") {
-        state.live = false;
-        if ($("liveState"))
-          $("liveState").textContent = `ERROR · ${payload.message}`;
+        if ($("liveState")) {
+          $("liveState").textContent = "ERROR";
+          $("liveState").title = payload.message || "Live telemetry error";
+        }
         setStatus("LIVE TELEMETRY ERROR", "error");
         log(`Live telemetry error: ${payload.message}`);
+        socket.close();
       }
     } catch (error) {
       log(`Live message error: ${error.message}`);
@@ -1768,8 +1869,12 @@ function connectLive() {
   };
   socket.onerror = () => {
     setStatus("LIVE TELEMETRY ERROR", "error");
-    if ($("liveState")) $("liveState").textContent = "ERROR";
+    if ($("liveState")) {
+      $("liveState").textContent = "ERROR";
+      $("liveState").title = "Live telemetry connection error";
+    }
     log("Live WebSocket error");
+    socket.close();
   };
   socket.onclose = () => {
     if (state.liveSocket !== socket) return;
@@ -1779,12 +1884,21 @@ function connectLive() {
     state.liveTargetDeg = null;
     state.liveAnimationStart = 0;
     state.livePacketReceivedAt = 0;
+    state.liveTcpPose = null;
     state.controllerSafety = null;
+    if (state.liveStaleTimer) {
+      clearInterval(state.liveStaleTimer);
+      state.liveStaleTimer = null;
+    }
     setLiveControlLock(false);
-    if ($("liveState")) $("liveState").textContent = "OFFLINE";
+    if ($("liveState")) {
+      $("liveState").textContent = "OFFLINE";
+      $("liveState").title = "Live telemetry is offline";
+    }
     setStatus("LIVE OFFLINE", "error");
     renderState();
     renderSafeZone();
+    renderTcp();
     log("Live WebSocket disconnected");
   };
 }
@@ -2079,6 +2193,8 @@ function syncRobotProfileUi(profile = getRobotProfile(state.robotProfileId)) {
   const modelStatus = $("modelStatus");
   if (modelStatus)
     modelStatus.textContent = `${profile.label} visual model loaded · TechCamp points remain FR3-calibrated`;
+  if (modelStatus)
+    modelStatus.title = `${profile.label} visual model loaded · TechCamp points remain FR3-calibrated`;
   const notice = $("fr5CalibrationNotice");
   if (notice) notice.hidden = !profile.provisional;
   const viewport = $("viewport");
@@ -2967,6 +3083,10 @@ function bindUI() {
   renderTargetInputs();
   renderState();
   renderSafeZone();
+  setSceneObjectsVisible(state.sceneObjectsVisible);
+  $("toggleSceneObjectsBtn")?.addEventListener("click", () => {
+    setSceneObjectsVisible(!state.sceneObjectsVisible);
+  });
   $("robotProfileSelect")?.addEventListener("change", async (event) => {
     const requested = getRobotProfile(event.target.value).id;
     if (state.running || state.programRun || state.live || gripperVisual.animation) {
@@ -3027,6 +3147,7 @@ function bindUI() {
   );
   $("runBtn").addEventListener("click", runProgram);
   $("downloadProgramBtn")?.addEventListener("click", downloadPythonProgram);
+  $("liveBtn")?.addEventListener("click", connectLive);
   $("clearLogBtn").addEventListener("click", () => {
     $("console").textContent = "";
   });
