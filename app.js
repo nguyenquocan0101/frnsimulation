@@ -875,8 +875,8 @@ function objectClassMaterials(objectClass) {
     { length: 6 },
     (_, faceIndex) => {
       // BoxGeometry material 2 is the local +Y face visible in Home camera.
-      const map = faceIndex === 2 ? texture.clone() : texture;
-      if (faceIndex === 2) {
+      const map = faceIndex === 2 && texture ? texture.clone() : texture;
+      if (faceIndex === 2 && map) {
         map.wrapT = THREE.RepeatWrapping;
         map.repeat.y = -1;
         map.offset.y = 1;
@@ -884,7 +884,7 @@ function objectClassMaterials(objectClass) {
       }
       return (
       new THREE.MeshStandardMaterial({
-        color: 0xffffff,
+        color: texture ? 0xffffff : 0x52677d,
         map,
         roughness: 0.52,
         metalness: 0.02,
