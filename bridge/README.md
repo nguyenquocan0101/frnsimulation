@@ -42,6 +42,7 @@ transport đó có thể mở kênh cấu hình realtime trên controller. Safet
 ngoài payload 8083 hiện tại nên được phát dưới dạng `null`/Unavailable, không tự
 suy đoán.
 
-Payload đã kiểm chứng: `program_state` byte 0, `robot_state` byte 1,
-`main_code` int32 byte 2, `sub_code` int32 byte 6, `robot_mode` byte 10,
-6 joint doubles byte 11, 6 TCP doubles byte 59. Joint dùng độ; TCP dùng mm và độ.
+Payload đã kiểm chứng trên controller đang kết nối: `program_state` byte 0,
+`robot_state` byte 1, status byte 2, 6 joint doubles byte 3, 6 TCP doubles
+byte 51. Joint dùng độ; TCP dùng mm và độ. Error/safety fields không có trong
+stream này nên được phát dưới dạng `null`.

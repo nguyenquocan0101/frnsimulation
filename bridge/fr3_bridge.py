@@ -26,7 +26,7 @@ DEFAULT_PORT = 8765
 FRAME_MAGIC = 0x5A5A
 FRAME_HEADER_SIZE = 5
 FRAME_CHECKSUM_SIZE = 2
-MIN_PAYLOAD_SIZE = 107
+MIN_PAYLOAD_SIZE = 99
 MAX_PAYLOAD_SIZE = 4096
 ROBOT_MODEL = "FR5"
 READ_TIMEOUT_SECONDS = 2.0
@@ -43,10 +43,10 @@ def configure_console() -> None:
 def parse_status_frame(frame: bytes) -> dict[str, Any]:
     """Parse one captured FAIRINO 8083 frame into the browser contract.
 
-    The payload layout is verified against the FR5 controller stream:
-    program_state B @ 0, robot_state B @ 1, main_code i32 @ 2,
-    sub_code i32 @ 6, robot_mode B @ 10, joints 6d @ 11, TCP 6d @ 59.
-    Safety fields are outside the 426-byte frame and remain unavailable.
+    The payload layout is verified against the reachable FR5 controller
+    stream and cross-checked with GetActualJointPosDegree/GetActualTCPPose:
+    program_state B @ 0, robot_state B @ 1, status B @ 2, joints 6d @ 3,
+    TCP 6d @ 51. Error/safety fields are not exposed by this stream.
     """
     if not isinstance(frame, (bytes, bytearray, memoryview)):
         raise ValueError("8083 frame must be bytes")
@@ -68,11 +68,9 @@ def parse_status_frame(frame: bytes) -> dict[str, Any]:
 
     program_state = payload[0]
     robot_state = payload[1]
-    main_code = struct.unpack_from("<i", payload, 2)[0]
-    sub_code = struct.unpack_from("<i", payload, 6)[0]
-    robot_mode = payload[10]
-    joints = list(struct.unpack_from("<6d", payload, 11))
-    tcp = list(struct.unpack_from("<6d", payload, 59))
+    robot_mode = payload[2]
+    joints = list(struct.unpack_from("<6d", payload, 3))
+    tcp = list(struct.unpack_from("<6d", payload, 51))
     values = joints + tcp
     if not all(math.isfinite(value) for value in values):
         raise ValueError("8083 frame contains non-finite telemetry")
@@ -88,8 +86,8 @@ def parse_status_frame(frame: bytes) -> dict[str, Any]:
         "robot_state": robot_state,
         "robot_mode": robot_mode,
         "program_state": program_state,
-        "main_code": main_code,
-        "sub_code": sub_code,
+        "main_code": None,
+        "sub_code": None,
         "controller_safety": None,
     }
 

@@ -17,30 +17,25 @@ Payload offsets are absolute within the payload (not the complete frame):
 | --- | --- | --- |
 | 0 | `program_state` | `uint8` |
 | 1 | `robot_state` | `uint8` |
-| 2–5 | `main_code` | little-endian signed `int32` |
-| 6–9 | `sub_code` | little-endian signed `int32` |
-| 10 | `robot_mode` | `uint8` |
-| 11–58 | six joints | six little-endian `double`, degrees, J1…J6 |
-| 59–106 | TCP pose | six little-endian `double`, X/Y/Z mm then RX/RY/RZ degrees |
-| 107–425 | reserved/unused | preserved but not interpreted |
+| 2 | status/mode byte | `uint8` |
+| 3–50 | six joints | six little-endian `double`, degrees, J1…J6 |
+| 51–98 | TCP pose | six little-endian `double`, X/Y/Z mm then RX/RY/RZ degrees |
+| 99–425 | reserved/unused | preserved but not interpreted |
 
-The parser must require at least 107 payload bytes, validate finite joint/TCP
-values, and expose safety fields as unavailable (`null`) because this captured
-payload does not contain a verified safety layout. Invalid frames are rejected
+The parser must require at least 99 payload bytes, validate finite joint/TCP
+values, and expose error/safety fields as unavailable (`null`) because this
+stream does not contain a verified error/safety layout. Invalid frames are rejected
 without terminating the stream reader; a following valid frame must remain
 readable.
 
 ## Fixture provenance
 
 `fixtures/status8083_valid.hex` is a deterministic synthetic fixture created
-for TDD because no raw FR5 controller capture was available at implementation
-time. It uses frame count 17, program/robot/mode values `(7, 1, 3)`, error codes
-`(-123, 456)`, and known joint/TCP vectors. It proves the byte offsets,
-checksum, and fragmentation tests only. It is **not** evidence of controller
-firmware compatibility.
+for TDD. It proves checksum and fragmentation handling only. A live capture
+from the reachable FR5 was cross-checked against the read-only XML-RPC
+`GetActualJointPosDegree` and `GetActualTCPPose` values; retain raw capture
+metadata before claiming firmware-wide compatibility.
 
-Before enabling live sync or claiming parser correctness, replace/add a
-byte-for-byte capture from the reachable FR5 controller and record model,
-firmware, timestamp, network direction/handshake, and an independently checked
-physical/SDK pose. Do not infer or shift offsets from a 433-byte synthetic
-frame, and do not decode unverified safety bytes.
+Record model, firmware, timestamp, network direction/handshake, and an
+independently checked physical/SDK pose for future firmware variants. Do not
+decode unverified safety bytes.
