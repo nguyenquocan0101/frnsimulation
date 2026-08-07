@@ -85,10 +85,50 @@
       "title": "Giữ nguyên safety và idempotency của simulator",
       "user_visible_behavior": "Đồng bộ API không làm mất các bảo vệ an toàn đang có trên web.",
       "verification_command": "Di chuyển ngang khi đang thấp vẫn tự nâng, lệnh lặp là no-op an toàn và move_down tại HOME bị từ chối.",
-      "status": "passing",
+      "status": "passing-unverified",
       "evidence": "Unit tests cover HOME-down rejection, low-travel auto-raise, and idempotent move/gripper calls.",
       "notes": "",
       "priority": "P1"
+    },
+    {
+      "id": "fr5-live-connect-readonly",
+      "title": "Kết nối telemetry FR5 read-only thủ công",
+      "user_visible_behavior": "Kỹ thuật viên bật Connect live để xem FR5 thật mà không vô tình gửi lệnh điều khiển.",
+      "verification_command": "Connect live hiển thị LIVE TELEMETRY · READ ONLY và khóa các điều khiển chuyển động khi WebSocket đang mở.",
+      "status": "passing",
+      "evidence": "Local mock WebSocket status=Ready; 10 bridge tests and frontend live-state tests pass; no command route.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "fr5-live-joint-sync",
+      "title": "Đồng bộ joint FR5 thật vào mô hình",
+      "user_visible_behavior": "Mô hình FR5 trong simulator chuyển động theo sáu góc joint của cánh tay thật.",
+      "verification_command": "30 frame 8083 hợp lệ liên tiếp cập nhật model và joint readout trong dưới 250 ms; client message không tạo robot command.",
+      "status": "passing-unverified",
+      "evidence": "Parser/bridge tests pass with six finite FR5 joints and mock telemetry packets.",
+      "notes": "Physical FR5 8083 capture and 30-frame pose cross-check are still pending; LAN endpoint currently refuses connections.",
+      "priority": "P1"
+    },
+    {
+      "id": "fr5-live-tcp-state",
+      "title": "Hiển thị TCP và trạng thái FR5 live",
+      "user_visible_behavior": "TCP/controller state được hiển thị theo telemetry, còn safety ngoài payload được báo unavailable rõ ràng.",
+      "verification_command": "robot_state có TCP sáu giá trị và controller fields; safety nullable/unavailable; mất telemetry chuyển OFFLINE/ERROR dưới 2 giây.",
+      "status": "passing-unverified",
+      "evidence": "Local mock verifies six TCP values and nullable safety; physical LAN smoke pending because 192.168.58.2 timed out.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "techcamp-readonly-state-facade",
+      "title": "Contract telemetry read-only cho TechCamp",
+      "user_visible_behavior": "TechCamp/FairinoFR5 có cùng shape trạng thái read-only để các API dùng chung contract.",
+      "verification_command": "Phương thức read-only trả joints, TCP, timestamp và safety nullable mà không gọi MoveJ, MoveCart, SetToolDO hay I/O.",
+      "status": "passing",
+      "evidence": "TechCamp read_state contract tests pass; only GetActualJointPosDegree/GetActualTCPPose are called.",
+      "notes": "",
+      "priority": "P2"
     }
   ]
 }

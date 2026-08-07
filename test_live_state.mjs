@@ -1,0 +1,59 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { isLiveStale, liveControlsLocked, validateLivePacket } from "./live_state.mjs";
+
+const limits = [
+  [-360, 360],
+  [-360, 360],
+  [-360, 360],
+  [-360, 360],
+  [-360, 360],
+  [-360, 360],
+];
+
+const packet = (overrides = {}) => ({
+  type: "robot_state",
+  robot_model: "FR5",
+  joints: [-105.1, 102.4, -118.3, -70.1, -22.6, 232.1],
+  tcp: [1089.1, 433.3, -142.9, 4.2, -0.98, 0],
+  ...overrides,
+});
+
+test("valid FR5 packet returns six joints and TCP values", () => {
+  const result = validateLivePacket(packet(), limits);
+  assert.equal(result.ok, true);
+  assert.equal(result.joints.length, 6);
+  assert.equal(result.tcp.length, 6);
+});
+
+test("wrong model, NaN, and out-of-range joints are rejected", () => {
+  assert.equal(validateLivePacket(packet({ robot_model: "FR3" }), limits).ok, false);
+  assert.equal(validateLivePacket(packet({ joints: [NaN, 0, 0, 0, 0, 0] }), limits).ok, false);
+  assert.equal(validateLivePacket(packet({ joints: [999, 0, 0, 0, 0, 0] }), limits).ok, false);
+});
+
+test("invalid TCP is rejected without coercion", () => {
+  assert.equal(validateLivePacket(packet({ tcp: [1, 2, Infinity, 4, 5, 6] }), limits).ok, false);
+  assert.equal(validateLivePacket(packet({ tcp: [1, 2, 3] }), limits).ok, false);
+});
+
+test("live lock covers connecting and open states", () => {
+  assert.equal(liveControlsLocked({ connecting: true }), true);
+  assert.equal(liveControlsLocked({ socketOpen: true }), true);
+  assert.equal(liveControlsLocked({}), false);
+});
+
+test("simulator exposes every motion control audited by live lock", () => {
+  const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+  for (const id of ["enableBtn", "homeBtn", "stopBtn", "modeBtn", "applyBtn", "moveLBtn", "runBtn", "robotProfileSelect", "liveBtn"]) {
+    assert.match(html, new RegExp(`id=["']${id}["']`));
+  }
+  assert.match(html, /id=["']downloadProgramBtn["']/);
+});
+
+test("stale detection uses local receipt time", () => {
+  assert.equal(isLiveStale(2501, 500), true);
+  assert.equal(isLiveStale(2400, 500), false);
+  assert.equal(isLiveStale(2501, Number.NaN), false);
+});
