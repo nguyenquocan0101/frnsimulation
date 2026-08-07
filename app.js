@@ -1669,6 +1669,10 @@ function renderState() {
   if (runButton) {
     runButton.classList.toggle("primary", !programRunning);
     runButton.classList.toggle("danger", programRunning);
+    // Do not allow a program to start while points/model are still loading.
+    // The initial points fetch resets the demo fixture to P1, so starting in
+    // that window can make a token appear to jump back during P1 -> P7.
+    runButton.disabled = Boolean(state.live || state.robotLoading || (!programRunning && !state.modelReady));
     runButton.innerHTML = programRunning
       ? '<span class="button-symbol">■</span> Stop program'
       : '<span class="button-symbol">▶</span> Run program';
@@ -2544,6 +2548,8 @@ const techcampSim = {
   carriedBlock: null,
   carriedToken: false,
   async move_to(position) {
+    if (state.robotLoading || !state.modelReady)
+      throw new TechCampError("Simulator is still loading its calibrated points.");
     startTechCamp();
     const raw = String(position).toUpperCase();
     const pos = raw === "HOMECHESS" ? "HOME" : raw;
@@ -3234,6 +3240,10 @@ async function runPythonProgram(token) {
 async function runProgram() {
   if (state.running || state.programRun) {
     await api.StopMotion();
+    return;
+  }
+  if (state.robotLoading || !state.modelReady) {
+    log("Run program -> simulator is still loading; please wait");
     return;
   }
   clearCodeValidation();
