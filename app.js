@@ -831,6 +831,11 @@ function objectClassMaterials(objectClass) {
 function setSceneObjectsVisible(visible) {
   state.sceneObjectsVisible = Boolean(visible);
   if (boardGroup) boardGroup.visible = state.sceneObjectsVisible;
+  const stateStrip = $("blockStateStrip");
+  if (stateStrip) {
+    stateStrip.hidden = !state.sceneObjectsVisible;
+    stateStrip.setAttribute("aria-hidden", String(!state.sceneObjectsVisible));
+  }
   if (!state.sceneObjectsVisible) {
     blockMeshes.forEach((mesh) => {
       mesh.visible = false;
