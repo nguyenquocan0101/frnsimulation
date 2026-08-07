@@ -4,9 +4,9 @@
       "id": "block-state-strip",
       "title": "Dải 7 ô hiển thị block màu theo vị trí",
       "user_visible_behavior": "Giáo viên thấy ngay block nào đang ở P1–P7 cạnh icon Home.",
-      "verification_command": "Dải có P1–P7 và đồng bộ với scene sau các thao tác lấy/đặt.",
+      "verification_command": "Dải có P1–P7, P1 hiển thị token cam, P2 hiển thị block P7, P7 trống và đồng bộ với scene sau các thao tác lấy/đặt.",
       "status": "passing",
-      "evidence": "Local browser: 7 slots rendered; P1-P6 have six colors and P7 is empty.",
+      "evidence": "Node slot-layout tests: 7 canonical slots rendered; P1 token, P2=P7 block, P3–P6 retained, P7 empty.",
       "notes": "",
       "priority": "P1"
     },
@@ -14,17 +14,17 @@
       "id": "block-slot-drag-drop",
       "title": "Kéo-thả để tạo hoán vị block",
       "user_visible_behavior": "Giáo viên đổi chỗ block để tạo bài sắp xếp.",
-      "verification_command": "Kéo-thả luôn bảo toàn sáu block và đúng một P7 trống.",
+      "verification_command": "Kéo-thả bảo toàn năm block sortable và đúng một P7 trống; token cam được xử lý riêng.",
       "status": "passing",
-      "evidence": "Local browser: P1↔P4 swap and P3→P7 transfer updated the compact strip and simulator state.",
+      "evidence": "Checkpoint/slot contract tests verify five-block sorting state and separate token handling.",
       "notes": "",
       "priority": "P1"
     },
     {
       "id": "buffer-sort-code-generator",
       "title": "Sinh code sắp xếp sử dụng P7 buffer",
-      "user_visible_behavior": "Học sinh có chương trình Python đưa sáu màu về P1–P6.",
-      "verification_command": "Mọi hoán vị sáu block được giải với P7 trống ở cuối.",
+      "user_visible_behavior": "Học sinh có chương trình Python sắp xếp năm block với P7 làm buffer.",
+      "verification_command": "Các thao tác Python vẫn dùng P1–P7 canonical, với P7 trống ở reset và token không xuất hiện trong payload.",
       "status": "passing",
       "evidence": "Python runner accepted 32 actions; local simulator replay returned P1-P6 to the sample order and P7 to empty.",
       "notes": "",
@@ -129,6 +129,36 @@
       "evidence": "TechCamp read_state contract tests pass; only GetActualJointPosDegree/GetActualTCPPose are called.",
       "notes": "",
       "priority": "P2"
+    },
+    {
+      "id": "orange-token-p1-checkpoint",
+      "title": "Khối cam xác nhận điểm bắt đầu tại P1",
+      "user_visible_behavior": "Học sinh thấy khối cam ở P1 thay cho block sortable cũ để bắt đầu quy trình xác nhận.",
+      "verification_command": "Reset hiển thị khối cam tại P1, đúng năm block sortable (các block đang ở P3–P6 giữ nguyên và block P7 ở ô P2), token cam khác biệt; không còn block tại P1 hoặc block P2.",
+      "status": "passing",
+      "evidence": "Node checkpoint/layout tests: 9 passed; reset fixture verified with orange token at P1 and five sortable blocks.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "p7-block-at-p2-layout",
+      "title": "Đưa block P7 sang ô P2 và để P7 trống",
+      "user_visible_behavior": "P2 chứa block có nhãn P7; P3–P6 giữ nguyên; ô P7 trống; block P2 cũ bị bỏ.",
+      "verification_command": "Reset kiểm tra P1 là token cam, P2 là block P7, P3–P6 không đổi, P7 không có block và không còn block P2.",
+      "status": "passing",
+      "evidence": "Node slot-layout tests: canonical P1–P7 slots, P7-labelled block at P2, P7 empty, and no semantic P2 block verified.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "orange-token-completion-flow",
+      "title": "Xác nhận hoàn thành bằng chu trình P1–P7–P1",
+      "user_visible_behavior": "Học sinh được sắp xếp tự do; simulator chỉ báo hoàn thành sau khi khối cam đi P1 → P7 → P1.",
+      "verification_command": "P1→P7 chuyển TOKEN AT P7; cùng token P7→P1 chuyển COMPLETED; thao tác sort năm block còn lại không khóa và không tự hoàn thành (chỉ từ chối ô P7 khi token đang ở đó).",
+      "status": "passing",
+      "evidence": "Node checkpoint tests: P1→P7→P1 completion, invalid paths, occupied-slot rejection, reset, and free-sort contract verified.",
+      "notes": "",
+      "priority": "P1"
     }
   ]
 }

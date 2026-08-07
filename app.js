@@ -2,6 +2,14 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { stabilizeJointTarget, validateLivePacket } from "./live_state.mjs";
+import {
+  CHECKPOINT_TOKEN_ID,
+  CHECKPOINT_PROGRESS,
+  createCheckpointToken,
+  resetCheckpointToken,
+  transitionCheckpointToken,
+} from "./checkpoint_token.mjs";
+import { getApiPositions } from "./slot_layout.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -70,16 +78,22 @@ const FR3_KINEMATIC_RPY = [
   [-Math.PI / 2, 0, 0],
 ];
 const BLOCK_POSITIONS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
-const SORTABLE_BLOCK_NAMES = BLOCK_POSITIONS.slice(0, -1);
+const SORTABLE_BLOCK_NAMES = ["P1", "P3", "P5", "P6", "P7"];
 const BUFFER_POSITION = BLOCK_POSITIONS.at(-1);
 const SAMPLE_BLOCK_POSITIONS = {
   P1: "P3",
-  P2: "P2",
   P3: "P4",
-  P4: "P1",
   P5: "P5",
   P6: "P6",
+  P7: "P2",
 };
+const BLOCK_META = Object.freeze({
+  P1: { color: 0xf06b62, objectClass: "chicken" },
+  P3: { color: 0xe7c85f, objectClass: "dog" },
+  P5: { color: 0x56a9d9, objectClass: "chair" },
+  P6: { color: 0x7187d8, objectClass: "umbrella" },
+  P7: { color: 0xa879d6, objectClass: "elephant" },
+});
 const BLOCK_COLORS = [
   0xf06b62, 0xf3a64a, 0xe7c85f, 0x6fc88f, 0x56a9d9, 0x7187d8, 0xa879d6,
 ];
@@ -154,6 +168,7 @@ const state = {
   robotLoading: false,
   calibratedPoints: {},
   blocks: [],
+  checkpointToken: createCheckpointToken(),
   activeMotion: null,
   programRun: null,
   toolPose: [0, 0, 0, 0, 0, 0],
@@ -191,6 +206,7 @@ let scene,
   safeZoneEdges,
   boardGroup,
   sceneGrid;
+let checkpointTokenMesh = null;
 let cameraViewIndex = -1;
 let jointRotators = [];
 let modelMaterials = [];
@@ -787,7 +803,50 @@ function makeFrontBoardLabel(text, color = "#dcecff") {
 }
 
 function objectClassForBlock(blockName) {
-  return OBJECT_CLASSES[SORTABLE_BLOCK_NAMES.indexOf(blockName)] || null;
+  const objectClassId = BLOCK_META[blockName]?.objectClass;
+  return OBJECT_CLASSES.find((item) => item.id === objectClassId) || null;
+}
+
+function checkpointTokenCarried() {
+  return Boolean(state.checkpointToken?.carried);
+}
+
+function renderCheckpointProgress() {
+  const progress = $("checkpointProgress");
+  if (!progress) return;
+  const current = state.checkpointToken?.progress || CHECKPOINT_PROGRESS.READY;
+  progress.textContent = current.replaceAll("_", " ");
+  progress.dataset.state = current;
+  progress.setAttribute("aria-label", `Checkpoint progress: ${progress.textContent}`);
+}
+
+function updateCheckpointTokenVisual() {
+  if (!checkpointTokenMesh) return;
+  if (!state.sceneObjectsVisible) {
+    checkpointTokenMesh.visible = false;
+    return;
+  }
+  const point = checkpointTokenCarried()
+    ? gripperJawPose(state.jointsDeg)
+    : pointRecord(state.checkpointToken?.position || "P1");
+  const cart = Array.isArray(point) ? point : point ? workpiecePose(point) : null;
+  if (!cart) return;
+  checkpointTokenMesh.position.set(cart[0] / 1000, cart[1] / 1000, cart[2] / 1000);
+  checkpointTokenMesh.visible = true;
+}
+
+function applyCheckpointTokenPlacement(from, to, carried = true) {
+  const result = transitionCheckpointToken(
+    { ...state.checkpointToken, carried },
+    { type: "release", tokenId: CHECKPOINT_TOKEN_ID, from, to },
+    { sortableBlocks: state.blocks },
+  );
+  if (!result.accepted) return false;
+  state.checkpointToken = result.token;
+  renderCheckpointProgress();
+  updateCheckpointTokenVisual();
+  log(`Checkpoint token ${from} -> ${to} · ${result.token.progress}`);
+  return true;
 }
 
 function objectClassTexture(objectClass) {
@@ -840,8 +899,10 @@ function setSceneObjectsVisible(visible) {
     blockMeshes.forEach((mesh) => {
       mesh.visible = false;
     });
+    if (checkpointTokenMesh) checkpointTokenMesh.visible = false;
   } else {
     updateBlockVisuals();
+    updateCheckpointTokenVisual();
   }
   const button = $("toggleSceneObjectsBtn");
   if (!button) return;
@@ -857,6 +918,7 @@ function buildBlockBoard() {
   if (!robotRoot || !BLOCK_POSITIONS.every((name) => pointRecord(name))) return;
   if (boardGroup) robotRoot.remove(boardGroup);
   blockMeshes.clear();
+  checkpointTokenMesh = null;
   boardGroup = new THREE.Group();
   boardGroup.name = "TechCampBlockBoard";
   boardGroup.visible = state.sceneObjectsVisible;
@@ -933,7 +995,6 @@ function buildBlockBoard() {
       board.position.z,
     );
     boardGroup.add(frontLabel);
-    if (name === BUFFER_POSITION) return;
     const objectClass = objectClassForBlock(name);
     const blockGroup = new THREE.Group();
     blockGroup.name = `block-${name}`;
@@ -947,8 +1008,25 @@ function buildBlockBoard() {
     boardGroup.add(blockGroup);
     blockMeshes.set(name, blockGroup);
   });
+  const tokenMaterial = new THREE.MeshStandardMaterial({
+    color: 0xf47b20,
+    roughness: 0.38,
+    metalness: 0.04,
+    emissive: 0x3b1400,
+    emissiveIntensity: 0.12,
+  });
+  checkpointTokenMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE),
+    tokenMaterial,
+  );
+  checkpointTokenMesh.name = CHECKPOINT_TOKEN_ID;
+  checkpointTokenMesh.userData.tokenId = CHECKPOINT_TOKEN_ID;
+  checkpointTokenMesh.castShadow = true;
+  checkpointTokenMesh.receiveShadow = true;
+  boardGroup.add(checkpointTokenMesh);
   renderBlockBoard();
   updateBlockVisuals();
+  updateCheckpointTokenVisual();
 }
 
 function blockAt(position) {
@@ -986,6 +1064,7 @@ function updateBlockVisuals() {
     );
     mesh.visible = true;
   });
+  updateCheckpointTokenVisual();
 }
 
 function renderBlockBoardLegacy() {
@@ -1008,12 +1087,14 @@ function renderBlockBoardLegacy() {
 }
 
 let draggedBlockName = null;
+let draggedToken = false;
 let pointerDraggedBlockName = null;
 let selectedBlockName = null;
 let pointerDragBound = false;
 
 function clearPointerBlockDrag() {
   pointerDraggedBlockName = null;
+  draggedToken = false;
   document
     .querySelectorAll("[data-block-name]")
     .forEach((card) => card.classList.remove("dragging"));
@@ -1034,6 +1115,13 @@ function setSelectedBlock(blockName) {
 function moveBlockToPosition(blockName, position) {
   const block = state.blocks.find((item) => item.name === blockName);
   if (!block || block.carried) return;
+  if (
+    position === state.checkpointToken?.position &&
+    !checkpointTokenCarried()
+  ) {
+    log(`Checkpoint token occupies ${position}; block move rejected`);
+    return;
+  }
   const previous = block.position;
   const targetBlock = blockAt(position);
   if (targetBlock && targetBlock !== block) targetBlock.position = previous;
@@ -1080,6 +1168,18 @@ function bindBlockBoardDrag() {
       setSelectedBlock(card.dataset.blockName);
     });
   });
+  document.querySelectorAll("[data-token-id]").forEach((card) => {
+    card.addEventListener("dragstart", (event) => {
+      draggedToken = true;
+      card.classList.add("dragging");
+      event.dataTransfer?.setData("text/plain", CHECKPOINT_TOKEN_ID);
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+    });
+    card.addEventListener("dragend", () => {
+      draggedToken = false;
+      card.classList.remove("dragging");
+    });
+  });
   document.querySelectorAll("[data-drop-position]").forEach((slot) => {
     slot.addEventListener("dragover", (event) => {
       event.preventDefault();
@@ -1094,8 +1194,15 @@ function bindBlockBoardDrag() {
       slot.classList.remove("drag-over");
       const name =
         draggedBlockName || event.dataTransfer?.getData("text/plain");
-      if (name) moveBlockToPosition(name, slot.dataset.dropPosition);
+      if (draggedToken || name === CHECKPOINT_TOKEN_ID) {
+        const from = state.checkpointToken.position;
+        const target = slot.dataset.dropPosition;
+        const accepted = applyCheckpointTokenPlacement(from, target, true);
+        if (!accepted)
+          state.checkpointToken = { ...state.checkpointToken, carried: false };
+      } else if (name) moveBlockToPosition(name, slot.dataset.dropPosition);
       draggedBlockName = null;
+      draggedToken = false;
     });
     slot.addEventListener("mouseenter", () => {
       if (pointerDraggedBlockName) slot.classList.add("drag-over");
@@ -1125,22 +1232,34 @@ function renderBlockBoard() {
   if (stateStrip) {
     stateStrip.innerHTML = BLOCK_POSITIONS.map((position) => {
       const block = blockAt(position);
+      const tokenHere =
+        state.checkpointToken?.position === position && !checkpointTokenCarried();
       const color = block
         ? "#" + block.color.toString(16).padStart(6, "0")
-        : "transparent";
-      const slotState = block ? "occupied" : carrying ? "carrying" : "empty";
+        : tokenHere
+          ? "#f47b20"
+          : "transparent";
+      const slotState = tokenHere
+        ? "checkpoint token"
+        : block
+          ? "occupied"
+          : carrying
+            ? "carrying"
+            : "empty";
       return (
         '<button class="block-state-slot' +
-        (block ? " is-occupied" : " is-empty") +
+        (block || tokenHere ? " is-occupied" : " is-empty") +
+        (tokenHere ? " checkpoint-token-slot" : "") +
         (block?.name === selectedBlockName ? " is-selected" : "") +
         '" style="--block-color:' +
         color +
         '" type="button" draggable="' +
-        String(Boolean(block)) +
+        String(Boolean(block || tokenHere)) +
         '" data-drop-position="' +
         position +
         '"' +
         (block ? ' data-block-name="' + block.name + '"' : "") +
+        (tokenHere ? ' data-token-id="' + CHECKPOINT_TOKEN_ID + '"' : "") +
         ' aria-pressed="' +
         String(block?.name === selectedBlockName) +
         '" aria-label="' +
@@ -1165,7 +1284,11 @@ function renderBlockBoard() {
       const blocks = state.blocks.filter(
         (block) => !block.carried && block.position === position,
       );
-      const color = "#" + BLOCK_COLORS[index].toString(16).padStart(6, "0");
+      const tokenHere =
+        state.checkpointToken?.position === position && !checkpointTokenCarried();
+      const color = blocks.length
+        ? "#" + blocks[0].color.toString(16).padStart(6, "0")
+        : "#" + BLOCK_COLORS[index].toString(16).padStart(6, "0");
       const cards = blocks.length
         ? blocks
             .map(
@@ -1185,7 +1308,9 @@ function renderBlockBoard() {
                 '</strong><span class="block-card-state">READY</span></button>',
             )
             .join("")
-        : '<span class="slot-empty">DROP HERE</span>';
+        : tokenHere
+          ? '<span class="slot-empty">CHECKPOINT TOKEN</span>'
+          : '<span class="slot-empty">DROP HERE</span>';
       return (
         '<div class="block-slot" data-drop-position="' +
         position +
@@ -1208,17 +1333,20 @@ function resetBlocks(silent = false) {
   state.blocks = SORTABLE_BLOCK_NAMES.map((name, index) => ({
     name,
     position: SAMPLE_BLOCK_POSITIONS[name],
-    color: BLOCK_COLORS[index],
+    color: BLOCK_META[name]?.color ?? BLOCK_COLORS[index],
     objectClass: objectClassForBlock(name),
     carried: false,
   }));
+  state.checkpointToken = resetCheckpointToken();
   techcampSim.position = null;
   techcampSim.low = false;
   techcampSim.gripping = false;
   techcampSim.carriedBlock = null;
+  techcampSim.carriedToken = false;
   renderBlockBoard();
   updateBlockVisuals();
-  if (!silent) log("Scene reset -> P1…P6 · P7 buffer");
+  renderCheckpointProgress();
+  if (!silent) log("Scene reset -> P1 token · P2=P7 · P3…P6 unchanged · P7 empty");
 }
 
 async function loadCalibratedPoints() {
@@ -1631,6 +1759,7 @@ function updateVisuals() {
   updateBlockVisuals();
   renderTcp();
   renderState();
+  renderCheckpointProgress();
   renderSafeZone();
 }
 
@@ -2383,6 +2512,7 @@ const techcampSim = {
   low: false,
   gripping: false,
   carriedBlock: null,
+  carriedToken: false,
   async move_to(position) {
     startTechCamp();
     const raw = String(position).toUpperCase();
@@ -2456,23 +2586,60 @@ const techcampSim = {
       block.carried = true;
       this.carriedBlock = block.name;
       log(`grip() -> ${block.name} attached`);
+    } else if (
+      this.low &&
+      ["P1", "P7"].includes(this.position) &&
+      state.checkpointToken.position === this.position &&
+      !checkpointTokenCarried()
+    ) {
+      state.checkpointToken = { ...state.checkpointToken, carried: true };
+      this.carriedToken = true;
+      log(`grip() -> ${CHECKPOINT_TOKEN_ID} attached`);
     } else log("grip() -> gripper closed");
     renderBlockBoard();
+    renderCheckpointProgress();
     return true;
   },
   async release() {
     startTechCamp();
     if (!this.gripping) return true;
     await setGripperClosed(false);
-    const block = this.carriedBlock
+    if (this.carriedToken) {
+      const from = state.checkpointToken.position;
+      const accepted = applyCheckpointTokenPlacement(from, this.position, true);
+      if (accepted) this.carriedToken = false;
+      else state.checkpointToken = { ...state.checkpointToken, carried: false };
+      this.gripping = false;
+      this.carriedToken = false;
+      log(
+        accepted
+          ? `release() -> checkpoint token placed at ${this.position}`
+          : `release() -> checkpoint token kept at ${from}`,
+      );
+      renderBlockBoard();
+      updateBlockVisuals();
+      return true;
+    }
+      const block = this.carriedBlock
       ? state.blocks.find((item) => item.name === this.carriedBlock)
       : null;
     if (block) {
-      block.carried = false;
-      block.position = this.position;
-      log(
-        `release() -> ${block.name} placed at ${this.position || "current position"}`,
+      const target = this.position;
+      const occupied = state.blocks.some(
+        (item) =>
+          item !== block && !item.carried && item.position === target,
       );
+      const tokenCollision =
+        target === state.checkpointToken?.position && !checkpointTokenCarried();
+      block.carried = false;
+      if (occupied || tokenCollision || !target) {
+        log(
+          `release() -> ${block.name} kept at ${block.position}; target ${target || "current position"} is occupied`,
+        );
+      } else {
+        block.position = target;
+        log(`release() -> ${block.name} placed at ${target}`);
+      }
     } else log("release() -> gripper released");
     this.gripping = false;
     this.carriedBlock = null;
@@ -2486,13 +2653,12 @@ const techcampSim = {
     return { type: "simulated_board", positions: this.get_positions() };
   },
   async get_positions() {
-    return Object.fromEntries(
-      BLOCK_POSITIONS.map((name) => [name, Boolean(blockAt(name))]),
-    );
+    return getApiPositions(state.blocks);
   },
   async close() {
     this.gripping = false;
     this.carriedBlock = null;
+    this.carriedToken = false;
     log("TechCamp.close() -> 0");
     return true;
   },
@@ -2501,6 +2667,7 @@ const techcampSim = {
     this.low = false;
     this.gripping = false;
     this.carriedBlock = null;
+    this.carriedToken = false;
   },
 };
 window.techcampSim = techcampSim;
@@ -3098,6 +3265,7 @@ function bindUI() {
       return;
     }
     const result = await api.MoveJ(selection.point.joints);
+    if (result === 0) resetBlocks(true);
     log(`Home -> ${result} · ${selection.name}`);
   });
   $("stopBtn").addEventListener("click", () => api.StopMotion());
