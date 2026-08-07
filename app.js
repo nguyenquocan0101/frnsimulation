@@ -714,6 +714,13 @@ function gripperJawPose(jointsDeg) {
 }
 
 function workpiecePose(point) {
+  if (
+    Array.isArray(point?.cart) &&
+    point.cart.length >= 3 &&
+    point.cart.slice(0, 3).every((value) => Number.isFinite(Number(value)))
+  ) {
+    return point.cart.map(Number);
+  }
   return gripperJawPose(point.joints);
 }
 
