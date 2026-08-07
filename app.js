@@ -831,6 +831,13 @@ function objectClassMaterials(objectClass) {
 function setSceneObjectsVisible(visible) {
   state.sceneObjectsVisible = Boolean(visible);
   if (boardGroup) boardGroup.visible = state.sceneObjectsVisible;
+  if (!state.sceneObjectsVisible) {
+    blockMeshes.forEach((mesh) => {
+      mesh.visible = false;
+    });
+  } else {
+    updateBlockVisuals();
+  }
   const button = $("toggleSceneObjectsBtn");
   if (!button) return;
   const hidden = !state.sceneObjectsVisible;
@@ -949,6 +956,12 @@ function blockAt(position) {
 
 function updateBlockVisuals() {
   if (!blockMeshes.size) return;
+  if (!state.sceneObjectsVisible) {
+    blockMeshes.forEach((mesh) => {
+      mesh.visible = false;
+    });
+    return;
+  }
   const gripCenter = gripperJawPose(state.jointsDeg);
   blockMeshes.forEach((mesh) => {
     mesh.visible = false;
