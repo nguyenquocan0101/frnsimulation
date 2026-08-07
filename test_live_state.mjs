@@ -55,6 +55,7 @@ test("simulator exposes every motion control audited by live lock", () => {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
   assert.match(html, /id=["']downloadProgramBtn["']/);
+  assert.match(html, /id=["']toggleSceneObjectsBtn["']/);
 });
 
 test("stale detection uses local receipt time", () => {

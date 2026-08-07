@@ -169,6 +169,7 @@ const state = {
   liveStaleTimer: null,
   liveTcpPose: null,
   controllerSafety: null,
+  sceneObjectsVisible: true,
   safeZone: {
     enabled: true,
     example: true,
@@ -828,12 +829,26 @@ function objectClassMaterials(objectClass) {
   );
 }
 
+function setSceneObjectsVisible(visible) {
+  state.sceneObjectsVisible = Boolean(visible);
+  if (boardGroup) boardGroup.visible = state.sceneObjectsVisible;
+  const button = $("toggleSceneObjectsBtn");
+  if (!button) return;
+  const hidden = !state.sceneObjectsVisible;
+  button.setAttribute("aria-pressed", String(hidden));
+  button.textContent = hidden ? "Show table & blocks" : "Hide table & blocks";
+  button.title = hidden
+    ? "Show the table and blocks"
+    : "Hide the table and blocks";
+}
+
 function buildBlockBoard() {
   if (!robotRoot || !BLOCK_POSITIONS.every((name) => pointRecord(name))) return;
   if (boardGroup) robotRoot.remove(boardGroup);
   blockMeshes.clear();
   boardGroup = new THREE.Group();
   boardGroup.name = "TechCampBlockBoard";
+  boardGroup.visible = state.sceneObjectsVisible;
   robotRoot.add(boardGroup);
   const workpiecePoses = BLOCK_POSITIONS.map((name) =>
     workpiecePose(pointRecord(name)),
@@ -3036,6 +3051,10 @@ function bindUI() {
   renderTargetInputs();
   renderState();
   renderSafeZone();
+  setSceneObjectsVisible(state.sceneObjectsVisible);
+  $("toggleSceneObjectsBtn")?.addEventListener("click", () => {
+    setSceneObjectsVisible(!state.sceneObjectsVisible);
+  });
   $("robotProfileSelect")?.addEventListener("change", async (event) => {
     const requested = getRobotProfile(event.target.value).id;
     if (state.running || state.programRun || state.live || gripperVisual.animation) {
