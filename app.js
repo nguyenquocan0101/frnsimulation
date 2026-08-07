@@ -1688,7 +1688,10 @@ function setLiveControlLock(locked) {
       input.disabled = locked;
     });
   if ($("liveBtn")) {
-    $("liveBtn").textContent = locked ? "Disconnect live" : "Connect live";
+    $("liveBtn").textContent = locked ? "Disconnect" : "Connect";
+    $("liveBtn").title = locked
+      ? "Disconnect read-only FR5 telemetry"
+      : "Connect to read-only FR5 telemetry";
   }
 }
 
@@ -1741,9 +1744,10 @@ function applyLiveState(payload) {
   state.livePacketReceivedAt = now;
   state.targetDeg = [...nextTarget];
   syncDisplayedJointValues();
-  if ($("liveState"))
-    $("liveState").textContent =
-      `LIVE · ${new Date(state.lastLiveAt * 1000).toLocaleTimeString()}`;
+  if ($("liveState")) {
+    $("liveState").textContent = "LIVE";
+    $("liveState").title = `Last update ${new Date(state.lastLiveAt * 1000).toLocaleTimeString()}`;
+  }
   renderTcp();
   renderSafeZone();
   return true;
@@ -1768,7 +1772,10 @@ function disconnectLive() {
     socket.close();
   }
   setLiveControlLock(false);
-  if ($("liveState")) $("liveState").textContent = "OFFLINE";
+  if ($("liveState")) {
+    $("liveState").textContent = "OFFLINE";
+    $("liveState").title = "Live telemetry is offline";
+  }
   setStatus(readyStatus(), state.modelReady ? "ready" : "");
   renderState();
   renderTcp();
@@ -1781,7 +1788,10 @@ function connectLive() {
     return;
   }
   if (state.robotProfileId !== "fr5") {
-    if ($("liveState")) $("liveState").textContent = "SELECT FR5 FIRST";
+    if ($("liveState")) {
+      $("liveState").textContent = "SELECT FR5 FIRST";
+      $("liveState").title = "Select FAIRINO FR5 before connecting";
+    }
     setStatus("SELECT FAIRINO FR5 BEFORE LIVE", "error");
     log("Live monitor requires the FAIRINO FR5 model");
     return;
@@ -1792,7 +1802,10 @@ function connectLive() {
   try {
     socket = new WebSocket(configured);
   } catch (error) {
-    if ($("liveState")) $("liveState").textContent = "URL ERROR";
+    if ($("liveState")) {
+      $("liveState").textContent = "URL ERROR";
+      $("liveState").title = "The telemetry WebSocket URL is invalid";
+    }
     setStatus("LIVE URL ERROR", "error");
     log(`Live connect error: ${error.message}`);
     return;
@@ -1801,7 +1814,10 @@ function connectLive() {
   // Lock every motion/program control while the socket is CONNECTING as well
   // as when it becomes LIVE.  Unlocking is handled only from onclose.
   setLiveControlLock(true);
-  if ($("liveState")) $("liveState").textContent = "CONNECTING…";
+  if ($("liveState")) {
+    $("liveState").textContent = "CONNECTING";
+    $("liveState").title = "Connecting to read-only FR5 telemetry";
+  }
   setStatus("CONNECTING FAIRINO TELEMETRY…");
   log(`Live monitor -> ${configured}`);
   socket.onopen = () => {
@@ -1811,7 +1827,10 @@ function connectLive() {
     state.livePacketReceivedAt = performance.now();
     setLiveControlLock(true);
     setStatus("LIVE TELEMETRY · READ ONLY", "ready");
-    if ($("liveState")) $("liveState").textContent = "LIVE · waiting state";
+    if ($("liveState")) {
+      $("liveState").textContent = "LIVE";
+      $("liveState").title = "Waiting for FR5 telemetry";
+    }
     if (state.liveStaleTimer) clearInterval(state.liveStaleTimer);
     state.liveStaleTimer = setInterval(() => {
       if (
@@ -1819,7 +1838,10 @@ function connectLive() {
         state.livePacketReceivedAt &&
         performance.now() - state.livePacketReceivedAt > 2000
       ) {
-        if ($("liveState")) $("liveState").textContent = "STALE · closing";
+        if ($("liveState")) {
+          $("liveState").textContent = "STALE";
+          $("liveState").title = "No valid telemetry received for 2 seconds";
+        }
         setStatus("LIVE TELEMETRY STALE", "error");
         log("Live telemetry stale for 2 seconds; closing connection");
         socket.close();
@@ -1833,8 +1855,10 @@ function connectLive() {
       const payload = JSON.parse(event.data);
       if (payload.type === "robot_state") applyLiveState(payload);
       else if (payload.type === "error") {
-        if ($("liveState"))
-          $("liveState").textContent = `ERROR · ${payload.message}`;
+        if ($("liveState")) {
+          $("liveState").textContent = "ERROR";
+          $("liveState").title = payload.message || "Live telemetry error";
+        }
         setStatus("LIVE TELEMETRY ERROR", "error");
         log(`Live telemetry error: ${payload.message}`);
         socket.close();
@@ -1845,7 +1869,10 @@ function connectLive() {
   };
   socket.onerror = () => {
     setStatus("LIVE TELEMETRY ERROR", "error");
-    if ($("liveState")) $("liveState").textContent = "ERROR";
+    if ($("liveState")) {
+      $("liveState").textContent = "ERROR";
+      $("liveState").title = "Live telemetry connection error";
+    }
     log("Live WebSocket error");
     socket.close();
   };
@@ -1864,7 +1891,10 @@ function connectLive() {
       state.liveStaleTimer = null;
     }
     setLiveControlLock(false);
-    if ($("liveState")) $("liveState").textContent = "OFFLINE";
+    if ($("liveState")) {
+      $("liveState").textContent = "OFFLINE";
+      $("liveState").title = "Live telemetry is offline";
+    }
     setStatus("LIVE OFFLINE", "error");
     renderState();
     renderSafeZone();
@@ -2163,6 +2193,8 @@ function syncRobotProfileUi(profile = getRobotProfile(state.robotProfileId)) {
   const modelStatus = $("modelStatus");
   if (modelStatus)
     modelStatus.textContent = `${profile.label} visual model loaded · TechCamp points remain FR3-calibrated`;
+  if (modelStatus)
+    modelStatus.title = `${profile.label} visual model loaded · TechCamp points remain FR3-calibrated`;
   const notice = $("fr5CalibrationNotice");
   if (notice) notice.hidden = !profile.provisional;
   const viewport = $("viewport");

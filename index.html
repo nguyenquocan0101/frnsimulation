@@ -222,13 +222,13 @@ if __name__ == "__main__":
           <div class="simulation-header">
             <h2 id="viewport-title">Simulation</h2>
             <div class="simulation-actions" id="robotProfileControl">
-              <label class="robot-profile-label" for="robotProfileSelect">Robot model</label>
+              <label class="robot-profile-label" for="robotProfileSelect">Model</label>
               <select id="robotProfileSelect" class="robot-profile-select" aria-describedby="fr5CalibrationNotice">
                 <option value="fr3">FAIRINO FR3</option>
                 <option value="fr5">FAIRINO FR5</option>
               </select>
-              <span id="modelStatus" class="robot-model-status">Loading FAIRINO FR3…</span>
-              <button class="button quiet live-button" id="liveBtn" type="button">Connect live</button>
+              <span id="modelStatus" class="robot-model-status sr-only">Loading FAIRINO FR3…</span>
+              <button class="button quiet live-button" id="liveBtn" type="button" title="Connect to read-only FR5 telemetry">Connect</button>
               <span id="liveState" class="live-state" aria-live="polite">OFFLINE</span>
               <span id="robotProfileStatus" class="sr-only" aria-live="polite"></span>
             </div>
