@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
-import { validateLivePacket } from "./live_state.mjs";
+import { stabilizeJointTarget, validateLivePacket } from "./live_state.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -37,6 +37,7 @@ const JOINT_LIMITS_DEG = [
 // Controller telemetry may report calibrated/unwrapped values outside the
 // teaching slider ranges; keep a finite ±360° envelope for read-only packets.
 const LIVE_JOINT_LIMITS_DEG = JOINT_LIMITS_DEG.map(() => [-360, 360]);
+const LIVE_JOINT_DEADBAND_DEG = 0.02;
 const JOINT_LIMITS_RAD = JOINT_LIMITS_DEG.map(([lo, hi]) => [
   THREE.MathUtils.degToRad(lo),
   THREE.MathUtils.degToRad(hi),
@@ -1682,7 +1683,12 @@ function applyLiveState(payload) {
     log(`Live packet rejected: ${validation.reason}`);
     return false;
   }
-  const { joints: nextTarget, tcp } = validation;
+  const { joints: rawTarget, tcp } = validation;
+  const nextTarget = stabilizeJointTarget(
+    rawTarget,
+    state.liveTargetDeg,
+    LIVE_JOINT_DEADBAND_DEG,
+  );
   if (state.running) {
     if (state.activeMotion) state.activeMotion.cancelled = true;
     state.running = false;
@@ -1694,21 +1700,29 @@ function applyLiveState(payload) {
   state.controllerSafety = payload.controller_safety || null;
   state.liveTcpPose = tcp;
   const now = performance.now();
-  if (!state.liveTargetDeg) {
-    state.jointsDeg = [...nextTarget];
-    state.liveFromDeg = [...nextTarget];
-    updateVisuals();
-  } else {
-    state.liveFromDeg = [...state.jointsDeg];
-    state.liveAnimationStart = now;
-    state.liveAnimationDuration = clamp(
-      (state.livePacketReceivedAt ? now - state.livePacketReceivedAt : 100) *
-        0.95,
-      60,
-      160,
+  const targetChanged =
+    !state.liveTargetDeg ||
+    nextTarget.some(
+      (value, index) =>
+        Math.abs(value - state.liveTargetDeg[index]) >= LIVE_JOINT_DEADBAND_DEG,
     );
+  if (targetChanged) {
+    if (!state.liveTargetDeg) {
+      state.jointsDeg = [...nextTarget];
+      state.liveFromDeg = [...nextTarget];
+      updateVisuals();
+    } else {
+      state.liveFromDeg = [...state.jointsDeg];
+      state.liveAnimationStart = now;
+      state.liveAnimationDuration = clamp(
+        (state.livePacketReceivedAt ? now - state.livePacketReceivedAt : 100) *
+          0.95,
+        60,
+        160,
+      );
+    }
+    state.liveTargetDeg = nextTarget;
   }
-  state.liveTargetDeg = nextTarget;
   state.livePacketReceivedAt = now;
   state.targetDeg = [...nextTarget];
   syncDisplayedJointValues();

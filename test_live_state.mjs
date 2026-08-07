@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { isLiveStale, liveControlsLocked, validateLivePacket } from "./live_state.mjs";
+import {
+  isLiveStale,
+  liveControlsLocked,
+  stabilizeJointTarget,
+  validateLivePacket,
+} from "./live_state.mjs";
 
 const limits = [
   [-360, 360],
@@ -56,4 +61,16 @@ test("stale detection uses local receipt time", () => {
   assert.equal(isLiveStale(2501, 500), true);
   assert.equal(isLiveStale(2400, 500), false);
   assert.equal(isLiveStale(2501, Number.NaN), false);
+});
+
+test("joint deadband holds encoder noise but keeps real motion", () => {
+  const previous = [10, 20, 30, 40, 50, 60];
+  assert.deepEqual(
+    stabilizeJointTarget([10.01, 20, 30, 40, 50, 60], previous, 0.02),
+    previous,
+  );
+  assert.deepEqual(
+    stabilizeJointTarget([10.03, 20, 30, 40, 50, 60], previous, 0.02),
+    [10.03, 20, 30, 40, 50, 60],
+  );
 });

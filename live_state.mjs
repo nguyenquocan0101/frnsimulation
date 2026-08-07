@@ -33,3 +33,18 @@ export function liveControlsLocked({ socketOpen = false, live = false, connectin
 export function isLiveStale(now, lastReceipt, timeoutMs = 2000) {
   return Number.isFinite(lastReceipt) && now - lastReceipt > timeoutMs;
 }
+
+// Encoder packets can differ by a few thousandths of a degree while the
+// physical arm is stationary. Hold those tiny changes so the visual model
+// does not restart its easing animation every telemetry tick.
+export function stabilizeJointTarget(nextJoints, previousJoints, deadbandDeg = 0.02) {
+  if (!Array.isArray(nextJoints) || nextJoints.length !== 6) return null;
+  if (!Array.isArray(previousJoints) || previousJoints.length !== 6) {
+    return [...nextJoints];
+  }
+  return nextJoints.map((value, index) =>
+    Math.abs(value - previousJoints[index]) < deadbandDeg
+      ? previousJoints[index]
+      : value,
+  );
+}
