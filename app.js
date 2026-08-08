@@ -28,9 +28,9 @@ const GRIPPER_BASE = "./assets/fr3_v6/";
 // existing FR3 calibration isolated so switching models cannot move its tool.
 const GRIPPER_MOUNT_OFFSET_BY_PROFILE = Object.freeze({
   fr3: [-0.03, 0.014, 0.16],
-  // The CAD origin is behind the mounting face; use the same calibrated
-  // flange-to-CAD offset as FR3.  Using only the 102 mm J6 link length puts
-  // the gripper body inside wrist3 instead of at the flange.
+  // Retained as the no-roll calibration reference. When FR5 receives a
+  // horizontal tool roll, gripperMountOffset() recomputes the translation
+  // from the CAD flange so the mount stays on the J6 axis.
   fr5: [-0.03, 0.014, 0.16],
 });
 const GRIPPER_MOUNT_ROTATION_BY_PROFILE = Object.freeze({
@@ -39,18 +39,57 @@ const GRIPPER_MOUNT_ROTATION_BY_PROFILE = Object.freeze({
   // the FR5 flange, so the tool points outward from J6 instead of through it.
   fr5: [Math.PI, 0, 0],
 });
+// FR5's calibrated HOME has J6 ≈ +135°. Counter-roll the tool once at the
+// mount so the jaws are horizontal at HOME; subsequent J6 motion is still
+// inherited normally because the mount remains a child of J6.
+const GRIPPER_MOUNT_ROLL_BY_PROFILE = Object.freeze({
+  fr3: 0,
+  // At the calibrated FR5 HOME pose J6 is about +135°.  With the
+  // mount's Rx(pi) CAD correction, +135° around the local tool axis makes
+  // the jaws horizontal (and aligned with the FR5 worktable row).
+  fr5: (3 * Math.PI) / 4,
+});
 const GRIPPER_SCALE = 0.0008;
 const ROBOT_SHELL_COLOR = 0xbfc9d4;
 const GRIPPER_FINGER_SOURCE_COLOR = 0x694d3b;
 const GRIPPER_FINGER_TRAVEL = 16;
 const GRIPPER_ANIMATION_MS = 220;
 const GRIPPER_JAW_CENTER_CAD = [40.35, 17.5, -37.75];
+const GRIPPER_FLANGE_ORIGIN_CAD = [37.555, 17.5, 75];
+const GRIPPER_FLANGE_TARGET_BY_PROFILE = Object.freeze({
+  fr3: [0, 0, 0.1],
+  fr5: [0, 0, 0.1],
+});
+
+function gripperMountQuaternion(profileId = state.robotProfileId) {
+  const baseRotation =
+    GRIPPER_MOUNT_ROTATION_BY_PROFILE[profileId] ||
+    GRIPPER_MOUNT_ROTATION_BY_PROFILE.fr3;
+  const quaternion = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(...baseRotation),
+  );
+  const roll = GRIPPER_MOUNT_ROLL_BY_PROFILE[profileId] || 0;
+  if (roll) {
+    quaternion.multiply(
+      new THREE.Quaternion().setFromAxisAngle(Z_AXIS, roll),
+    );
+  }
+  return quaternion;
+}
 
 function gripperMountOffset(profileId = state.robotProfileId) {
-  return (
-    GRIPPER_MOUNT_OFFSET_BY_PROFILE[profileId] ||
-    GRIPPER_MOUNT_OFFSET_BY_PROFILE.fr3
+  const calibratedOffset = GRIPPER_MOUNT_OFFSET_BY_PROFILE[profileId];
+  if (calibratedOffset && !GRIPPER_MOUNT_ROLL_BY_PROFILE[profileId]) {
+    return calibratedOffset;
+  }
+  const target = new THREE.Vector3(
+    ...(GRIPPER_FLANGE_TARGET_BY_PROFILE[profileId] ||
+      GRIPPER_FLANGE_TARGET_BY_PROFILE.fr3),
   );
+  const flange = new THREE.Vector3(...GRIPPER_FLANGE_ORIGIN_CAD)
+    .multiplyScalar(GRIPPER_SCALE)
+    .applyQuaternion(gripperMountQuaternion(profileId));
+  return target.sub(flange).toArray();
 }
 const BLOCK_SIZE = 0.04;
 const JOINT_NAMES = ["J1", "J2", "J3", "J4", "J5", "J6"];
@@ -193,6 +232,12 @@ const TECHCAMP_MAX_ACC = 20;
 const DEFAULT_HOME_JOINTS = [-90, -135, 126, 8.8, 85.2, 0];
 // Keep the robot and the worktable together in the primary teaching view.
 const HOME_CAMERA_TARGET = [0, 0.24, -0.3];
+const HOME_CAMERA_TARGET_BY_PROFILE = Object.freeze({
+  fr3: HOME_CAMERA_TARGET,
+  // FR5's calibrated row is offset from the base; center the robot/table
+  // pair together while keeping the same front Home view and zoom.
+  fr5: [-0.3, 0.24, -0.3],
+});
 const HOME_CAMERA_ZOOM_DEFAULT = 118;
 const HOME_CAMERA_ZOOM_RANGE = [100, 135];
 const HOME_CAMERA_VIEWS = [
@@ -201,6 +246,39 @@ const HOME_CAMERA_VIEWS = [
   { name: "Back", position: [-1.55, 0.85, 0] },
   { name: "Left", position: [0, 0.85, 1.55] },
 ];
+// The FR3 calibration row runs along visual X. FR5's calibrated row runs
+// along visual Y, so the worktable must rotate with the profile instead of
+// reusing the FR3 tabletop orientation.
+const BOARD_LAYOUT_BY_PROFILE = Object.freeze({
+  fr3: Object.freeze({
+    rotationZ: 0,
+    length: 0.56,
+    depth: 0.18,
+    thickness: 0.028,
+    frontNormal: [0, 1],
+  }),
+  fr5: Object.freeze({
+    rotationZ: Math.PI / 2,
+    length: 0.56,
+    depth: 0.18,
+    thickness: 0.032,
+    // After a +90° board rotation, local +Y points toward world -X.
+    frontNormal: [-1, 0],
+  }),
+});
+
+function boardLayoutForProfile(profileId = state.robotProfileId) {
+  return BOARD_LAYOUT_BY_PROFILE[profileId] || BOARD_LAYOUT_BY_PROFILE.fr3;
+}
+
+function syncSceneGroundRotation() {
+  if (!sceneGrid) return;
+  // GridHelper lies on the scene XZ floor. The FK/table rail is calculated
+  // in the robot's XY plane, which is mapped to scene XZ by robotRoot's
+  // -90° X rotation, so the matching floor rotation is around scene Y.
+  sceneGrid.rotation.y =
+    state.robotProfileId === "fr5" ? boardSlotRotation : 0;
+}
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -263,6 +341,8 @@ let scene,
   safeZoneEdges,
   boardGroup,
   sceneGrid;
+let boardSlotPoses = new Map();
+let boardSlotRotation = 0;
 let checkpointTokenMesh = null;
 let cameraViewIndex = -1;
 let jointRotators = [];
@@ -753,12 +833,9 @@ function pointRecord(name) {
 
 function gripperJawOffset() {
   const mountOffset = gripperMountOffset();
-  const mountRotation =
-    GRIPPER_MOUNT_ROTATION_BY_PROFILE[state.robotProfileId] ||
-    GRIPPER_MOUNT_ROTATION_BY_PROFILE.fr3;
   return new THREE.Vector3(...GRIPPER_JAW_CENTER_CAD)
     .multiplyScalar(GRIPPER_SCALE)
-    .applyEuler(new THREE.Euler(...mountRotation))
+    .applyQuaternion(gripperMountQuaternion())
     .add(new THREE.Vector3(...mountOffset));
 }
 
@@ -944,7 +1021,7 @@ function updateCheckpointTokenVisual() {
   const cart = Array.isArray(point)
     ? point
     : point
-      ? workpiecePose(point)
+      ? boardSlotPoses.get(state.checkpointToken?.position) || workpiecePose(point)
       : null;
   if (!cart) return;
   checkpointTokenMesh.position.set(
@@ -952,6 +1029,7 @@ function updateCheckpointTokenVisual() {
     cart[1] / 1000,
     cart[2] / 1000,
   );
+  checkpointTokenMesh.rotation.z = boardSlotRotation;
   checkpointTokenMesh.visible = true;
 }
 
@@ -976,6 +1054,22 @@ function syncBoardLabelMirroring() {
     texture.repeat.x = mirroredTeachingView ? 1 : -1;
     texture.offset.x = mirroredTeachingView ? 0 : 1;
     texture.needsUpdate = true;
+  });
+}
+
+function syncBlockTextureMirroring() {
+  const mirroredTeachingView = cameraViewIndex === 0;
+  boardGroup?.traverse((object) => {
+    const materials = Array.isArray(object.material)
+      ? object.material
+      : [object.material];
+    materials.forEach((material) => {
+      if (!material?.userData?.objectClassFrontTexture || !material.map)
+        return;
+      material.map.repeat.x = mirroredTeachingView ? -1 : 1;
+      material.map.offset.x = mirroredTeachingView ? 1 : 0;
+      material.map.needsUpdate = true;
+    });
   });
 }
 
@@ -1009,6 +1103,7 @@ function objectClassMaterials(objectClass) {
       map,
       roughness: 0.52,
       metalness: 0.02,
+      userData: { objectClassFrontTexture: faceIndex === 2 },
     });
   });
 }
@@ -1044,6 +1139,8 @@ function buildBlockBoard() {
   if (!robotRoot || !BLOCK_POSITIONS.every((name) => pointRecord(name))) return;
   if (boardGroup) robotRoot.remove(boardGroup);
   blockMeshes.clear();
+  boardSlotPoses = new Map();
+  boardSlotRotation = 0;
   checkpointTokenMesh = null;
   boardGroup = new THREE.Group();
   boardGroup.name = "TechCampBlockBoard";
@@ -1052,7 +1149,28 @@ function buildBlockBoard() {
   const workpiecePoses = BLOCK_POSITIONS.map((name) =>
     workpiecePose(pointRecord(name)),
   );
-  const boardCenter = workpiecePoses
+  const rowStart = workpiecePose(pointRecord("P1"));
+  const rowEnd = workpiecePose(pointRecord("P6"));
+  const rowDx = rowEnd[0] - rowStart[0];
+  const rowDy = rowEnd[1] - rowStart[1];
+  const rowLength = Math.hypot(rowDx, rowDy);
+  const rowAxis = rowLength > 1 ? [rowDx / rowLength, rowDy / rowLength] : [1, 0];
+  const rowOrigin = [rowStart[0], rowStart[1]];
+  BLOCK_POSITIONS.forEach((name) => {
+    const pose = workpiecePose(pointRecord(name));
+    const dx = pose[0] - rowOrigin[0];
+    const dy = pose[1] - rowOrigin[1];
+    const distance = dx * rowAxis[0] + dy * rowAxis[1];
+    boardSlotPoses.set(name, [
+      rowOrigin[0] + rowAxis[0] * distance,
+      rowOrigin[1] + rowAxis[1] * distance,
+      pose[2],
+      pose[3],
+      pose[4],
+      pose[5],
+    ]);
+  });
+  const boardCenter = BLOCK_POSITIONS.map((name) => boardSlotPoses.get(name))
     .reduce(
       (center, pose) => center.add(new THREE.Vector3(...pose.slice(0, 3))),
       new THREE.Vector3(),
@@ -1060,8 +1178,25 @@ function buildBlockBoard() {
     .multiplyScalar(1 / workpiecePoses.length);
   // Keep a block's centre at the gripper jaw centre while its base rests on the table.
   const boardSurfaceZ = boardCenter.z / 1000 - BLOCK_SIZE / 2;
-  // Keep the original tabletop depth; only make the table thicker vertically.
-  const boardSize = { length: 0.56, depth: 0.18, thickness: 0.028 };
+  const boardLayout = boardLayoutForProfile();
+  // Follow the calibrated slot line instead of assuming FR5 is exactly
+  // orthogonal to the FR3 table.  This keeps every slot on one visual rail
+  // while preserving the actual FK position used by the robot targets.
+  let boardRotation = boardLayout.rotationZ;
+  if (state.robotProfileId === "fr5") {
+    const rowStart = workpiecePose(pointRecord("P1"));
+    const rowEnd = workpiecePose(pointRecord("P6"));
+    const dx = rowEnd[0] - rowStart[0];
+    const dy = rowEnd[1] - rowStart[1];
+    if (Math.hypot(dx, dy) > 1) boardRotation = Math.atan2(dy, dx);
+  }
+  boardSlotRotation = boardRotation;
+  const frontNormal = [-Math.sin(boardRotation), Math.cos(boardRotation)];
+  const boardSize = {
+    length: boardLayout.length,
+    depth: boardLayout.depth,
+    thickness: boardLayout.thickness,
+  };
   const boardMaterial = new THREE.MeshStandardMaterial({
     color: 0x24364b,
     roughness: 0.76,
@@ -1080,6 +1215,7 @@ function buildBlockBoard() {
     boardCenter.y / 1000,
     boardSurfaceZ - boardSize.thickness / 2,
   );
+  board.rotation.z = boardRotation;
   board.receiveShadow = true;
   boardGroup.add(board);
   const edgeMaterial = new THREE.LineBasicMaterial({
@@ -1098,10 +1234,11 @@ function buildBlockBoard() {
     edgeMaterial,
   );
   edge.position.copy(board.position);
+  edge.rotation.z = boardRotation;
   boardGroup.add(edge);
   BLOCK_POSITIONS.forEach((name, index) => {
     const point = pointRecord(name);
-    const cart = workpiecePose(point);
+    const cart = boardSlotPoses.get(name) || workpiecePose(point);
     const cell = new THREE.Mesh(
       new THREE.BoxGeometry(0.066, boardSize.depth - 0.012, 0.004),
       new THREE.MeshBasicMaterial({
@@ -1111,6 +1248,7 @@ function buildBlockBoard() {
       }),
     );
     cell.position.set(cart[0] / 1000, cart[1] / 1000, boardSurfaceZ + 0.002);
+    cell.rotation.z = boardRotation;
     boardGroup.add(cell);
     const cellEdge = new THREE.LineSegments(
       new THREE.EdgesGeometry(
@@ -1119,6 +1257,7 @@ function buildBlockBoard() {
       edgeMaterial,
     );
     cellEdge.position.copy(cell.position);
+    cellEdge.rotation.z = boardRotation;
     boardGroup.add(cellEdge);
     // Keep the visible board label tied to the same calibrated point ID.
     // Reversing this list makes a physical P1 look like P7 in the camera.
@@ -1128,10 +1267,11 @@ function buildBlockBoard() {
       frontLabelName === "P1" ? "#f7b0a8" : "#dcecff",
     );
     frontLabel.position.set(
-      cart[0] / 1000,
-      board.position.y + boardSize.depth / 2 + 0.002,
+      cart[0] / 1000 + frontNormal[0] * (boardSize.depth / 2 + 0.002),
+      cart[1] / 1000 + frontNormal[1] * (boardSize.depth / 2 + 0.002),
       board.position.z,
     );
+    frontLabel.rotation.z = boardRotation;
     boardGroup.add(frontLabel);
   });
   SORTABLE_BLOCK_NAMES.forEach((name) => {
@@ -1168,6 +1308,12 @@ function buildBlockBoard() {
   renderBlockBoard();
   updateBlockVisuals();
   updateCheckpointTokenVisual();
+  syncBlockTextureMirroring();
+  // boardSlotRotation is calculated above, after the initial safety-zone
+  // render. Refresh the visual volume now so its footprint is parallel to
+  // the FR5 table/blocks on the first load and after profile changes.
+  updateSafeZoneVisual();
+  syncSceneGroundRotation();
 }
 
 function blockAt(position) {
@@ -1199,10 +1345,11 @@ function updateBlockVisuals() {
     const cart = Array.isArray(point)
       ? point
       : point
-        ? workpiecePose(point)
+        ? boardSlotPoses.get(block.position) || workpiecePose(point)
         : null;
     if (!cart) return;
     mesh.position.set(cart[0] / 1000, cart[1] / 1000, cart[2] / 1000);
+    mesh.rotation.z = block.carried ? 0 : boardSlotRotation;
     mesh.visible = true;
   });
   updateCheckpointTokenVisual();
@@ -1624,6 +1771,11 @@ function updateSafeZoneVisual() {
     center[1] / 1000,
     center[2] / 1000,
   );
+  // The FR5 teaching rail has a calibrated yaw. Keep the safety volume
+  // parallel to the table/blocks in the visual scene without changing the
+  // controller-frame bounds used by motion checks.
+  safeZoneGroup.rotation.z =
+    state.robotProfileId === "fr5" ? boardSlotRotation : 0;
   safeZoneMesh.scale.set(size[0] / 1000, size[1] / 1000, size[2] / 1000);
   const evaluation = state.safeZone.alert
     ? { status: "outside" }
@@ -2573,10 +2725,7 @@ async function switchRobotProfile(profileId, { initial = false } = {}) {
     j6ToolMount.name = `${profile.id}-j6-tool-mount`;
     j6ToolMount.userData.robotVisualRole = "j6-tool-mount";
     j6ToolMount.position.fromArray(gripperMountOffset(profile.id));
-    const mountRotation =
-      GRIPPER_MOUNT_ROTATION_BY_PROFILE[profile.id] ||
-      GRIPPER_MOUNT_ROTATION_BY_PROFILE.fr3;
-    j6ToolMount.rotation.set(...mountRotation);
+    j6ToolMount.quaternion.copy(gripperMountQuaternion(profile.id));
     j6ToolMount.scale.setScalar(GRIPPER_SCALE);
     j6ToolMount.add(gripper);
     candidate.jointRotators.at(-1).add(j6ToolMount);
@@ -2655,8 +2804,8 @@ async function loadModel() {
   }
   if (!loaded) return;
   resetPoseToCalibratedHome();
-  // Match the FR3 HOME view: front/teaching camera, default target and the
-  // same mirrored canvas treatment used by the existing FR3 presentation.
+  // Match the FR3 HOME view style while using the profile-specific target
+  // needed to keep the larger FR5 arm and rotated table centered.
   homeView();
   syncRobotProfileUi();
 }
@@ -2667,11 +2816,13 @@ function setHomeCameraView(index) {
     ((index % HOME_CAMERA_VIEWS.length) + HOME_CAMERA_VIEWS.length) %
     HOME_CAMERA_VIEWS.length;
   const view = HOME_CAMERA_VIEWS[cameraViewIndex];
+  const cameraTarget =
+    HOME_CAMERA_TARGET_BY_PROFILE[state.robotProfileId] || HOME_CAMERA_TARGET;
   const frameScale = 100 / state.cameraZoom;
   camera.position
-    .set(...HOME_CAMERA_TARGET)
+    .set(...cameraTarget)
     .lerp(new THREE.Vector3(...view.position), frameScale);
-  controls.target.set(...HOME_CAMERA_TARGET);
+  controls.target.set(...cameraTarget);
   controls.update();
   const mirroredTeachingView = cameraViewIndex === 0;
   if (renderer?.domElement) {
@@ -2681,6 +2832,7 @@ function setHomeCameraView(index) {
   }
   controls.rotateSpeed = mirroredTeachingView ? -1 : 1;
   syncBoardLabelMirroring();
+  syncBlockTextureMirroring();
   const button = $("changeViewBtn");
   if (button) {
     button.title = `View ${view.name} (${cameraViewIndex + 1}/4)`;
