@@ -9,21 +9,49 @@ import {
   transitionCheckpointToken,
 } from "./checkpoint_token.mjs";
 import { getApiPositions } from "./slot_layout.mjs";
+import {
+  ensureAnonymousUser,
+  firebaseAvailable,
+  uploadSubmission,
+} from "./firebase-client.mjs";
+import { initStudentSubmissionUi } from "./student-submissions.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
-const LEGACY_CHECKPOINT_PROGRAM_MARKER = "# Demo checkpoint: move the orange token P1 -> P7 -> P1.";
+const LEGACY_CHECKPOINT_PROGRAM_MARKER =
+  "# Demo checkpoint: move the orange token P1 -> P7 -> P1.";
 const GRIPPER_FILE = "Assieme_pinza_dita_parallele.stp";
 const GRIPPER_BASE = "./assets/fr3_v6/";
 // The STEP assembly is authored in millimetres; its mounting face is at the J6 tool flange.
-const GRIPPER_MOUNT_OFFSET = [-0.03, 0.014, 0.16];
-const GRIPPER_MOUNT_ROTATION = [Math.PI, 0, 0];
+// The FR5 wrist3_link ends 102 mm beyond the J6 joint origin. The gripper is
+// mounted at that tool-flange end, not at the J6 rotation center. Keep the
+// existing FR3 calibration isolated so switching models cannot move its tool.
+const GRIPPER_MOUNT_OFFSET_BY_PROFILE = Object.freeze({
+  fr3: [-0.03, 0.014, 0.16],
+  // The CAD origin is behind the mounting face; use the same calibrated
+  // flange-to-CAD offset as FR3.  Using only the 102 mm J6 link length puts
+  // the gripper body inside wrist3 instead of at the flange.
+  fr5: [-0.03, 0.014, 0.16],
+});
+const GRIPPER_MOUNT_ROTATION_BY_PROFILE = Object.freeze({
+  fr3: [Math.PI, 0, 0],
+  // The CAD mounting face is on the opposite side of the STEP origin from
+  // the FR5 flange, so the tool points outward from J6 instead of through it.
+  fr5: [Math.PI, 0, 0],
+});
 const GRIPPER_SCALE = 0.0008;
 const ROBOT_SHELL_COLOR = 0xbfc9d4;
 const GRIPPER_FINGER_SOURCE_COLOR = 0x694d3b;
 const GRIPPER_FINGER_TRAVEL = 16;
 const GRIPPER_ANIMATION_MS = 220;
 const GRIPPER_JAW_CENTER_CAD = [40.35, 17.5, -37.75];
+
+function gripperMountOffset(profileId = state.robotProfileId) {
+  return (
+    GRIPPER_MOUNT_OFFSET_BY_PROFILE[profileId] ||
+    GRIPPER_MOUNT_OFFSET_BY_PROFILE.fr3
+  );
+}
 const BLOCK_SIZE = 0.04;
 const JOINT_NAMES = ["J1", "J2", "J3", "J4", "J5", "J6"];
 const JOINT_COLORS = [
@@ -81,11 +109,12 @@ const BLOCK_POSITIONS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
 const SORTABLE_BLOCK_NAMES = ["P1", "P3", "P5", "P6", "P7"];
 const BUFFER_POSITION = BLOCK_POSITIONS.at(-1);
 const SAMPLE_BLOCK_POSITIONS = {
-  P1: "P3",
-  P3: "P4",
-  P5: "P5",
-  P6: "P6",
-  P7: "P2",
+  // Demo input order from P2 to P6: car, chicken, dog, chair, house.
+  P1: "P3", // chicken
+  P3: "P4", // dog
+  P5: "P5", // chair
+  P6: "P6", // house
+  P7: "P2", // car
 };
 const BLOCK_META = Object.freeze({
   P1: { color: 0xf06b62, objectClass: "chicken" },
@@ -123,6 +152,21 @@ const ROBOT_PROFILES = Object.freeze({
   }),
 });
 const getRobotProfile = (id) => ROBOT_PROFILES[id] || ROBOT_PROFILES.fr3;
+const SAFE_ZONE_BOUNDS = Object.freeze({
+  fr3: Object.freeze({ x: [-500, 500], y: [-600, 600], z: [0, 850] }),
+  // FR5 has a longer reach. Its visual FK chain extends farther in X, so the
+  // teaching guard must cover the same footprint instead of blocking P1/P7.
+  fr5: Object.freeze({ x: [-850, 350], y: [-500, 600], z: [0, 950] }),
+});
+
+function safeZoneBoundsForProfile(profileId) {
+  const bounds = SAFE_ZONE_BOUNDS[profileId] || SAFE_ZONE_BOUNDS.fr3;
+  return {
+    x: [...bounds.x],
+    y: [...bounds.y],
+    z: [...bounds.z],
+  };
+}
 const OBJECT_CLASSES = [
   { value: 1, id: "chicken", label: "Chicken" },
   { value: 2, id: "tree", label: "Tree" },
@@ -134,6 +178,16 @@ const OBJECT_CLASSES = [
   { value: 8, id: "airplane", label: "Airplane" },
   { value: 9, id: "house", label: "House" },
 ];
+// Workshop sticker set.  The files are copied into the static app so they
+// remain available after deployment; the source folder on the developer
+// machine is not a browser-accessible URL.
+const OBJECT_CLASS_TEXTURE_FILES = Object.freeze({
+  chicken: "./assets/sticker-objects/chicken.png",
+  dog: "./assets/sticker-objects/dog.png",
+  chair: "./assets/sticker-objects/chair.png",
+  umbrella: "./assets/sticker-objects/house.png",
+  elephant: "./assets/sticker-objects/car.png",
+});
 const TECHCAMP_MAX_SPEED = 40;
 const TECHCAMP_MAX_ACC = 20;
 const DEFAULT_HOME_JOINTS = [-90, -135, 126, 8.8, 85.2, 0];
@@ -164,7 +218,10 @@ const state = {
   running: false,
   speed: 25,
   modelReady: false,
-  robotProfileId: "fr3",
+  // FR5 is the workshop's default visual model.  Users can still switch
+  // profiles explicitly from the selector, but a fresh page always starts
+  // with the FR5 asset and its calibrated HOME pose.
+  robotProfileId: "fr5",
   robotLoading: false,
   calibratedPoints: {},
   blocks: [],
@@ -189,7 +246,7 @@ const state = {
     example: true,
     margin: 50,
     alert: null,
-    bounds: { x: [-500, 500], y: [-600, 600], z: [0, 850] },
+    bounds: safeZoneBoundsForProfile("fr5"),
   },
   cameraZoom: HOME_CAMERA_ZOOM_DEFAULT,
 };
@@ -263,7 +320,8 @@ function initTheme() {
   );
 }
 
-const PYTHON_TOKEN_PATTERN = /(#[^\n]*)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\b(from|import|class|def|with|as|if|for|in|return|True|False|None)\b|\b(TechCamp|TechCampError)\b|\b(move_to|move_down|move_up|grip|release|get_image|get_positions|close)\b/g;
+const PYTHON_TOKEN_PATTERN =
+  /(#[^\n]*)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\b(from|import|class|def|with|as|if|for|in|return|True|False|None)\b|\b(TechCamp|TechCampError)\b|\b(move_to|move_down|move_up|grip|release|get_image|get_positions|close)\b/g;
 
 function escapeCodeHtml(value) {
   return value
@@ -315,7 +373,10 @@ function initCodeEditor() {
   const storedSize = Number(localStorage.getItem("fr3-code-font-size"));
   let fontSize = clamp(Number.isFinite(storedSize) ? storedSize : 12, 11, 20);
   const applyFontSize = () => {
-    document.documentElement.style.setProperty("--code-font-size", `${fontSize}px`);
+    document.documentElement.style.setProperty(
+      "--code-font-size",
+      `${fontSize}px`,
+    );
     if (decrease) decrease.disabled = fontSize <= 11;
     if (increase) increase.disabled = fontSize >= 20;
     localStorage.setItem("fr3-code-font-size", String(fontSize));
@@ -363,49 +424,6 @@ function initCodeEditor() {
   render();
 }
 
-function pythonFilename(value) {
-  const trimmed = String(value || "").trim() || "main.py";
-  return trimmed.toLowerCase().endsWith(".py") ? trimmed : `${trimmed}.py`;
-}
-
-async function downloadPythonProgram() {
-  const source = $("program")?.value ?? "";
-  const suggestedName = "main.py";
-  if (typeof window.showSaveFilePicker === "function") {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName,
-        types: [
-          {
-            description: "Python source file",
-            accept: { "text/x-python": [".py"] },
-          },
-        ],
-      });
-      const writable = await handle.createWritable();
-      await writable.write(source);
-      await writable.close();
-      log(`Saved ${handle.name}`);
-      return;
-    } catch (error) {
-      if (error?.name === "AbortError") return;
-    }
-  }
-
-  const requestedName = window.prompt("File name", suggestedName);
-  if (requestedName === null) return;
-  const blob = new Blob([source], { type: "text/x-python;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = pythonFilename(requestedName);
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-  log(`Downloaded ${anchor.download}`);
-}
-
 function initWorkspaceTabs() {
   const tabs = [$("codeTab"), $("controlTab")].filter(Boolean);
   if (tabs.length !== 2) return;
@@ -423,9 +441,16 @@ function initWorkspaceTabs() {
   tabs.forEach((tab, index) => {
     tab.addEventListener("click", () => activate(tab));
     tab.addEventListener("keydown", (event) => {
-      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
+        return;
       event.preventDefault();
-      const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      const nextIndex =
+        event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? tabs.length - 1
+            : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) %
+              tabs.length;
       tabs[nextIndex].focus();
       activate(tabs[nextIndex]);
     });
@@ -440,7 +465,10 @@ function initResizableWorkspace() {
   const minimum = 420;
   const applyWidth = (requestedWidth, persist = true) => {
     if (window.innerWidth <= 1020) return;
-    const maximum = Math.max(minimum, layout.getBoundingClientRect().width - 542);
+    const maximum = Math.max(
+      minimum,
+      layout.getBoundingClientRect().width - 542,
+    );
     const width = clamp(requestedWidth, minimum, maximum);
     layout.style.setProperty("--code-column-width", `${width}px`);
     splitter.setAttribute("aria-valuemin", String(minimum));
@@ -470,13 +498,22 @@ function initResizableWorkspace() {
   splitter.addEventListener("pointerup", stopDragging);
   splitter.addEventListener("pointercancel", stopDragging);
   splitter.addEventListener("keydown", (event) => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const current = parseFloat(
-      getComputedStyle(layout).getPropertyValue("--code-column-width"),
-    ) || layout.querySelector(".code-column").getBoundingClientRect().width;
-    const maximum = Math.max(minimum, layout.getBoundingClientRect().width - 542);
-    const next = event.key === 'Home' ? minimum : event.key === 'End' ? maximum : current + (event.key === 'ArrowRight' ? 24 : -24);
+    const current =
+      parseFloat(
+        getComputedStyle(layout).getPropertyValue("--code-column-width"),
+      ) || layout.querySelector(".code-column").getBoundingClientRect().width;
+    const maximum = Math.max(
+      minimum,
+      layout.getBoundingClientRect().width - 542,
+    );
+    const next =
+      event.key === "Home"
+        ? minimum
+        : event.key === "End"
+          ? maximum
+          : current + (event.key === "ArrowRight" ? 24 : -24);
     applyWidth(next);
   });
   window.addEventListener("resize", () => {
@@ -503,7 +540,17 @@ function fixedMatrix(origin, rpy) {
 const FR3_FIXED_MATRICES = FR3_KINEMATIC_ORIGINS.map((origin, i) =>
   fixedMatrix(origin, FR3_KINEMATIC_RPY[i]),
 );
-const FIXED_MATRICES = FR3_FIXED_MATRICES;
+
+// The FR5 mesh has longer links than FR3. Keep FK, TCP and the workpiece
+// placement on the same profile-specific chain; using the old FR3 chain here
+// makes the FR5 board appear offset from the gripper.
+function fixedMatricesForProfile(profileId = "fr3") {
+  if (profileId !== "fr5") return FR3_FIXED_MATRICES;
+  const profile = ROBOT_PROFILES.fr5;
+  return profile.visualJointOrigins.map((origin, i) =>
+    fixedMatrix(origin, profile.visualJointRpy[i]),
+  );
+}
 
 function makePoseMatrix(pose) {
   const matrix = new THREE.Matrix4();
@@ -535,8 +582,9 @@ function matrixToPose(matrix) {
 function fk(jointsRad) {
   let transform = new THREE.Matrix4().identity();
   const frames = [];
+  const fixedMatrices = fixedMatricesForProfile(state.robotProfileId);
   jointsRad.forEach((joint, i) => {
-    transform = transform.clone().multiply(FIXED_MATRICES[i]);
+    transform = transform.clone().multiply(fixedMatrices[i]);
     transform.multiply(new THREE.Matrix4().makeRotationAxis(Z_AXIS, joint));
     frames.push(transform.clone());
   });
@@ -704,10 +752,14 @@ function pointRecord(name) {
 }
 
 function gripperJawOffset() {
+  const mountOffset = gripperMountOffset();
+  const mountRotation =
+    GRIPPER_MOUNT_ROTATION_BY_PROFILE[state.robotProfileId] ||
+    GRIPPER_MOUNT_ROTATION_BY_PROFILE.fr3;
   return new THREE.Vector3(...GRIPPER_JAW_CENTER_CAD)
     .multiplyScalar(GRIPPER_SCALE)
-    .applyEuler(new THREE.Euler(...GRIPPER_MOUNT_ROTATION))
-    .add(new THREE.Vector3(...GRIPPER_MOUNT_OFFSET));
+    .applyEuler(new THREE.Euler(...mountRotation))
+    .add(new THREE.Vector3(...mountOffset));
 }
 
 function gripperJawMatrix(jointsDeg) {
@@ -725,6 +777,59 @@ function workpiecePose(point) {
   // calibrated cart field is controller/world-frame data and is only used
   // for readouts; mixing it here offsets blocks from the visual tool center.
   return gripperJawPose(point.joints);
+}
+
+function initTeacherPortalShortcut() {
+  const logo = $("teacherPortalShortcut");
+  const dialog = $("teacherAccessDialog");
+  const form = $("teacherAccessForm");
+  const password = $("teacherAccessPassword");
+  const submit = $("teacherAccessSubmit");
+  const error = $("teacherAccessError");
+  if (!logo || !dialog || !form || !password || !submit) return;
+
+  let clicks = 0;
+  let lastClickAt = 0;
+  const openDialog = () => {
+    clicks = 0;
+    password.value = "";
+    if (error) error.textContent = "";
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.open = true;
+    password.focus();
+  };
+  const countClick = () => {
+    const now = Date.now();
+    clicks = now - lastClickAt <= 900 ? clicks + 1 : 1;
+    lastClickAt = now;
+    if (clicks === 3) openDialog();
+  };
+  const verify = () => {
+    if (password.value === "090909" || password.value === "stemtechx") {
+      window.location.href = "./teacher.html";
+      return;
+    }
+    if (error) error.textContent = "Mật khẩu chưa đúng.";
+    password.select();
+  };
+
+  logo.addEventListener("click", countClick);
+  logo.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      countClick();
+    }
+  });
+  submit.addEventListener("click", verify);
+  password.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      verify();
+    }
+  });
+  form.addEventListener("submit", (event) => {
+    if (event.submitter === submit) event.preventDefault();
+  });
 }
 
 function normalizePointData(data) {
@@ -752,7 +857,10 @@ function renderHomePoint() {
   const badge = $("homePointBadge");
   if (badge) badge.textContent = selection.point ? "HOME" : "MISSING";
   const home = $("homeBtn");
-  if (home) home.title = selection.point ? "Move robot to HOME" : "HOME point is missing";
+  if (home)
+    home.title = selection.point
+      ? "Move robot to HOME"
+      : "HOME point is missing";
 }
 
 function makeTextSprite(text, color = "#cfe0f2") {
@@ -833,9 +941,17 @@ function updateCheckpointTokenVisual() {
   const point = checkpointTokenCarried()
     ? gripperJawPose(state.jointsDeg)
     : pointRecord(state.checkpointToken?.position || "P1");
-  const cart = Array.isArray(point) ? point : point ? workpiecePose(point) : null;
+  const cart = Array.isArray(point)
+    ? point
+    : point
+      ? workpiecePose(point)
+      : null;
   if (!cart) return;
-  checkpointTokenMesh.position.set(cart[0] / 1000, cart[1] / 1000, cart[2] / 1000);
+  checkpointTokenMesh.position.set(
+    cart[0] / 1000,
+    cart[1] / 1000,
+    cart[2] / 1000,
+  );
   checkpointTokenMesh.visible = true;
 }
 
@@ -868,7 +984,8 @@ function objectClassTexture(objectClass) {
   const existing = objectClassTextures.get(objectClass.id);
   if (existing) return existing;
   const texture = new THREE.TextureLoader().load(
-    `./assets/object-classes/${objectClass.id}.jpg`,
+    OBJECT_CLASS_TEXTURE_FILES[objectClass.id] ||
+      `./assets/object-classes/${objectClass.id}.jpg`,
   );
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
@@ -878,27 +995,22 @@ function objectClassTexture(objectClass) {
 
 function objectClassMaterials(objectClass) {
   const texture = objectClassTexture(objectClass);
-  return Array.from(
-    { length: 6 },
-    (_, faceIndex) => {
-      // BoxGeometry material 2 is the local +Y face visible in Home camera.
-      const map = faceIndex === 2 && texture ? texture.clone() : texture;
-      if (faceIndex === 2 && map) {
-        map.wrapT = THREE.RepeatWrapping;
-        map.repeat.y = -1;
-        map.offset.y = 1;
-        map.needsUpdate = true;
-      }
-      return (
-      new THREE.MeshStandardMaterial({
-        color: texture ? 0xffffff : 0x52677d,
-        map,
-        roughness: 0.52,
-        metalness: 0.02,
-      })
-      );
-    },
-  );
+  return Array.from({ length: 6 }, (_, faceIndex) => {
+    // BoxGeometry material 2 is the local +Y face visible in Home camera.
+    const map = faceIndex === 2 && texture ? texture.clone() : texture;
+    if (faceIndex === 2 && map) {
+      map.wrapT = THREE.RepeatWrapping;
+      map.repeat.y = -1;
+      map.offset.y = 1;
+      map.needsUpdate = true;
+    }
+    return new THREE.MeshStandardMaterial({
+      color: texture ? 0xffffff : 0x52677d,
+      map,
+      roughness: 0.52,
+      metalness: 0.02,
+    });
+  });
 }
 
 function setSceneObjectsVisible(visible) {
@@ -940,10 +1052,12 @@ function buildBlockBoard() {
   const workpiecePoses = BLOCK_POSITIONS.map((name) =>
     workpiecePose(pointRecord(name)),
   );
-  const boardCenter = workpiecePoses.reduce(
-    (center, pose) => center.add(new THREE.Vector3(...pose.slice(0, 3))),
-    new THREE.Vector3(),
-  ).multiplyScalar(1 / workpiecePoses.length);
+  const boardCenter = workpiecePoses
+    .reduce(
+      (center, pose) => center.add(new THREE.Vector3(...pose.slice(0, 3))),
+      new THREE.Vector3(),
+    )
+    .multiplyScalar(1 / workpiecePoses.length);
   // Keep a block's centre at the gripper jaw centre while its base rests on the table.
   const boardSurfaceZ = boardCenter.z / 1000 - BLOCK_SIZE / 2;
   // Keep the original tabletop depth; only make the table thicker vertically.
@@ -954,7 +1068,11 @@ function buildBlockBoard() {
     metalness: 0.08,
   });
   const board = new THREE.Mesh(
-    new THREE.BoxGeometry(boardSize.length, boardSize.depth, boardSize.thickness),
+    new THREE.BoxGeometry(
+      boardSize.length,
+      boardSize.depth,
+      boardSize.thickness,
+    ),
     boardMaterial,
   );
   board.position.set(
@@ -971,7 +1089,11 @@ function buildBlockBoard() {
   });
   const edge = new THREE.LineSegments(
     new THREE.EdgesGeometry(
-      new THREE.BoxGeometry(boardSize.length, boardSize.depth, boardSize.thickness),
+      new THREE.BoxGeometry(
+        boardSize.length,
+        boardSize.depth,
+        boardSize.thickness,
+      ),
     ),
     edgeMaterial,
   );
@@ -1074,13 +1196,13 @@ function updateBlockVisuals() {
     const point = block.carried
       ? gripCenter
       : pointRecord(block.position === "HOMECHESS" ? "HOME" : block.position);
-    const cart = Array.isArray(point) ? point : point ? workpiecePose(point) : null;
+    const cart = Array.isArray(point)
+      ? point
+      : point
+        ? workpiecePose(point)
+        : null;
     if (!cart) return;
-    mesh.position.set(
-      cart[0] / 1000,
-      cart[1] / 1000,
-      cart[2] / 1000,
-    );
+    mesh.position.set(cart[0] / 1000, cart[1] / 1000, cart[2] / 1000);
     mesh.visible = true;
   });
   updateCheckpointTokenVisual();
@@ -1252,7 +1374,8 @@ function renderBlockBoard() {
     stateStrip.innerHTML = BLOCK_POSITIONS.map((position) => {
       const block = blockAt(position);
       const tokenHere =
-        state.checkpointToken?.position === position && !checkpointTokenCarried();
+        state.checkpointToken?.position === position &&
+        !checkpointTokenCarried();
       const color = block
         ? "#" + block.color.toString(16).padStart(6, "0")
         : tokenHere
@@ -1297,14 +1420,17 @@ function renderBlockBoard() {
     $("boardState").textContent =
       remaining +
       " blocks" +
-      (carrying ? " · carrying " + carrying.name : " · orange marker available");
+      (carrying
+        ? " · carrying " + carrying.name
+        : " · orange marker available");
   if ($("blockLegend")) {
     $("blockLegend").innerHTML = BLOCK_POSITIONS.map((position, index) => {
       const blocks = state.blocks.filter(
         (block) => !block.carried && block.position === position,
       );
       const tokenHere =
-        state.checkpointToken?.position === position && !checkpointTokenCarried();
+        state.checkpointToken?.position === position &&
+        !checkpointTokenCarried();
       const color = blocks.length
         ? "#" + blocks[0].color.toString(16).padStart(6, "0")
         : "#" + BLOCK_COLORS[index].toString(16).padStart(6, "0");
@@ -1364,19 +1490,22 @@ function resetBlocks(silent = false) {
   techcampSim.carriedToken = false;
   renderBlockBoard();
   updateBlockVisuals();
-  if (!silent) log("Scene reset -> P1 token · P2=P7 · P3…P6 unchanged · P7 empty");
+  if (!silent)
+    log("Scene reset -> P1 cam · P2 xe · P3 gà · P4 chó · P5 ghế · P6 nhà · P7 trống");
 }
 
-async function loadCalibratedPoints() {
+async function loadCalibratedPoints(profileId = state.robotProfileId) {
   try {
-    const response = await fetch("./points.json", { cache: "no-store" });
+    const pointFile =
+      profileId === "fr5" ? "./points-fr5.json" : "./points.json";
+    const response = await fetch(pointFile, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     state.calibratedPoints = normalizePointData(await response.json());
     renderHomePoint();
     resetBlocks(true);
     buildBlockBoard();
   } catch (error) {
-    log(`points.json error: ${error.message}`);
+    log(`${profileId} points error: ${error.message}`);
     renderHomePoint();
   }
 }
@@ -1650,7 +1779,10 @@ function renderState() {
   const programRunning = state.running || Boolean(state.programRun);
   const profileSelector = $("robotProfileSelect");
   const profileLocked =
-    programRunning || state.live || state.robotLoading || Boolean(gripperVisual.animation);
+    programRunning ||
+    state.live ||
+    state.robotLoading ||
+    Boolean(gripperVisual.animation);
   if (profileSelector) {
     profileSelector.disabled = profileLocked;
     profileSelector.setAttribute("aria-busy", String(state.robotLoading));
@@ -1668,7 +1800,11 @@ function renderState() {
     // Do not allow a program to start while points/model are still loading.
     // The initial points fetch resets the demo fixture to P1, so starting in
     // that window can make a token appear to jump back during P1 -> P7.
-    runButton.disabled = Boolean(state.live || state.robotLoading || (!programRunning && !state.modelReady));
+    runButton.disabled = Boolean(
+      state.live ||
+      state.robotLoading ||
+      (!programRunning && !state.modelReady),
+    );
     runButton.innerHTML = programRunning
       ? '<span class="button-symbol">■</span> Stop program'
       : '<span class="button-symbol">▶</span> Run program';
@@ -1733,7 +1869,8 @@ function renderPoseGrid(containerId, values, editable = false) {
 }
 
 function renderTcp() {
-  const pose = state.live && state.liveTcpPose ? state.liveTcpPose : currentPose();
+  const pose =
+    state.live && state.liveTcpPose ? state.liveTcpPose : currentPose();
   if ($("tcpReadout").querySelectorAll("output").length !== 6)
     renderPoseGrid("tcpReadout", pose, false);
   $("tcpReadout")
@@ -1757,7 +1894,9 @@ function renderTargetInputs() {
 
 function setJointVisualization(active) {
   jointMaterials.forEach((material, index) => {
-    material.color.setHex(active ? JOINT_COLORS[Math.min(index, 5)].hex : ROBOT_SHELL_COLOR);
+    material.color.setHex(
+      active ? JOINT_COLORS[Math.min(index, 5)].hex : ROBOT_SHELL_COLOR,
+    );
   });
 }
 
@@ -1825,7 +1964,9 @@ function setLiveControlLock(locked) {
     if ($(id)) $(id).disabled = locked;
   });
   document
-    .querySelectorAll("[data-joint-range], [data-joint-number], [data-target-pose]")
+    .querySelectorAll(
+      "[data-joint-range], [data-joint-number], [data-target-pose]",
+    )
     .forEach((input) => {
       input.disabled = locked;
     });
@@ -1887,7 +2028,8 @@ function applyLiveState(payload) {
   syncDisplayedJointValues();
   if ($("liveState")) {
     $("liveState").textContent = "LIVE";
-    $("liveState").title = `Last update ${new Date(state.lastLiveAt * 1000).toLocaleTimeString()}`;
+    $("liveState").title =
+      `Last update ${new Date(state.lastLiveAt * 1000).toLocaleTimeString()}`;
   }
   renderTcp();
   renderSafeZone();
@@ -2178,20 +2320,26 @@ function setGripperClosed(closed) {
     return Promise.resolve();
   }
   if (gripperVisual.animation) return gripperVisual.animation;
-  const fingers = gripperVisual.fingers.map(({ mesh, openPosition, direction }) => ({
-    mesh,
-    from: mesh.position.clone(),
-    to: openPosition.clone().addScaledVector(
-      new THREE.Vector3(1, 0, 0),
-      closed ? direction * GRIPPER_FINGER_TRAVEL : 0,
-    ),
-  }));
+  const fingers = gripperVisual.fingers.map(
+    ({ mesh, openPosition, direction }) => ({
+      mesh,
+      from: mesh.position.clone(),
+      to: openPosition
+        .clone()
+        .addScaledVector(
+          new THREE.Vector3(1, 0, 0),
+          closed ? direction * GRIPPER_FINGER_TRAVEL : 0,
+        ),
+    }),
+  );
   gripperVisual.animation = new Promise((resolve) => {
     const startedAt = performance.now();
     const tick = (now) => {
       const progress = clamp((now - startedAt) / GRIPPER_ANIMATION_MS, 0, 1);
       const eased = progress * progress * (3 - 2 * progress);
-      fingers.forEach(({ mesh, from, to }) => mesh.position.lerpVectors(from, to, eased));
+      fingers.forEach(({ mesh, from, to }) =>
+        mesh.position.lerpVectors(from, to, eased),
+      );
       if (progress < 1) {
         requestAnimationFrame(tick);
         return;
@@ -2209,46 +2357,47 @@ async function loadSharedGripper() {
   if (gripperVisual.group) return gripperVisual.group;
   if (gripperVisual.loadPromise) return gripperVisual.loadPromise;
   gripperVisual.loadPromise = (async () => {
-  if (typeof window.occtimportjs !== "function") {
-    throw new Error("STEP importer is not available");
-  }
-  const response = await fetch(`${GRIPPER_BASE}${GRIPPER_FILE}`);
-  if (!response.ok) throw new Error(`Unable to load gripper (HTTP ${response.status})`);
-  const occt = await window.occtimportjs();
-  const result = occt.ReadStepFile(new Uint8Array(await response.arrayBuffer()), {
-    linearUnit: "millimeter",
-    linearDeflectionType: "bounding_box_ratio",
-    linearDeflection: 0.001,
-    angularDeflection: 0.5,
-  });
-  if (!result.success || !result.meshes?.length) {
-    throw new Error("The gripper STEP file has no valid geometry");
-  }
-  const gripper = new THREE.Group();
-  gripper.name = "parallel_gripper";
-  gripper.userData.robotVisualRole = "shared-gripper";
-  gripper.position.fromArray(GRIPPER_MOUNT_OFFSET);
-  gripper.rotation.set(...GRIPPER_MOUNT_ROTATION);
-  gripper.scale.setScalar(GRIPPER_SCALE);
-  gripperVisual.fingers = [];
-  result.meshes.forEach((stepMesh) => {
-    const mesh = buildStepMesh(stepMesh);
-    if (mesh.userData.isGripperFinger) {
-      const bounds = new THREE.Box3().setFromBufferAttribute(
-        mesh.geometry.getAttribute("position"),
-      );
-      gripperVisual.fingers.push({
-        mesh,
-        openPosition: mesh.position.clone(),
-        direction: bounds.getCenter(new THREE.Vector3()).x < 40 ? 1 : -1,
-      });
+    if (typeof window.occtimportjs !== "function") {
+      throw new Error("STEP importer is not available");
     }
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    gripper.add(mesh);
-  });
-  gripperVisual.group = gripper;
-  return gripper;
+    const response = await fetch(`${GRIPPER_BASE}${GRIPPER_FILE}`);
+    if (!response.ok)
+      throw new Error(`Unable to load gripper (HTTP ${response.status})`);
+    const occt = await window.occtimportjs();
+    const result = occt.ReadStepFile(
+      new Uint8Array(await response.arrayBuffer()),
+      {
+        linearUnit: "millimeter",
+        linearDeflectionType: "bounding_box_ratio",
+        linearDeflection: 0.001,
+        angularDeflection: 0.5,
+      },
+    );
+    if (!result.success || !result.meshes?.length) {
+      throw new Error("The gripper STEP file has no valid geometry");
+    }
+    const gripper = new THREE.Group();
+    gripper.name = "parallel_gripper";
+    gripper.userData.robotVisualRole = "shared-gripper";
+    gripperVisual.fingers = [];
+    result.meshes.forEach((stepMesh) => {
+      const mesh = buildStepMesh(stepMesh);
+      if (mesh.userData.isGripperFinger) {
+        const bounds = new THREE.Box3().setFromBufferAttribute(
+          mesh.geometry.getAttribute("position"),
+        );
+        gripperVisual.fingers.push({
+          mesh,
+          openPosition: mesh.position.clone(),
+          direction: bounds.getCenter(new THREE.Vector3()).x < 40 ? 1 : -1,
+        });
+      }
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      gripper.add(mesh);
+    });
+    gripperVisual.group = gripper;
+    return gripper;
   })().catch((error) => {
     gripperVisual.loadPromise = null;
     throw error;
@@ -2333,9 +2482,9 @@ function syncRobotProfileUi(profile = getRobotProfile(state.robotProfileId)) {
   if (selector) selector.value = profile.id;
   const modelStatus = $("modelStatus");
   if (modelStatus)
-    modelStatus.textContent = `${profile.label} visual model loaded · TechCamp points remain FR3-calibrated`;
+    modelStatus.textContent = `${profile.label} visual model loaded · ${profile.id.toUpperCase()} points loaded`;
   if (modelStatus)
-    modelStatus.title = `${profile.label} visual model loaded · TechCamp points remain FR3-calibrated`;
+    modelStatus.title = `${profile.label} visual model loaded · ${profile.id.toUpperCase()} points loaded`;
   const viewport = $("viewport");
   if (viewport)
     viewport.setAttribute(
@@ -2349,12 +2498,21 @@ function getRobotVisualDiagnostics() {
   let linkCount = 0;
   let gripperCount = 0;
   let gripperParent = null;
+  let gripperJoint = null;
   robotRoot?.traverse((object) => {
     if (object.userData?.robotVisualRole === "arm") armGroups.push(object.name);
     if (object.userData?.robotVisualRole === "arm-link") linkCount += 1;
     if (object.userData?.robotVisualRole === "shared-gripper") {
       gripperCount += 1;
       gripperParent = object.parent?.name || null;
+      let parent = object.parent;
+      while (parent) {
+        if (parent.name?.endsWith("joint-rotator-6")) {
+          gripperJoint = 6;
+          break;
+        }
+        parent = parent.parent;
+      }
     }
   });
   return Object.freeze({
@@ -2365,13 +2523,17 @@ function getRobotVisualDiagnostics() {
     linkCount,
     gripperCount,
     gripperParent,
+    gripperJoint,
   });
 }
 window.getRobotVisualDiagnostics = getRobotVisualDiagnostics;
 
 async function switchRobotProfile(profileId, { initial = false } = {}) {
   const profile = getRobotProfile(profileId);
-  if (!initial && (state.running || state.programRun || state.live || gripperVisual.animation)) {
+  if (
+    !initial &&
+    (state.running || state.programRun || state.live || gripperVisual.animation)
+  ) {
     syncRobotProfileUi();
     log("Robot model changes are unavailable while the simulator is running");
     return false;
@@ -2383,7 +2545,8 @@ async function switchRobotProfile(profileId, { initial = false } = {}) {
   renderState();
   if ($("loadingCard")) {
     $("loadingCard").classList.remove("hidden");
-    $("loadingCard").innerHTML = `<span class="loader"></span><span>Loading ${profile.label} model…</span>`;
+    $("loadingCard").innerHTML =
+      `<span class="loader"></span><span>Loading ${profile.label} model…</span>`;
   }
   setStatus(`Loading ${profile.label} model…`);
   let candidate = null;
@@ -2403,16 +2566,32 @@ async function switchRobotProfile(profileId, { initial = false } = {}) {
     if (gripper.parent) gripper.parent.remove(gripper);
     if (previous) robotRoot.remove(previous);
     robotRoot.add(candidate.group);
-    candidate.jointRotators.at(-1).add(gripper);
+    // Mount the complete tool below J6. The mount owns the CAD correction;
+    // the gripper geometry itself stays identity-local, so every J6 rotation
+    // is inherited without a second competing transform.
+    const j6ToolMount = new THREE.Group();
+    j6ToolMount.name = `${profile.id}-j6-tool-mount`;
+    j6ToolMount.userData.robotVisualRole = "j6-tool-mount";
+    j6ToolMount.position.fromArray(gripperMountOffset(profile.id));
+    const mountRotation =
+      GRIPPER_MOUNT_ROTATION_BY_PROFILE[profile.id] ||
+      GRIPPER_MOUNT_ROTATION_BY_PROFILE.fr3;
+    j6ToolMount.rotation.set(...mountRotation);
+    j6ToolMount.scale.setScalar(GRIPPER_SCALE);
+    j6ToolMount.add(gripper);
+    candidate.jointRotators.at(-1).add(j6ToolMount);
     if (previous) disposeRobotArm({ group: previous });
     activeRobotGroup = candidate.group;
     jointRotators = candidate.jointRotators;
     modelMaterials = candidate.modelMaterials;
     jointMaterials = candidate.jointMaterials;
     state.robotProfileId = profile.id;
+    state.safeZone.bounds = safeZoneBoundsForProfile(profile.id);
+    state.safeZone.alert = null;
     state.modelReady = true;
     state.robotLoading = false;
     localStorage.setItem(ROBOT_PROFILE_STORAGE_KEY, profile.id);
+    await loadCalibratedPoints(profile.id);
     syncRobotProfileUi(profile);
     setJointVisualization($("controlTab")?.classList.contains("active"));
     $("loadingCard")?.classList.add("hidden");
@@ -2427,7 +2606,8 @@ async function switchRobotProfile(profileId, { initial = false } = {}) {
     state.modelReady = Boolean(previous);
     syncRobotProfileUi();
     if ($("loadingCard"))
-      $("loadingCard").innerHTML = "<span>Unable to load the selected model. Check the local web server.</span>";
+      $("loadingCard").innerHTML =
+        "<span>Unable to load the selected model. Check the local web server.</span>";
     setStatus("MODEL LOAD ERROR", "error");
     log(`Model load error: ${error.message}`);
     renderState();
@@ -2435,23 +2615,50 @@ async function switchRobotProfile(profileId, { initial = false } = {}) {
   }
 }
 
+function resetPoseToCalibratedHome() {
+  const home = homePointRecord().point;
+  const joints = home?.joints;
+  const validHome =
+    Array.isArray(joints) &&
+    joints.length === 6 &&
+    joints.every((value) => Number.isFinite(Number(value)));
+  const homeJoints = validHome
+    ? joints.map(Number)
+    : [...DEFAULT_HOME_JOINTS];
+  state.jointsDeg = [...homeJoints];
+  state.targetDeg = [...homeJoints];
+  state.activeMotion = null;
+  state.liveFromDeg = null;
+  state.liveTargetDeg = null;
+  state.liveAnimationStart = 0;
+  state.lastTargetPose = currentPose();
+  updateVisuals();
+  renderJointControls();
+  renderTcp();
+  renderTargetInputs();
+  renderState();
+}
+
 async function loadModel() {
   initScene();
   state.robotLoading = true;
   renderState();
-  await loadCalibratedPoints();
-  const loaded = await switchRobotProfile("fr3", { initial: true });
-  if (!loaded) return;
-  const stored = localStorage.getItem(ROBOT_PROFILE_STORAGE_KEY);
-  if (stored === "fr5") {
-    const restored = await switchRobotProfile("fr5");
-    if (!restored) {
+  // Always use FR5 for a new page load.  A previous profile selection must
+  // not leave the workshop opening in a different model on the next visit.
+  let loaded = await switchRobotProfile("fr5", { initial: true });
+  if (!loaded) {
+    loaded = await switchRobotProfile("fr3", { initial: true });
+    if (loaded) {
       localStorage.setItem(ROBOT_PROFILE_STORAGE_KEY, "fr3");
-      state.robotProfileId = "fr3";
-      syncRobotProfileUi();
       setStatus("FR5 model unavailable · FR3 remains active", "error");
     }
   }
+  if (!loaded) return;
+  resetPoseToCalibratedHome();
+  // Match the FR3 HOME view: front/teaching camera, default target and the
+  // same mirrored canvas treatment used by the existing FR3 presentation.
+  homeView();
+  syncRobotProfileUi();
 }
 
 function setHomeCameraView(index) {
@@ -2461,15 +2668,16 @@ function setHomeCameraView(index) {
     HOME_CAMERA_VIEWS.length;
   const view = HOME_CAMERA_VIEWS[cameraViewIndex];
   const frameScale = 100 / state.cameraZoom;
-  camera
-    .position
+  camera.position
     .set(...HOME_CAMERA_TARGET)
     .lerp(new THREE.Vector3(...view.position), frameScale);
   controls.target.set(...HOME_CAMERA_TARGET);
   controls.update();
   const mirroredTeachingView = cameraViewIndex === 0;
   if (renderer?.domElement) {
-    renderer.domElement.style.transform = mirroredTeachingView ? "scaleX(-1)" : "";
+    renderer.domElement.style.transform = mirroredTeachingView
+      ? "scaleX(-1)"
+      : "";
   }
   controls.rotateSpeed = mirroredTeachingView ? -1 : 1;
   syncBoardLabelMirroring();
@@ -2489,9 +2697,12 @@ function setCameraZoom(value) {
     ...HOME_CAMERA_ZOOM_RANGE,
   );
   localStorage.setItem("fr3-home-camera-zoom", String(state.cameraZoom));
-  if ($("cameraZoomRange")) $("cameraZoomRange").value = String(state.cameraZoom);
-  if ($("cameraZoomOutput")) $("cameraZoomOutput").textContent = `${state.cameraZoom}%`;
-  if ($("cameraZoomBtn")) $("cameraZoomBtn").textContent = `View ${state.cameraZoom}%`;
+  if ($("cameraZoomRange"))
+    $("cameraZoomRange").value = String(state.cameraZoom);
+  if ($("cameraZoomOutput"))
+    $("cameraZoomOutput").textContent = `${state.cameraZoom}%`;
+  if ($("cameraZoomBtn"))
+    $("cameraZoomBtn").textContent = `View ${state.cameraZoom}%`;
   setHomeCameraView(cameraViewIndex < 0 ? 0 : cameraViewIndex);
 }
 
@@ -2544,7 +2755,9 @@ const techcampSim = {
   carriedToken: false,
   async move_to(position) {
     if (state.robotLoading || !state.modelReady)
-      throw new TechCampError("Simulator is still loading its calibrated points.");
+      throw new TechCampError(
+        "Simulator is still loading its calibrated points.",
+      );
     startTechCamp();
     const raw = String(position).toUpperCase();
     const pos = raw === "HOMECHESS" ? "HOME" : raw;
@@ -2554,9 +2767,7 @@ const techcampSim = {
       );
     if (this.low) await this.move_up();
     if (this.position === pos) return true;
-    const point = calibratedPointFor(
-      pos === "HOME" ? "HOME" : `${pos}UP`,
-    );
+    const point = calibratedPointFor(pos === "HOME" ? "HOME" : `${pos}UP`);
     if (!point)
       throw new TechCampError(`Missing calibrated point for ${pos}UP`);
     const result = await techCampMove(point, TECHCAMP_MAX_SPEED);
@@ -2655,8 +2866,7 @@ const techcampSim = {
     if (block) {
       const target = this.position;
       const occupied = state.blocks.some(
-        (item) =>
-          item !== block && !item.carried && item.position === target,
+        (item) => item !== block && !item.carried && item.position === target,
       );
       const tokenCollision =
         target === state.checkpointToken?.position && !checkpointTokenCarried();
@@ -2941,12 +3151,14 @@ function focusProgramLine(lineNumber) {
   const editor = $("program");
   if (!editor) return;
   const lines = editor.value.split("\n");
-  const start = lines.slice(0, Math.max(0, lineNumber - 1)).join("\n").length +
+  const start =
+    lines.slice(0, Math.max(0, lineNumber - 1)).join("\n").length +
     (lineNumber > 1 ? 1 : 0);
   const end = start + (lines[lineNumber - 1] || "").length;
   editor.focus();
   editor.setSelectionRange(start, end);
-  const lineHeight = Number.parseFloat(getComputedStyle(editor).lineHeight) || 20;
+  const lineHeight =
+    Number.parseFloat(getComputedStyle(editor).lineHeight) || 20;
   editor.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight);
 }
 
@@ -2960,10 +3172,12 @@ function validateStudentProgram(source) {
   let botCreated = false;
   let hasRobotCommand = false;
   let knownPosition = false;
+  const entrypointErrors = validateMainEntrypointSource(source).errors;
 
   for (const [index, raw] of source.split(/\r?\n/).entries()) {
     const lineNumber = index + 1;
-    if (/\t/.test(raw)) addError(lineNumber, "Use spaces for indentation; tabs are not allowed.");
+    if (/\t/.test(raw))
+      addError(lineNumber, "Use spaces for indentation; tabs are not allowed.");
     const uncommented = stripPythonComment(raw);
     const trimmed = uncommented.trim();
     if (!trimmed) continue;
@@ -2971,24 +3185,53 @@ function validateStudentProgram(source) {
     const syntaxIssue = findPythonSyntaxIssue(uncommented);
     if (syntaxIssue) addError(lineNumber, syntaxIssue);
     if (codeOnly.includes(";"))
-      addError(lineNumber, "Use one statement per line; semicolons are not allowed.");
+      addError(
+        lineNumber,
+        "Use one statement per line; semicolons are not allowed.",
+      );
     if (/\/\//.test(codeOnly))
       addError(lineNumber, "Python comments use #, not //.");
+
+    if (/^def\s+[A-Za-z_]\w*\s*\(\s*\)\s*:$/.test(trimmed)) {
+      previousOpenedBlock = true;
+      continue;
+    }
+    if (/^if\s+__name__\s*==\s*["']__main__["']\s*:$/.test(trimmed)) {
+      previousOpenedBlock = true;
+      continue;
+    }
+    if (/^[A-Za-z_]\w*\s*\(\s*\)$/.test(trimmed)) {
+      previousOpenedBlock = false;
+      continue;
+    }
+    if (/^[A-Z_][A-Z0-9_]*\s*=\s*\[.*\]$/.test(trimmed)) {
+      previousOpenedBlock = false;
+      continue;
+    }
+    if (/^for\s+\w+\s+in\s+[A-Z_][A-Z0-9_]*\s*:$/.test(trimmed)) {
+      previousOpenedBlock = true;
+      continue;
+    }
 
     const indent = uncommented.match(/^ */)[0].length;
     while (indent < indentation.at(-1)) indentation.pop();
     if (indent !== indentation.at(-1)) {
-      if (indent > indentation.at(-1) && previousOpenedBlock) indentation.push(indent);
-      else addError(lineNumber, "Invalid indentation: indent only after a line ending with :.");
+      if (indent > indentation.at(-1) && previousOpenedBlock)
+        indentation.push(indent);
+      else
+        addError(
+          lineNumber,
+          "Invalid indentation: indent only after a line ending with :.",
+        );
     }
 
     const unsupportedKeyword = codeOnly.match(
-      /\b(await|async|def|class|lambda|eval|exec|open|__import__|while|for|try|except|return|raise|input)\b/,
+      /\b(await|async|class|lambda|eval|exec|open|__import__|while|try|except|raise|input)\b/,
     );
     if (unsupportedKeyword) {
       addError(
         lineNumber,
-          `'${unsupportedKeyword[1]}' is not available in this lesson. Use the TechCamp API only.`,
+        `'${unsupportedKeyword[1]}' is not available in this lesson. Use the TechCamp API only.`,
       );
       previousOpenedBlock = trimmed.endsWith(":");
       continue;
@@ -2996,7 +3239,9 @@ function validateStudentProgram(source) {
 
     if (/^from\b/.test(trimmed) || /^import\b/.test(trimmed)) {
       if (
-        /^from\s+techcamp_api\s+import\s+TechCamp(?:\s*,\s*TechCampError)?$/.test(trimmed)
+        /^from\s+techcamp_api\s+import\s+TechCamp(?:\s*,\s*TechCampError)?$/.test(
+          trimmed,
+        )
       ) {
         importedTechCamp = true;
       } else {
@@ -3012,7 +3257,10 @@ function validateStudentProgram(source) {
     if (/^with\b/.test(trimmed)) {
       if (/^with\s+TechCamp\(\)\s+as\s+bot:$/.test(trimmed)) {
         if (!importedTechCamp)
-          addError(lineNumber, "Add the TechCamp import at the top of the program.");
+          addError(
+            lineNumber,
+            "Add the TechCamp import at the top of the program.",
+          );
         botCreated = true;
         knownPosition = false;
       } else {
@@ -3023,11 +3271,16 @@ function validateStudentProgram(source) {
     }
 
     if (/^if\b/.test(trimmed)) {
-      const condition = trimmed.match(/^if\s+(\w+)\.get\(\s*["'](P[1-7])["']\s*\):$/);
+      const condition = trimmed.match(
+        /^if\s+(\w+)\.get\(\s*["'](P[1-7])["']\s*\):$/,
+      );
       if (!condition)
-          addError(lineNumber, 'Supported condition: if blocks.get("P3"):');
+        addError(lineNumber, 'Supported condition: if blocks.get("P3"):');
       else if (!variables.has(condition[1]))
-          addError(lineNumber, `'${condition[1]}' has no data. Call blocks = bot.get_positions() first.`);
+        addError(
+          lineNumber,
+          `'${condition[1]}' has no data. Call blocks = bot.get_positions() first.`,
+        );
       previousOpenedBlock = true;
       continue;
     }
@@ -3037,7 +3290,10 @@ function validateStudentProgram(source) {
         addError(lineNumber, "Use this exact initialization: bot = TechCamp()");
       else {
         if (!importedTechCamp)
-          addError(lineNumber, "Add the TechCamp import at the top of the program.");
+          addError(
+            lineNumber,
+            "Add the TechCamp import at the top of the program.",
+          );
         botCreated = true;
         knownPosition = false;
       }
@@ -3045,15 +3301,21 @@ function validateStudentProgram(source) {
       continue;
     }
 
-    const readAssignment = trimmed.match(/^(\w+)\s*=\s*bot\.(get_positions|get_image)\(\s*\)$/);
+    const readAssignment = trimmed.match(
+      /^(\w+)\s*=\s*bot\.(get_positions|get_image)\(\s*\)$/,
+    );
     if (readAssignment) {
-      if (!botCreated) addError(lineNumber, "Create bot = TechCamp() before calling methods.");
+      if (!botCreated)
+        addError(lineNumber, "Create bot = TechCamp() before calling methods.");
       variables.add(readAssignment[1]);
       previousOpenedBlock = false;
       continue;
     }
     if (/^\w+\s*=\s*bot\./.test(trimmed)) {
-      addError(lineNumber, "Only assign results from bot.get_positions() or bot.get_image().");
+      addError(
+        lineNumber,
+        "Only assign results from bot.get_positions() or bot.get_image().",
+      );
       previousOpenedBlock = false;
       continue;
     }
@@ -3061,32 +3323,50 @@ function validateStudentProgram(source) {
     const botCall = trimmed.match(/^bot\.(\w+)\((.*)\)$/);
     if (botCall) {
       const [, method, argument] = botCall;
-      if (!botCreated) addError(lineNumber, "Create bot = TechCamp() before calling methods.");
+      if (!botCreated)
+        addError(lineNumber, "Create bot = TechCamp() before calling methods.");
       if (method === "move_to") {
         const point = quotedArgument(argument);
-        if (!point) addError(lineNumber, 'move_to() needs a quoted point, for example move_to("P3").');
+        if (!point)
+          addError(
+            lineNumber,
+            'move_to() needs a quoted point, for example move_to("P3").',
+          );
         else if (!TECHCAMP_STUDENT_POINTS.has(point.toUpperCase()))
-          addError(lineNumber, `Point '${point}' is invalid. Use P1 to P7 or HOME.`);
+          addError(
+            lineNumber,
+            `Point '${point}' is invalid. Use P1 to P7 or HOME.`,
+          );
         else {
           knownPosition = !["HOME", "HOMECHESS"].includes(point.toUpperCase());
           hasRobotCommand = true;
         }
       } else if (TECHCAMP_EMPTY_METHODS.has(method)) {
-        if (argument.trim()) addError(lineNumber, `${method}() does not accept arguments.`);
+        if (argument.trim())
+          addError(lineNumber, `${method}() does not accept arguments.`);
         if (method === "move_down" && !knownPosition)
-          addError(lineNumber, "move_down() requires move_to(\"P1\" through \"P7\") first.");
+          addError(
+            lineNumber,
+            'move_down() requires move_to("P1" through "P7") first.',
+          );
         hasRobotCommand = true;
       } else if (TECHCAMP_READ_METHODS.has(method)) {
         addError(lineNumber, `Store the result: data = bot.${method}().`);
       } else {
-        addError(lineNumber, `bot.${method}() is not part of the TechCamp lesson API.`);
+        addError(
+          lineNumber,
+          `bot.${method}() is not part of the TechCamp lesson API.`,
+        );
       }
       previousOpenedBlock = false;
       continue;
     }
 
     if (/^bot\./.test(trimmed)) {
-      addError(lineNumber, "Invalid method call syntax; include parentheses ().");
+      addError(
+        lineNumber,
+        "Invalid method call syntax; include parentheses ().",
+      );
       previousOpenedBlock = false;
       continue;
     }
@@ -3099,7 +3379,10 @@ function validateStudentProgram(source) {
     if (/^TechCamp\(/.test(trimmed))
       addError(lineNumber, "Assign the robot object: bot = TechCamp().");
     else
-      addError(lineNumber, "Command not recognized. Use the TechCamp lesson methods only.");
+      addError(
+        lineNumber,
+        "Command not recognized. Use the TechCamp lesson methods only.",
+      );
     previousOpenedBlock = trimmed.endsWith(":");
   }
 
@@ -3107,13 +3390,19 @@ function validateStudentProgram(source) {
     addError(1, "Missing: from techcamp_api import TechCamp");
   if (!botCreated && source.trim()) addError(1, "Missing: bot = TechCamp()");
   if (!hasRobotCommand && botCreated)
-    addError(1, "Add a robot command (move_to, move_down, move_up, grip, or release).");
+    addError(
+      1,
+      "Add a robot command (move_to, move_down, move_up, grip, or release).",
+    );
+  entrypointErrors.forEach((error) => addError(error.line, error.message));
   return { errors: errors.sort((a, b) => a.line - b.line) };
 }
 
 async function runTechCampLine(trimmed, indent, context) {
   if (
-    /^from\s+techcamp_api\s+import\s+TechCamp(?:\s*,\s*TechCampError)?$/.test(trimmed)
+    /^from\s+techcamp_api\s+import\s+TechCamp(?:\s*,\s*TechCampError)?$/.test(
+      trimmed,
+    )
   )
     return true;
   if (
@@ -3130,12 +3419,11 @@ async function runTechCampLine(trimmed, indent, context) {
     context.skip = !Boolean(context.vars[ifMatch[1]]?.[ifMatch[2]]);
     return true;
   }
-  const positionMatch = trimmed.match(
-    /^bot\.move_to\(\s*(.+?)\s*\)$/,
-  );
+  const positionMatch = trimmed.match(/^bot\.move_to\(\s*(.+?)\s*\)$/);
   if (positionMatch) {
     const position = quotedArgument(positionMatch[1]);
-    if (!position) throw new TechCampError('move_to() needs a point such as "P3"');
+    if (!position)
+      throw new TechCampError('move_to() needs a point such as "P3"');
     await techcampSim.move_to(position);
     return true;
   }
@@ -3175,13 +3463,58 @@ function clearCodeValidation() {
   }
 }
 
+function validateMainEntrypointSource(source) {
+  const lines = String(source || "").split(/\r?\n/);
+  const errors = [];
+  const functionLines = lines
+    .map((line, index) => ({
+      index,
+      name: line.match(/^\s*def\s+([A-Za-z_]\w*)\s*\(\s*\)\s*:\s*$/)?.[1],
+    }))
+    .filter((entry) => entry.name);
+  if (!functionLines.length) {
+    errors.push({
+      line: 1,
+      message: 'Define a main function before running the program.',
+    });
+  }
+  const guardLine = lines.findIndex((line) =>
+    /^\s*if\s+__name__\s*==\s*["']__main__["']\s*:\s*$/.test(line),
+  );
+  if (guardLine < 0) {
+    errors.push({
+      line: functionLines[0]?.index + 1 || 1,
+      message: 'Call the main function from if __name__ == "__main__":.',
+    });
+  } else {
+    const call = lines
+      .slice(guardLine + 1)
+      .map((line, offset) => ({
+        line: guardLine + offset + 2,
+        name: line.match(/^\s+([A-Za-z_]\w*)\s*\(\s*\)\s*$/)?.[1],
+      }))
+      .find((entry) => entry.name);
+    if (!call || !functionLines.some((entry) => entry.name === call.name)) {
+      errors.push({
+        line: guardLine + 1,
+        message: 'The __main__ block must call the function defined above.',
+      });
+    }
+  }
+  return { errors };
+}
+
 function showPythonError(error) {
   const line = Number(error?.line) || 1;
   const column = Number(error?.column);
-  const location = column ? "Line " + line + ", column " + column : "Line " + line;
+  const location = column
+    ? "Line " + line + ", column " + column
+    : "Line " + line;
   const message = error?.message || "Python error.";
   renderCodeValidation({
-    errors: [{ line, message: (column ? "Column " + column + ": " : "") + message }],
+    errors: [
+      { line, message: (column ? "Column " + column + ": " : "") + message },
+    ],
   });
   focusProgramLine(line);
   log(location + " · PythonError: " + message);
@@ -3206,9 +3539,11 @@ async function runPythonProgram(token) {
   const payload = await response.json().catch(() => null);
   if (token.cancelled) return;
   if (!response.ok || !payload?.ok) {
-    showPythonError(payload?.error || {
-      message: "No result from the Python runner. Restart serve.mjs.",
-    });
+    showPythonError(
+      payload?.error || {
+        message: "No result from the Python runner. Restart serve.mjs.",
+      },
+    );
     return;
   }
   for (const text of payload.output || []) {
@@ -3240,6 +3575,16 @@ async function runProgram() {
     return;
   }
   clearCodeValidation();
+  const entrypointValidation = validateMainEntrypointSource(
+    $("program")?.value || "",
+  );
+  if (entrypointValidation.errors.length) {
+    renderCodeValidation(entrypointValidation);
+    const first = entrypointValidation.errors[0];
+    focusProgramLine(first.line);
+    log(`Program blocked · ${first.message}`);
+    return;
+  }
   const token = { cancelled: false, controller: new AbortController() };
   state.programRun = token;
   renderState();
@@ -3248,7 +3593,9 @@ async function runProgram() {
   } catch (error) {
     if (!token.cancelled)
       showPythonError({
-      message: error?.message || "Could not connect to the Python runner. Restart serve.mjs.",
+        message:
+          error?.message ||
+          "Could not connect to the Python runner. Restart serve.mjs.",
       });
   } finally {
     if (state.programRun === token) {
@@ -3260,6 +3607,7 @@ async function runProgram() {
 
 function bindUI() {
   initTheme();
+  initTeacherPortalShortcut();
   initCodeEditor();
   initWorkspaceTabs();
   initResizableWorkspace();
@@ -3270,13 +3618,32 @@ function bindUI() {
   renderTargetInputs();
   renderState();
   renderSafeZone();
+  initStudentSubmissionUi({
+    openButton: $("uploadProgramBtn"),
+    dialog: $("uploadDialog"),
+    form: $("uploadForm"),
+    groupInput: $("groupNameInput"),
+    filenamePreview: $("uploadFilenamePreview"),
+    statusNode: $("uploadStatus"),
+    submitButton: $("uploadSubmitBtn"),
+    getSource: () => $("program")?.value ?? "",
+    ensureUser: ensureAnonymousUser,
+    upload: uploadSubmission,
+    available: firebaseAvailable(),
+    log,
+  });
   setSceneObjectsVisible(state.sceneObjectsVisible);
   $("toggleSceneObjectsBtn")?.addEventListener("click", () => {
     setSceneObjectsVisible(!state.sceneObjectsVisible);
   });
   $("robotProfileSelect")?.addEventListener("change", async (event) => {
     const requested = getRobotProfile(event.target.value).id;
-    if (state.running || state.programRun || state.live || gripperVisual.animation) {
+    if (
+      state.running ||
+      state.programRun ||
+      state.live ||
+      gripperVisual.animation
+    ) {
       syncRobotProfileUi();
       return;
     }
@@ -3316,13 +3683,24 @@ function bindUI() {
     cameraZoomButton.setAttribute("aria-expanded", String(open));
   };
   const savedCameraZoom = Number(localStorage.getItem("fr3-home-camera-zoom"));
-  setCameraZoom(Number.isFinite(savedCameraZoom) ? savedCameraZoom : HOME_CAMERA_ZOOM_DEFAULT);
+  setCameraZoom(
+    Number.isFinite(savedCameraZoom)
+      ? savedCameraZoom
+      : HOME_CAMERA_ZOOM_DEFAULT,
+  );
   cameraZoomButton?.addEventListener("click", () =>
     setCameraZoomPopover(cameraZoomPopover?.hidden),
   );
-  cameraZoomRange?.addEventListener("input", () => setCameraZoom(cameraZoomRange.value));
+  cameraZoomRange?.addEventListener("input", () =>
+    setCameraZoom(cameraZoomRange.value),
+  );
   document.addEventListener("pointerdown", (event) => {
-    if (cameraZoomPopover && !cameraZoomPopover.hidden && !event.target.closest(".camera-control")) setCameraZoomPopover(false);
+    if (
+      cameraZoomPopover &&
+      !cameraZoomPopover.hidden &&
+      !event.target.closest(".camera-control")
+    )
+      setCameraZoomPopover(false);
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -3334,7 +3712,6 @@ function bindUI() {
     api.MoveL(state.lastTargetPose),
   );
   $("runBtn").addEventListener("click", runProgram);
-  $("downloadProgramBtn")?.addEventListener("click", downloadPythonProgram);
   $("liveBtn")?.addEventListener("click", connectLive);
   $("clearLogBtn").addEventListener("click", () => {
     $("console").textContent = "";

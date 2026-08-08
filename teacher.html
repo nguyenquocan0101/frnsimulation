@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TechX · Bài nộp workshop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Paytone+One&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./teacher.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "firebase/app": "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js",
+          "firebase/firestore": "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="teacher-shell">
+      <header class="teacher-header">
+        <div>
+          <div class="header-brand">
+            <div class="techx-logo" aria-label="FPTU TechX Camp">FPTU TECH<span>X</span> CAMP</div>
+            <span>FAIRINO SIMULATION</span>
+          </div>
+          <h1>Quản lý bài nộp TechX</h1>
+          <p>Danh sách bài nộp cho buổi workshop .</p>
+        </div>
+        <a class="button" href="./index.html">Simulator</a>
+      </header>
+      <section class="teacher-panel" aria-label="Danh sách bài nộp">
+        <div class="teacher-toolbar">
+          <span
+            class="public-status"
+            id="teacherPublicStatus"
+            data-status="loading"
+            aria-live="polite"
+            >Workshop công khai</span
+          >
+          <input
+            class="teacher-filter"
+            id="teacherFilter"
+            type="search"
+            placeholder="Lọc theo tên nhóm…"
+            aria-label="Lọc theo tên nhóm"
+          />
+          <button
+            class="button primary"
+            id="teacherRefreshBtn"
+            type="button"
+            aria-label="Làm mới danh sách"
+          >
+            Làm mới
+          </button>
+        </div>
+        <p
+          class="teacher-error"
+          id="submissionError"
+          data-status="error"
+          aria-live="polite"
+          hidden
+        ></p>
+        <span class="visually-hidden" data-status="ready">Sẵn sàng</span>
+        <p
+          class="teacher-empty"
+          id="submissionEmpty"
+          data-status="empty"
+          aria-live="polite"
+          hidden
+        >
+          Chưa có bài nộp.
+        </p>
+        <div class="submission-table-wrap">
+          <table class="submission-table" id="submissionTable">
+            <thead>
+              <tr>
+                <th scope="col">STT</th>
+                <th scope="col">Tên nhóm</th>
+                <th scope="col">Tên file</th>
+                <th scope="col">Nộp lúc</th>
+                <th scope="col">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="submissionTableBody"></tbody>
+          </table>
+        </div>
+        <dialog
+          class="preview-dialog"
+          id="previewDialog"
+          aria-labelledby="previewTitle"
+        >
+          <form method="dialog">
+            <div class="preview-header">
+              <div>
+                <p class="eyebrow">CODE PREVIEW</p>
+                <h2 id="previewTitle">Xem trước code</h2>
+              </div>
+              <button
+                class="button quiet"
+                value="close"
+                aria-label="Đóng xem trước"
+              >
+                Đóng
+              </button>
+            </div>
+            <p class="preview-meta" id="previewMeta"></p>
+            <pre class="preview-code"><code id="previewCode"></code></pre>
+          </form>
+        </dialog>
+      </section>
+    </main>
+    <script type="module">
+      import {
+        listSubmissions,
+        downloadSubmission,
+      } from "./firebase-public-client.mjs";
+      import { initTeacherPortal } from "./teacher-submissions.mjs";
+      initTeacherPortal({
+        list: listSubmissions,
+        download: downloadSubmission,
+        statusNode: document.getElementById("teacherPublicStatus"),
+        rowsNode: document.getElementById("submissionTableBody"),
+        filterInput: document.getElementById("teacherFilter"),
+        refreshButton: document.getElementById("teacherRefreshBtn"),
+        emptyNode: document.getElementById("submissionEmpty"),
+        errorNode: document.getElementById("submissionError"),
+        previewDialog: document.getElementById("previewDialog"),
+        previewCode: document.getElementById("previewCode"),
+        previewMeta: document.getElementById("previewMeta"),
+        previewCloseButton: document.querySelector(
+          "#previewDialog button[value=close]",
+        ),
+      });
+    </script>
+  </body>
+</html>

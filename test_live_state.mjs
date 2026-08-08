@@ -54,7 +54,7 @@ test("simulator exposes every motion control audited by live lock", () => {
   for (const id of ["enableBtn", "homeBtn", "stopBtn", "modeBtn", "applyBtn", "moveLBtn", "runBtn", "robotProfileSelect", "liveBtn"]) {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
-  assert.match(html, /id=["']downloadProgramBtn["']/);
+  assert.match(html, /id=["']uploadProgramBtn["']/);
   assert.match(html, /id=["']toggleSceneObjectsBtn["']/);
   assert.match(html, /id=["']blockStateStrip["']/);
 });

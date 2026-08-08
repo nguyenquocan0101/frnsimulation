@@ -1,0 +1,15 @@
+{
+  "name": "techcamp-simulator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test_*.mjs test/*.test.mjs",
+    "test:rules": "node --test test/firebase-rules.test.mjs",
+    "test:rules:emulator": "firebase emulators:exec --project techcamp-workshop-rules --only firestore \"node test/firebase-rules-emulator.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase": "^12.17.1",
+    "firebase-tools": "^15.26.0"
+  }
+}

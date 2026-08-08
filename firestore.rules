@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAnonymous() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function validSubmission(submissionId) {
+        return request.resource.data.keys().hasOnly([
+          'submissionId', 'uid', 'groupKey', 'groupName', 'filename',
+          'byteSize', 'contentType', 'source', 'submittedAt'
+        ])
+        && request.resource.data.submissionId == submissionId
+        && submissionId.matches('^[A-Za-z0-9_-]{16,64}$')
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.groupName.matches('^[A-Za-z0-9]{2,30}$')
+        && request.resource.data.groupKey == request.resource.data.groupName.lower()
+        && request.resource.data.filename == ('TechX_' + request.resource.data.groupName + '.py')
+        && request.resource.data.byteSize is int
+        && request.resource.data.byteSize >= 1
+        && request.resource.data.byteSize <= 102400
+        && request.resource.data.contentType == 'text/x-python'
+        && request.resource.data.source is string
+        && request.resource.data.source.size() >= 1
+        && request.resource.data.source.size() <= 102400
+        && request.resource.data.submittedAt == request.time;
+    }
+
+    match /submissions/{submissionId} {
+      allow create: if isAnonymous() && validSubmission(submissionId);
+      allow get, list: if true;
+      allow update, delete: if false;
+    }
+  }
+}

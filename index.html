@@ -20,7 +20,10 @@
       {
         "imports": {
           "three": "https://cdn.jsdelivr.net/npm/three@0.176.0/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/"
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/",
+          "firebase/app": "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js",
+          "firebase/auth": "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js",
+          "firebase/firestore": "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js"
         }
       }
     </script>
@@ -32,7 +35,14 @@
         <main id="main-content" class="code-column">
           <header class="column-header">
             <div class="header-brand">
-              <div class="techx-logo" aria-label="FPTU TechX Camp">
+              <div
+                class="techx-logo"
+                id="teacherPortalShortcut"
+                role="button"
+                tabindex="0"
+                aria-label="FPTU TechX Camp"
+                title="FPTU TechX Camp"
+              >
                 FPTU TECH<span>X</span> CAMP
               </div>
               <span>FAIRINO SIMULATION</span>
@@ -49,15 +59,8 @@
             </button>
           </header>
 
-          <section
-            class="panel code-panel"
-            aria-label="Code and controls"
-          >
-            <div
-              class="workspace-tabs"
-              role="tablist"
-              aria-label="Workspace"
-            >
+          <section class="panel code-panel" aria-label="Code and controls">
+            <div class="workspace-tabs" role="tablist" aria-label="Workspace">
               <button
                 class="workspace-tab active"
                 id="codeTab"
@@ -114,13 +117,13 @@
                     </button>
                   </div>
                   <button
-                    class="button quiet editor-download-button"
-                    id="downloadProgramBtn"
+                    class="button quiet editor-upload-button"
+                    id="uploadProgramBtn"
                     type="button"
-                    aria-label="Download Python file"
-                    title="Download Python file"
+                    aria-label="Upload Python submission"
+                    title="Upload Python submission"
                   >
-                    Download .py
+                    Upload bài
                   </button>
                   <button class="button primary editor-run-button" id="runBtn">
                     <span class="button-symbol">▶</span> Run program
@@ -147,11 +150,52 @@
                 <textarea class="code" id="program" spellcheck="false">
 from techcamp_api import TechCamp
 
-# Sorting exercise: write your own robot sequence below.
-# The orange block is only a visual start/end marker; the simulator does not
-# decide whether the lesson is complete.
-with TechCamp() as bot:
-    bot.close()</textarea
+POINTS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"]
+
+
+def main():
+    with TechCamp() as bot:
+        # Marker cam: đưa từ P1 sang P7.
+        print("Marker cam: P1 -> P7")
+        bot.move_to("P1")
+        bot.move_down()
+        bot.grip()
+        bot.move_up()
+        bot.move_to("P7")
+        bot.move_down()
+        bot.release()
+        bot.move_up()
+
+        # Đưa marker cam về P1 để giải phóng P7 làm buffer sắp xếp.
+        print("Marker cam: P7 -> P1")
+        bot.move_to("P7")
+        bot.move_down()
+        bot.grip()
+        bot.move_up()
+        bot.move_to("P1")
+        bot.move_down()
+        bot.release()
+        bot.move_up()
+
+        # Đầu vào: P2 xe, P3 gà, P4 chó, P5 ghế, P6 nhà.
+        # Đích:    P2 chó, P3 gà, P4 ghế, P5 nhà, P6 xe.
+        # P7 là buffer tạm cho chu trình P2 -> P6 -> P5 -> P4 -> P2.
+        sort_steps = [("P2", "P7"), ("P6", "P5"), ("P5", "P4"),
+                      ("P4", "P2"), ("P7", "P6")]
+        for source, target in sort_steps:
+            print(f"Đang chuyển {source} -> {target}")
+            bot.move_to(source)
+            bot.move_down()
+            bot.grip()
+            bot.move_up()
+            bot.move_to(target)
+            bot.move_down()
+            bot.release()
+            bot.move_up()
+
+
+if __name__ == "__main__":
+    main()</textarea
                 >
               </div>
             </div>
@@ -180,9 +224,17 @@ with TechCamp() as bot:
                   </div>
                   <div class="pose-grid target-grid" id="targetPose"></div>
                 </div>
-                <div class="control-actions" role="group" aria-label="Manual motion commands">
-                  <button class="button primary" id="applyBtn">Apply target</button>
-                  <button class="button primary" id="moveLBtn">MoveL to target</button>
+                <div
+                  class="control-actions"
+                  role="group"
+                  aria-label="Manual motion commands"
+                >
+                  <button class="button primary" id="applyBtn">
+                    Apply target
+                  </button>
+                  <button class="button primary" id="moveLBtn">
+                    MoveL to target
+                  </button>
                 </div>
               </div>
             </div>
@@ -202,21 +254,38 @@ with TechCamp() as bot:
           <div class="simulation-header">
             <h2 id="viewport-title">Simulation</h2>
             <div class="simulation-actions" id="robotProfileControl">
-              <label class="robot-profile-label" for="robotProfileSelect">Model</label>
+              <label class="robot-profile-label" for="robotProfileSelect"
+                >Model</label
+              >
               <select id="robotProfileSelect" class="robot-profile-select">
                 <option value="fr3">FAIRINO FR3</option>
-                <option value="fr5">FAIRINO FR5</option>
+                <option value="fr5" selected>FAIRINO FR5</option>
               </select>
-              <span id="modelStatus" class="robot-model-status sr-only">Loading FAIRINO FR3…</span>
-              <button class="button quiet live-button" id="liveBtn" type="button" title="Connect to read-only FR5 telemetry">Connect</button>
-              <span id="liveState" class="live-state" aria-live="polite">OFFLINE</span>
-              <span id="robotProfileStatus" class="sr-only" aria-live="polite"></span>
+              <span id="modelStatus" class="robot-model-status sr-only"
+                >Loading FAIRINO FR5…</span
+              >
+              <button
+                class="button quiet live-button"
+                id="liveBtn"
+                type="button"
+                title="Connect to read-only FR5 telemetry"
+              >
+                Connect
+              </button>
+              <span id="liveState" class="live-state" aria-live="polite"
+                >OFFLINE</span
+              >
+              <span
+                id="robotProfileStatus"
+                class="sr-only"
+                aria-live="polite"
+              ></span>
             </div>
           </div>
           <div class="viewport-wrap" id="viewportWrap">
             <div
               id="viewport"
-              aria-label="FAIRINO FR3 3D model interactive with mouse or touch"
+              aria-label="FAIRINO FR5 3D model interactive with mouse or touch"
             ></div>
             <div class="loading-card" id="loadingCard">
               <span class="loader"></span
@@ -281,7 +350,8 @@ with TechCamp() as bot:
                 hidden
               >
                 <label for="cameraZoomRange"
-                  >Camera view <output id="cameraZoomOutput">118%</output></label
+                  >Camera view
+                  <output id="cameraZoomOutput">118%</output></label
                 >
                 <input
                   id="cameraZoomRange"
@@ -307,6 +377,86 @@ with TechCamp() as bot:
         </section>
       </div>
     </div>
+    <dialog
+      class="teacher-access-dialog"
+      id="teacherAccessDialog"
+      aria-labelledby="teacherAccessTitle"
+    >
+      <form method="dialog" id="teacherAccessForm">
+        <p class="eyebrow">FPTU TECHX CAMP</p>
+        <h2 id="teacherAccessTitle">Mở trang giáo viên</h2>
+        <p class="teacher-access-help">Nhập mật khẩu để tiếp tục.</p>
+        <label for="teacherAccessPassword">Mật khẩu</label>
+        <input
+          id="teacherAccessPassword"
+          type="password"
+          inputmode="numeric"
+          autocomplete="off"
+          maxlength="6"
+        />
+        <p
+          id="teacherAccessError"
+          class="teacher-access-error"
+          aria-live="polite"
+        ></p>
+        <div class="teacher-access-actions">
+          <button class="button" value="cancel" type="submit">Hủy</button>
+          <button class="button primary" id="teacherAccessSubmit" type="button">
+            Tiếp tục
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <dialog
+      class="upload-dialog"
+      id="uploadDialog"
+      aria-labelledby="uploadDialogTitle"
+    >
+      <form id="uploadForm" method="dialog">
+        <div class="upload-dialog-header">
+          <div>
+            <p class="eyebrow">TECHX WORKSHOP</p>
+            <h2 id="uploadDialogTitle">Nộp bài Python</h2>
+          </div>
+          <button
+            class="button quiet upload-close"
+            type="button"
+            data-upload-cancel
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <label class="upload-field" for="groupNameInput">
+          Tên nhóm
+          <input
+            id="groupNameInput"
+            name="groupName"
+            autocomplete="off"
+            placeholder="RobotXanh"
+            maxlength="30"
+            required
+          />
+        </label>
+        <p class="upload-preview">
+          Tên file: <strong id="uploadFilenamePreview">TechX_TenNhom.py</strong>
+        </p>
+        <p
+          class="upload-status"
+          id="uploadStatus"
+          aria-live="polite"
+          hidden
+        ></p>
+        <div class="upload-actions">
+          <button class="button quiet" type="button" data-upload-cancel>
+            Hủy
+          </button>
+          <button class="button primary" id="uploadSubmitBtn" type="submit">
+            Nộp bài
+          </button>
+        </div>
+      </form>
+    </dialog>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

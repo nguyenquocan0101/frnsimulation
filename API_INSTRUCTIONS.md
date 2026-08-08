@@ -8,21 +8,27 @@ coordinates, robot SDKs, or hardware details.
 
 ## 1. Quick Start
 
+The simulator runs student code only through a Python entrypoint: define a
+zero-argument function and call it from the `__main__` guard. The function may
+be named `main`, `move_cube`, or another descriptive name.
+
 ```python
 from techcamp_api import TechCamp
 
-bot = TechCamp()          # connects to robot + camera
+def main():
+    with TechCamp() as bot:
+        bot.move_to("P3")
+        bot.move_down()
+        bot.grip()
+        bot.move_up()
+        bot.move_to("P1")
+        bot.move_down()
+        bot.release()
+        bot.move_up()
 
-bot.move_to("P3")         # gripper travels to safe height above square P3
-bot.move_down()           # lower to grab height
-bot.grip()                # close gripper
-bot.move_up()             # raise to safe travel height
-bot.move_to("P1")         # travel to square P1
-bot.move_down()
-bot.release()             # open gripper
-bot.move_up()
 
-bot.close()               # always close at the end
+if __name__ == "__main__":
+    main()
 ```
 
 Or use it as a context manager (recommended):
@@ -30,11 +36,16 @@ Or use it as a context manager (recommended):
 ```python
 from techcamp_api import TechCamp
 
-with TechCamp() as bot:
-    bot.move_to("P3")
-    bot.move_down()
-    bot.grip()
-    bot.move_up()
+def move_cube():
+    with TechCamp() as bot:
+        bot.move_to("P3")
+        bot.move_down()
+        bot.grip()
+        bot.move_up()
+
+
+if __name__ == "__main__":
+    move_cube()
 ```
 
 ---

@@ -25,7 +25,7 @@ test("visible reset layout contains exactly canonical P1 through P7 slots", () =
   assert.equal(new Set(layout.map((slot) => slot.point)).size, 7);
 });
 
-test("P2 contains semantic P7 while P1 and P7 remain empty", () => {
+test("reset input order is car, chicken, dog, chair, house while P1/P7 remain empty", () => {
   const layout = createInitialSlotLayout();
   const blocksBySlot = Object.fromEntries(
     layout.map((slot) => [slot.id, slot.block?.id ?? null]),
@@ -33,10 +33,10 @@ test("P2 contains semantic P7 while P1 and P7 remain empty", () => {
   assert.deepEqual(blocksBySlot, EXPECTED_BLOCK_AT);
 
   const p2 = layout.find((slot) => slot.id === "P2");
-  const p7Block = p2.block;
-  assert.equal(p7Block.label, "P7");
+  const p2Block = p2.block;
+  assert.equal(p2Block.label, "P7");
   assert.equal(p2.label, "P2");
-  assert.notEqual(p7Block.label, p2.label);
+  assert.notEqual(p2Block.label, p2.label);
   assert.equal(layout.find((slot) => slot.id === "P7").block, null);
 });
 

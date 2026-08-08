@@ -4,6 +4,7 @@ __pycache__/
 .agents/
 .codex/
 .vercel/
+node_modules/
 
 # FAIRINO SDK build artifacts: generated locally from the vendor source.
 bridge/vendor/**/build/

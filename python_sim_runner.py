@@ -25,6 +25,72 @@ class TechCampError(Exception):
     pass
 
 
+class MainEntrypointError(TechCampError):
+    def __init__(self, message, line=None):
+        super().__init__(message)
+        self.lineno = line
+
+
+def _is_main_guard(node):
+    """Return True for the exact workshop entrypoint guard."""
+    if not isinstance(node, ast.If) or not isinstance(node.test, ast.Compare):
+        return False
+    test = node.test
+    return (
+        isinstance(test.left, ast.Name)
+        and test.left.id == "__name__"
+        and len(test.ops) == 1
+        and isinstance(test.ops[0], ast.Eq)
+        and len(test.comparators) == 1
+        and isinstance(test.comparators[0], ast.Constant)
+        and test.comparators[0].value == "__main__"
+    )
+
+
+def validate_main_entrypoint(tree):
+    """Require a callable function invoked by the Python main guard."""
+    function_defs = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+    ]
+    if not function_defs:
+        raise MainEntrypointError(
+            "Define a main function and call it from if __name__ == \"__main__\":.",
+            getattr(tree.body[0], "lineno", 1) if tree.body else 1,
+        )
+    function_names = {node.name for node in function_defs}
+    for function in function_defs:
+        if function.args.args or function.args.posonlyargs or function.args.kwonlyargs:
+            raise MainEntrypointError(
+                f"{function.name}() must not require arguments.", function.lineno
+            )
+
+    guards = [node for node in tree.body if _is_main_guard(node)]
+    if not guards:
+        raise MainEntrypointError(
+            "Call the main function from if __name__ == \"__main__\":.",
+            function_defs[0].lineno,
+        )
+    guard = guards[0]
+    calls_function = next(
+        (
+            statement.value.func.id
+            for statement in guard.body
+            if isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Name)
+            and not statement.value.args
+            and not statement.value.keywords
+        ),
+        None,
+    )
+    if calls_function not in function_names:
+        raise MainEntrypointError(
+            "The __main__ block must call the function defined above.", guard.lineno
+        )
+
+
 class SafetyVisitor(ast.NodeVisitor):
     def visit_Import(self, node):
         raise TechCampError("Only use: from techcamp_api import TechCamp")
@@ -131,6 +197,7 @@ def execute(payload):
         return {"ok": False, "error": {"message": "Code must be a string."}}
     try:
         tree = ast.parse(source, filename="<student>", mode="exec")
+        validate_main_entrypoint(tree)
         SafetyVisitor().visit(tree)
         code = builtins.compile(tree, "<student>", "exec")
     except SyntaxError as error:
@@ -180,6 +247,10 @@ def execute(payload):
 
 if __name__ == "__main__":
     try:
-        print(json.dumps(execute(json.load(sys.stdin)), ensure_ascii=True))
+        # Node sends request bodies as UTF-8. On Windows, sys.stdin may use
+        # the active console code page, which turns Vietnamese source text
+        # into a decode error before the student program is even parsed.
+        payload = json.loads(sys.stdin.buffer.read().decode("utf-8"))
+        print(json.dumps(execute(payload), ensure_ascii=True))
     except Exception:
         print(json.dumps({"ok": False, "error": {"message": "The Python runner encountered an internal error."}}))

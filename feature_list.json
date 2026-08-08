@@ -4,9 +4,9 @@
       "id": "block-state-strip",
       "title": "Dải 7 ô hiển thị block màu theo vị trí",
       "user_visible_behavior": "Giáo viên thấy ngay block nào đang ở P1–P7 cạnh icon Home.",
-      "verification_command": "Dải có P1–P7, P1 hiển thị token cam, P2 hiển thị block P7, P7 trống và đồng bộ với scene sau các thao tác lấy/đặt.",
+      "verification_command": "Dải có P1–P7, P1 hiển thị token cam, P2–P6 hiển thị xe/gà/chó/ghế/nhà, P7 trống và đồng bộ với scene sau các thao tác lấy/đặt.",
       "status": "passing",
-      "evidence": "Node slot-layout tests: 7 canonical slots rendered; P1 token, P2=P7 block, P3–P6 retained, P7 empty.",
+      "evidence": "Node slot-layout tests: 7 canonical slots rendered; P1 token, P2–P6 input order car/chicken/dog/chair/house, P7 empty.",
       "notes": "",
       "priority": "P1"
     },
@@ -134,7 +134,7 @@
       "id": "orange-token-p1-checkpoint",
       "title": "Khối cam xác nhận điểm bắt đầu tại P1",
       "user_visible_behavior": "Học sinh thấy khối cam ở P1 thay cho block sortable cũ để bắt đầu quy trình xác nhận.",
-      "verification_command": "Reset hiển thị khối cam tại P1, đúng năm block sortable (các block đang ở P3–P6 giữ nguyên và block P7 ở ô P2), token cam khác biệt; không còn block tại P1 hoặc block P2.",
+      "verification_command": "Reset hiển thị khối cam tại P1 và năm block sortable theo thứ tự đầu vào P2 xe, P3 gà, P4 chó, P5 ghế, P6 nhà; P7 trống.",
       "status": "passing",
       "evidence": "Node checkpoint/layout tests: 9 passed; reset fixture verified with orange token at P1 and five sortable blocks.",
       "notes": "",
@@ -142,11 +142,11 @@
     },
     {
       "id": "p7-block-at-p2-layout",
-      "title": "Đưa block P7 sang ô P2 và để P7 trống",
-      "user_visible_behavior": "P2 chứa block có nhãn P7; P3–P6 giữ nguyên; ô P7 trống; block P2 cũ bị bỏ.",
-      "verification_command": "Reset kiểm tra P1 là token cam, P2 là block P7, P3–P6 không đổi, P7 không có block và không còn block P2.",
+      "title": "Đầu vào sắp xếp và ô P7 làm buffer",
+      "user_visible_behavior": "P2–P6 lần lượt là xe, gà, chó, ghế, nhà; ô P1 là marker cam và P7 trống.",
+      "verification_command": "Reset kiểm tra đúng thứ tự đầu vào P2 xe, P3 gà, P4 chó, P5 ghế, P6 nhà; P1 là token cam và P7 không có block.",
       "status": "passing",
-      "evidence": "Node slot-layout tests: canonical P1–P7 slots, P7-labelled block at P2, P7 empty, and no semantic P2 block verified.",
+      "evidence": "Node slot-layout tests: canonical P1–P7 slots, P7-labelled block at P2, P7 empty, and sort input order verified.",
       "notes": "",
       "priority": "P1"
     },
@@ -158,6 +158,66 @@
       "status": "passing",
       "evidence": "Node marker tests: free placement, no completion metadata, occupied-slot rejection, reset, and free-sort contract verified.",
       "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "firebase-student-python-upload",
+      "title": "Nộp bài Python theo tên nhóm",
+      "user_visible_behavior": "Học sinh nhập tên nhóm không dấu, viết liền và nộp code với tên TechX_TenNhom.py thay cho tải file về máy.",
+      "verification_command": "Tên nhóm phải khớp ^[A-Za-z0-9]{2,30}$, file 1–100 KB được upload bằng anonymous auth và editor/autosave không bị thay đổi.",
+      "status": "passing-unverified",
+      "evidence": "Node submission controller/model tests pass; real Firebase project smoke pending because config remains placeholder.",
+      "notes": "Replace firebase-config.mjs placeholders before workshop deployment.",
+      "priority": "P1"
+    },
+    {
+      "id": "firebase-versioned-submission-history",
+      "title": "Lưu mọi lần nộp thành phiên bản riêng",
+      "user_visible_behavior": "Cùng một nhóm có thể nộp lại nhiều lần; bản cũ không bị ghi đè và mỗi bản có thời gian nộp riêng.",
+      "verification_command": "Ba lần nộp cùng nhóm tạo ba submission ID, ba Firestore document bất biến và ba server timestamp riêng biệt.",
+      "status": "passing-unverified",
+      "evidence": "Submission identity and duplicate-upload tests pass; Firestore version smoke remains pending.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "firebase-teacher-submission-portal",
+      "title": "Cổng giáo viên xem và tải bài (legacy auth)",
+      "user_visible_behavior": "Giáo viên đăng nhập Google, xem danh sách bài theo thời gian và tải đúng file .py; người không có quyền không xem được.",
+      "verification_command": "Teacher claim được phép list/download; anonymous, signed-out và Google account không có claim đều bị từ chối.",
+      "status": "passing-unverified",
+      "evidence": "Teacher filter/download tests and Firestore allow/deny emulator tests pass; Google staging pending.",
+      "notes": "Superseded by public-teacher-submission-access; historical Google-authenticated behavior is retained only as prior evidence.",
+      "priority": "P1"
+    },
+    {
+      "id": "public-teacher-submission-access",
+      "title": "Mở cổng giáo viên không cần đăng nhập",
+      "user_visible_behavior": "Giáo viên mở teacher.html và xem bài ngay, so that workshop không bị cản bởi đăng nhập hoặc phiên hết hạn.",
+      "verification_command": "Signed-out browser loads newest submissions without auth prompt, login/logout controls, or auth/* error.",
+      "status": "passing-unverified",
+      "evidence": "Public portal contract and Firestore emulator tests pass; staging Firebase smoke pending.",
+      "notes": "High-risk intentional public Firestore get/list; anyone with the URL can read/download source.",
+      "priority": "P1"
+    },
+    {
+      "id": "public-submission-preview-download",
+      "title": "Xem trước và tải code Python",
+      "user_visible_behavior": "Giáo viên xem source chính xác trong modal và tải file TechX_TenNhom.py, so that có thể kiểm tra hoặc lưu bài.",
+      "verification_command": "Preview shows exact source/metadata and closes via button/Escape; download bytes and canonical filename match Firestore.",
+      "status": "passing-unverified",
+      "evidence": "Preview/download tests pass with exact source bytes, canonical filename, and focus-safe dialog; staging smoke pending.",
+      "notes": "Use DOM text nodes and a read-only accessible dialog.",
+      "priority": "P1"
+    },
+    {
+      "id": "public-submission-refresh-filter",
+      "title": "Làm mới và lọc bài nộp công khai",
+      "user_visible_behavior": "Giáo viên lọc theo nhóm và làm mới tối đa 100 bài mới nhất, so that tìm được bài liên quan mà không tải lại trang.",
+      "verification_command": "Refresh shows last-updated time and preserves previous rows on failure; group filter is case-insensitive and newest-first order remains.",
+      "status": "passing-unverified",
+      "evidence": "Filter, manual refresh, 3-second polling, overlap guard, and refresh-retention tests pass; staging smoke pending.",
+      "notes": "Polling every 3 seconds plus manual refresh; onSnapshot and pagination remain out of scope.",
       "priority": "P1"
     }
   ]
