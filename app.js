@@ -1031,7 +1031,8 @@ function updateCheckpointTokenVisual() {
     checkpointTokenMesh.visible = false;
     return;
   }
-  const point = checkpointTokenCarried()
+  const carried = checkpointTokenCarried();
+  const point = carried
     ? gripperJawPose(state.jointsDeg)
     : pointRecord(state.checkpointToken?.position || "P1");
   const cart = Array.isArray(point)
@@ -1045,7 +1046,13 @@ function updateCheckpointTokenVisual() {
     cart[1] / 1000,
     cart[2] / 1000,
   );
-  checkpointTokenMesh.rotation.z = boardSlotRotation;
+  if (carried) {
+    checkpointTokenMesh.quaternion.setFromRotationMatrix(
+      gripperJawMatrix(state.jointsDeg),
+    );
+  } else {
+    checkpointTokenMesh.rotation.set(0, 0, boardSlotRotation);
+  }
   checkpointTokenMesh.visible = true;
 }
 
@@ -1363,7 +1370,15 @@ function updateBlockVisuals() {
         : null;
     if (!cart) return;
     mesh.position.set(cart[0] / 1000, cart[1] / 1000, cart[2] / 1000);
-    mesh.rotation.z = block.carried ? 0 : boardSlotRotation;
+    if (block.carried) {
+      // A carried block uses the complete jaw pose, not only the jaw
+      // position. This keeps its faces aligned with J6 while the robot moves.
+      mesh.quaternion.setFromRotationMatrix(
+        gripperJawMatrix(state.jointsDeg),
+      );
+    } else {
+      mesh.rotation.set(0, 0, boardSlotRotation);
+    }
     mesh.visible = true;
   });
   updateCheckpointTokenVisual();
