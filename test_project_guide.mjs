@@ -54,6 +54,9 @@ test("guide contains the complete zero-argument main example", () => {
   assert.match(guide, /if __name__ == ["']__main__["']:/);
   assert.match(guide, /move_to\("P2"\)/);
   assert.match(guide, /"P6"/);
+  assert.doesNotMatch(guide, /def move_block\(/);
+  assert.match(guide, /Dog: P2 -&gt; P1|Dog: P2 -> P1/);
+  assert.match(guide, /Car: P6 -&gt; P2|Car: P6 -> P2/);
   assert.doesNotMatch(guide, /PRACTICE|Try these next|practice-prompt|checklist/i);
 });
 

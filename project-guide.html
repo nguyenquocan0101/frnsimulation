@@ -56,23 +56,57 @@
   <div class="section-heading"><p class="eyebrow">EXAMPLE</p><h2 id="example-title">A complete program.</h2><p>Current: <code>P2 = dog</code>, <code>P3 = chicken</code>, <code>P4 = chair</code>, <code>P5 = house</code>, <code>P6 = car</code>. Target: <code>P2 = car</code>, <code>P3 = chicken</code>, <code>P4 = dog</code>, <code>P5 = chair</code>, <code>P6 = house</code>.</p></div>
   <div class="code-card"><div class="code-card-head"><span>main.py</span><button class="button copy-button" type="button" data-copy-source="starter-code">Copy code</button></div><pre class="code-block"><code id="starter-code">from techcamp_api import TechCamp
 
-def move_block(bot, source, target):
-    bot.move_to(source)
-    bot.move_down()
-    bot.grip()
-    bot.move_up()
-    bot.move_to(target)
-    bot.move_down()
-    bot.release()
-    bot.move_up()
-
 def main():
     with TechCamp() as bot:
-        move_block(bot, "P2", "P7")
-        move_block(bot, "P6", "P2")
-        move_block(bot, "P5", "P6")
-        move_block(bot, "P4", "P5")
-        move_block(bot, "P7", "P4")
+        # Dog: P2 -> P1 (temporary empty slot)
+        bot.move_to("P2")
+        bot.move_down()
+        bot.grip()
+        bot.move_up()
+        bot.move_to("P1")
+        bot.move_down()
+        bot.release()
+        bot.move_up()
+
+        # Car: P6 -> P2
+        bot.move_to("P6")
+        bot.move_down()
+        bot.grip()
+        bot.move_up()
+        bot.move_to("P2")
+        bot.move_down()
+        bot.release()
+        bot.move_up()
+
+        # House: P5 -> P6
+        bot.move_to("P5")
+        bot.move_down()
+        bot.grip()
+        bot.move_up()
+        bot.move_to("P6")
+        bot.move_down()
+        bot.release()
+        bot.move_up()
+
+        # Chair: P4 -> P5
+        bot.move_to("P4")
+        bot.move_down()
+        bot.grip()
+        bot.move_up()
+        bot.move_to("P5")
+        bot.move_down()
+        bot.release()
+        bot.move_up()
+
+        # Dog: P1 -> P4
+        bot.move_to("P1")
+        bot.move_down()
+        bot.grip()
+        bot.move_up()
+        bot.move_to("P4")
+        bot.move_down()
+        bot.release()
+        bot.move_up()
 
 if __name__ == "__main__":
     main()</code></pre><p class="copy-status" id="copy-status" role="status" aria-live="polite"></p></div>
