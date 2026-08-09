@@ -2718,7 +2718,8 @@ function resetCompetitionFixture(silent = true) {
     objectClass: OBJECT_CLASSES.find((item) => item.id === entry.objectClass) || null,
     carried: false,
   }));
-  state.checkpointToken = resetCheckpointToken();
+  // Competition marker is a static P7 endpoint; no automatic P1 -> P7 move.
+  state.checkpointToken = { ...resetCheckpointToken(), position: "P7" };
   techcampSim.reset();
   state.competitionSession = null;
   if ($("competitionResultPanel")) $("competitionResultPanel").hidden = true;
@@ -2726,20 +2727,9 @@ function resetCompetitionFixture(silent = true) {
   renderBlockBoard();
   updateBlockVisuals();
   if (boardGroup && state.modelReady) buildBlockBoard();
-  if (!silent) log("Competition fixture reset -> marker P1 · dog P2 · chicken P3 · chair P4 · house P5 · car P6");
+  if (!silent) log("Competition fixture reset -> marker P7 · dog P2 · chicken P3 · chair P4 · house P5 · car P6");
 }
 
-async function performCompetitionOpening(token) {
-  await techcampSim.move_to("P1");
-  if (token?.cancelled) throw new TechCampError("Competition run cancelled.");
-  await techcampSim.move_down();
-  await techcampSim.grip();
-  await techcampSim.move_up();
-  await techcampSim.move_to("P7");
-  await techcampSim.move_down();
-  await techcampSim.release();
-  await techcampSim.move_up();
-}
 window.getRobotVisualDiagnostics = getRobotVisualDiagnostics;
 
 async function switchRobotProfile(profileId, { initial = false } = {}) {
@@ -3101,6 +3091,7 @@ const techcampSim = {
     if (this.gripping) return true;
     const block = this.low && this.position ? blockAt(this.position) : null;
     const tokenAvailable =
+      !state.competitionSession &&
       this.low &&
       this.position &&
       state.checkpointToken.position === this.position &&
@@ -3952,10 +3943,9 @@ async function runProgram() {
         state.competitionSession = createCompetitionSession();
       },
       opening: async (session) => {
-        await performCompetitionOpening(token);
-        if (!session.activateOpening()) throw new TechCampError(session.error || "Marker opening failed.");
+        if (!session.activateOpening()) throw new TechCampError(session.error || "Competition start failed.");
         state.competitionSession = session;
-        log("Competition start: marker P1 -> P7 (not counted)");
+        log("Competition start: orange marker fixed at P7 (not counted)");
       },
       replay: async (session, actions) => {
         for (const action of actions) {

@@ -134,7 +134,20 @@ export function reduceCompetitionEvent(inputState, event = {}) {
     return { ...state, phase: "cancelled", error: null };
   }
   if (event.type === "activate") {
-    if (state.phase !== "opening" || state.gripper || !fixturesEqual(state.fixture, SCORED_INITIAL_FIXTURE)) {
+    if (state.phase !== "opening" || state.gripper) {
+      return invalidState(state, "Competition opening is incomplete.");
+    }
+    if (event.withoutMarker) {
+      return {
+        ...state,
+        phase: "scoring",
+        fixture: cloneFixture(SCORED_INITIAL_FIXTURE),
+        steps: 0,
+        distance: 0,
+        error: null,
+      };
+    }
+    if (!fixturesEqual(state.fixture, SCORED_INITIAL_FIXTURE)) {
       return invalidState(state, "Competition opening is incomplete.");
     }
     return { ...state, phase: "scoring", steps: 0, distance: 0, error: null };

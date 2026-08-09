@@ -17,7 +17,9 @@ export function createCompetitionSession() {
         type: "release",
         position: "P7",
       });
-      next = reduceCompetitionEvent(next, { type: "activate" });
+      // The orange marker is a visual endpoint only. It no longer moves
+      // automatically from P1 to P7 when a student presses Run.
+      next = reduceCompetitionEvent(next, { type: "activate", withoutMarker: true });
       session.state = next;
       session.error = next.phase === "invalid" ? next.error : null;
       return next.phase === "scoring";
