@@ -29,6 +29,13 @@ The page loads Three.js from a CDN, so the first visit needs Internet access. FR
 - Programs must define a zero-argument main function (for example `main()` or
   `move_cube()`) and call it from `if __name__ == "__main__":`; programs
   without this entrypoint are rejected.
+- `Home camera` uses the third reference view (`Back`) as the workshop preset
+  and sets the camera to `View 200%`. `Change view` still cycles
+  `Front → Right → Back → Left` from the table/robot frame for both FR3 and FR5;
+  it does not rotate the robot or alter calibrated points.
+- The adjustable camera range is 100–200%. A legacy scalar zoom of exactly
+  `118` is migrated to 100 once because the old value did not record whether it
+  was user-selected; new slider values are stored with explicit provenance.
 
 The five classroom blocks use the workshop sticker set in
 `assets/sticker-objects/` (copied from the supplied `Sticker (2)` folder).

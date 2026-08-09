@@ -3,6 +3,15 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { stabilizeJointTarget, validateLivePacket } from "./live_state.mjs";
 import {
+  buildCameraPose,
+  buildCameraViews,
+  deriveCameraBasis,
+  deriveTableAnchor,
+  migrateZoomValue,
+  nextCameraViewIndex,
+  CAMERA_VIEW_NAMES_EXPORT as CAMERA_VIEW_NAMES,
+} from "./camera-view.mjs";
+import {
   CHECKPOINT_TOKEN_ID,
   createCheckpointToken,
   resetCheckpointToken,
@@ -232,20 +241,12 @@ const TECHCAMP_MAX_ACC = 20;
 const DEFAULT_HOME_JOINTS = [-90, -135, 126, 8.8, 85.2, 0];
 // Keep the robot and the worktable together in the primary teaching view.
 const HOME_CAMERA_TARGET = [0, 0.24, -0.3];
-const HOME_CAMERA_TARGET_BY_PROFILE = Object.freeze({
-  fr3: HOME_CAMERA_TARGET,
-  // FR5's calibrated row is offset from the base; center the robot/table
-  // pair together while keeping the same front Home view and zoom.
-  fr5: [-0.3, 0.24, -0.3],
-});
-const HOME_CAMERA_ZOOM_DEFAULT = 118;
-const HOME_CAMERA_ZOOM_RANGE = [100, 135];
-const HOME_CAMERA_VIEWS = [
-  { name: "Front", position: [0, 0.34, -1.55] },
-  { name: "Right", position: [1.55, 0.85, 0] },
-  { name: "Back", position: [-1.55, 0.85, 0] },
-  { name: "Left", position: [0, 0.85, 1.55] },
-];
+const HOME_CAMERA_ZOOM_DEFAULT = 100;
+const HOME_CAMERA_PRESET_ZOOM = 200;
+const HOME_CAMERA_PRESET_VIEW_INDEX = 2;
+const HOME_CAMERA_ZOOM_RANGE = [100, 200];
+const CAMERA_ZOOM_STORAGE_KEY = "techcamp-camera-zoom-v1";
+const LEGACY_CAMERA_ZOOM_STORAGE_KEY = "fr3-home-camera-zoom";
 // The FR3 calibration row runs along visual X. FR5's calibrated row runs
 // along visual Y, so the worktable must rotate with the profile instead of
 // reusing the FR3 tabletop orientation.
@@ -978,25 +979,23 @@ function makeFrontBoardLabel(text, color = "#dcecff") {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.flipY = false;
   texture.wrapS = THREE.RepeatWrapping;
-  const mirroredTeachingView = cameraViewIndex === 0;
-  texture.repeat.x = mirroredTeachingView ? 1 : -1;
-  texture.offset.x = mirroredTeachingView ? 0 : 1;
+  texture.repeat.x = 1;
+  texture.offset.x = 0;
   texture.needsUpdate = true;
-  const label = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.07, 0.032),
-    new THREE.MeshBasicMaterial({
+  // Use a camera-facing sprite instead of a vertical plane. The latter is
+  // edge-on in the top/oblique views, making P1–P7 disappear when the floor
+  // is rotated for FR5. Sprites remain readable in every teaching view.
+  const label = new THREE.Sprite(
+    new THREE.SpriteMaterial({
       map: texture,
       transparent: true,
       depthTest: false,
       depthWrite: false,
-      // The teaching camera can be viewed from either side of the board.
-      side: THREE.DoubleSide,
     }),
   );
+  label.scale.set(0.07, 0.032, 1);
   label.userData.boardLabelTexture = texture;
   label.renderOrder = 3;
-  // Plane faces the table's front (local +Y), which is the Home-camera side.
-  label.rotation.x = -Math.PI / 2;
   return label;
 }
 
@@ -1047,18 +1046,17 @@ function applyCheckpointTokenPlacement(from, to, carried = true) {
 }
 
 function syncBoardLabelMirroring() {
-  const mirroredTeachingView = cameraViewIndex === 0;
   boardGroup?.traverse((object) => {
     const texture = object.userData?.boardLabelTexture;
     if (!texture) return;
-    texture.repeat.x = mirroredTeachingView ? 1 : -1;
-    texture.offset.x = mirroredTeachingView ? 0 : 1;
+    texture.repeat.x = 1;
+    texture.offset.x = 0;
     texture.needsUpdate = true;
+    if (object.isSprite) object.scale.x = 0.07;
   });
 }
 
 function syncBlockTextureMirroring() {
-  const mirroredTeachingView = cameraViewIndex === 0;
   boardGroup?.traverse((object) => {
     const materials = Array.isArray(object.material)
       ? object.material
@@ -1066,8 +1064,8 @@ function syncBlockTextureMirroring() {
     materials.forEach((material) => {
       if (!material?.userData?.objectClassFrontTexture || !material.map)
         return;
-      material.map.repeat.x = mirroredTeachingView ? -1 : 1;
-      material.map.offset.x = mirroredTeachingView ? 1 : 0;
+      material.map.repeat.x = 1;
+      material.map.offset.x = 0;
       material.map.needsUpdate = true;
     });
   });
@@ -1271,7 +1269,6 @@ function buildBlockBoard() {
       cart[1] / 1000 + frontNormal[1] * (boardSize.depth / 2 + 0.002),
       board.position.z,
     );
-    frontLabel.rotation.z = boardRotation;
     boardGroup.add(frontLabel);
   });
   SORTABLE_BLOCK_NAMES.forEach((name) => {
@@ -1651,6 +1648,7 @@ async function loadCalibratedPoints(profileId = state.robotProfileId) {
     renderHomePoint();
     resetBlocks(true);
     buildBlockBoard();
+    setHomeCameraView(cameraViewIndex < 0 ? 0 : cameraViewIndex);
   } catch (error) {
     log(`${profileId} points error: ${error.message}`);
     renderHomePoint();
@@ -2810,45 +2808,108 @@ async function loadModel() {
   syncRobotProfileUi();
 }
 
+function cameraMatrixRowMajor(matrix) {
+  const elements = matrix?.elements || [];
+  return [
+    elements[0], elements[4], elements[8], elements[12],
+    elements[1], elements[5], elements[9], elements[13],
+    elements[2], elements[6], elements[10], elements[14],
+    elements[3], elements[7], elements[11], elements[15],
+  ];
+}
+
+function cameraSceneFrame() {
+  const fallback = [...HOME_CAMERA_TARGET];
+  if (!robotRoot || !boardGroup || !boardSlotPoses.size) {
+    return {
+      anchor: fallback,
+      basis: deriveCameraBasis(),
+      fitRadius: 1.55,
+      fitElevation: 0.55,
+    };
+  }
+  robotRoot.updateWorldMatrix(true, true);
+  boardGroup.updateWorldMatrix(true, true);
+  const slotCenters = [...boardSlotPoses.values()].map((pose) => {
+    const point = new THREE.Vector3(pose[0] / 1000, pose[1] / 1000, pose[2] / 1000);
+    return point.applyMatrix4(robotRoot.matrixWorld).toArray();
+  });
+  const anchor = deriveTableAnchor(slotCenters, fallback);
+  const boardRotation = new THREE.Matrix4().makeRotationZ(boardSlotRotation);
+  const basisMatrix = robotRoot.matrixWorld.clone().multiply(boardRotation);
+  const basis = deriveCameraBasis({ matrix: cameraMatrixRowMajor(basisMatrix) });
+  const bounds = new THREE.Box3();
+  if (activeRobotGroup) bounds.expandByObject(activeRobotGroup);
+  bounds.expandByObject(boardGroup);
+  const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+  const fovRadians = THREE.MathUtils.degToRad(camera?.fov || 38);
+  const fitRadius = clamp(
+    Math.max(1.05, (sphere.radius + 0.18) / Math.tan(fovRadians / 2)),
+    1.2,
+    5,
+  );
+  const fitElevation = clamp(sphere.radius * 0.28, 0.38, 0.72);
+  return { anchor, basis, fitRadius, fitElevation };
+}
+window.getCameraDiagnostics = () => {
+  const frame = cameraSceneFrame();
+  return {
+    profile: state.robotProfileId,
+    view: HOME_CAMERA_VIEW_NAMES[cameraViewIndex] || "Front",
+    zoom: state.cameraZoom,
+    anchor: [...frame.anchor],
+    fitRadius: frame.fitRadius,
+    fitElevation: frame.fitElevation,
+    cameraPosition: camera?.position?.toArray?.() || null,
+    controlsTarget: controls?.target?.toArray?.() || null,
+  };
+};
+
 function setHomeCameraView(index) {
   if (!camera || !controls) return;
-  cameraViewIndex =
-    ((index % HOME_CAMERA_VIEWS.length) + HOME_CAMERA_VIEWS.length) %
-    HOME_CAMERA_VIEWS.length;
-  const view = HOME_CAMERA_VIEWS[cameraViewIndex];
-  const cameraTarget =
-    HOME_CAMERA_TARGET_BY_PROFILE[state.robotProfileId] || HOME_CAMERA_TARGET;
-  const frameScale = 100 / state.cameraZoom;
-  camera.position
-    .set(...cameraTarget)
-    .lerp(new THREE.Vector3(...view.position), frameScale);
-  controls.target.set(...cameraTarget);
+  const frame = cameraSceneFrame();
+  const views = buildCameraViews(frame.basis);
+  cameraViewIndex = nextCameraViewIndex(index, 0);
+  const logicalView = views[cameraViewIndex];
+  const pose = buildCameraPose({
+    anchor: frame.anchor,
+    direction: logicalView.direction,
+    up: frame.basis.up,
+    fitRadius: frame.fitRadius * (100 / state.cameraZoom),
+    fitElevation: frame.fitElevation * (100 / state.cameraZoom),
+  });
+  camera.position.fromArray(pose.position);
+  controls.target.fromArray(pose.target);
   controls.update();
-  const mirroredTeachingView = cameraViewIndex === 0;
-  if (renderer?.domElement) {
-    renderer.domElement.style.transform = mirroredTeachingView
-      ? "scaleX(-1)"
-      : "";
-  }
-  controls.rotateSpeed = mirroredTeachingView ? -1 : 1;
+  // Direction semantics are physical camera directions; do not mirror the
+  // canvas or invert OrbitControls for one profile/view.
+  if (renderer?.domElement) renderer.domElement.style.transform = "";
+  controls.rotateSpeed = 1;
   syncBoardLabelMirroring();
   syncBlockTextureMirroring();
   const button = $("changeViewBtn");
   if (button) {
-    button.title = `View ${view.name} (${cameraViewIndex + 1}/4)`;
+    button.dataset.cameraView = logicalView.name;
+    button.title = `View ${logicalView.name} (${cameraViewIndex + 1}/4)`;
     button.setAttribute(
       "aria-label",
-      `Change view. Current view: ${view.name}, ${cameraViewIndex + 1} of 4`,
+      `Change view. Current view: ${logicalView.name}, ${cameraViewIndex + 1} of 4`,
     );
   }
+  const viewport = $("viewport");
+  viewport?.setAttribute("data-camera-view", logicalView.name);
+  viewport?.setAttribute("data-camera-zoom", String(state.cameraZoom));
 }
 
-function setCameraZoom(value) {
+function setCameraZoom(value, { userSet = true } = {}) {
   state.cameraZoom = clamp(
     Number(value) || HOME_CAMERA_ZOOM_DEFAULT,
     ...HOME_CAMERA_ZOOM_RANGE,
   );
-  localStorage.setItem("fr3-home-camera-zoom", String(state.cameraZoom));
+  localStorage.setItem(
+    CAMERA_ZOOM_STORAGE_KEY,
+    JSON.stringify({ value: state.cameraZoom, userSet, version: 1 }),
+  );
   if ($("cameraZoomRange"))
     $("cameraZoomRange").value = String(state.cameraZoom);
   if ($("cameraZoomOutput"))
@@ -2863,7 +2924,8 @@ function changeView() {
 }
 
 function homeView() {
-  setHomeCameraView(0);
+  setCameraZoom(HOME_CAMERA_PRESET_ZOOM, { userSet: false });
+  setHomeCameraView(HOME_CAMERA_PRESET_VIEW_INDEX);
 }
 
 class TechCampError extends Error {}
@@ -3834,12 +3896,18 @@ function bindUI() {
     cameraZoomPopover.hidden = !open;
     cameraZoomButton.setAttribute("aria-expanded", String(open));
   };
-  const savedCameraZoom = Number(localStorage.getItem("fr3-home-camera-zoom"));
-  setCameraZoom(
-    Number.isFinite(savedCameraZoom)
-      ? savedCameraZoom
-      : HOME_CAMERA_ZOOM_DEFAULT,
-  );
+  let savedCameraZoom;
+  try {
+    savedCameraZoom = JSON.parse(localStorage.getItem(CAMERA_ZOOM_STORAGE_KEY));
+  } catch {
+    savedCameraZoom = null;
+  }
+  if (!savedCameraZoom) {
+    const legacyZoom = localStorage.getItem(LEGACY_CAMERA_ZOOM_STORAGE_KEY);
+    savedCameraZoom = legacyZoom === null ? undefined : legacyZoom;
+  }
+  const migratedZoom = migrateZoomValue(savedCameraZoom, HOME_CAMERA_ZOOM_DEFAULT);
+  setCameraZoom(migratedZoom.value, { userSet: migratedZoom.userSet });
   cameraZoomButton?.addEventListener("click", () =>
     setCameraZoomPopover(cameraZoomPopover?.hidden),
   );

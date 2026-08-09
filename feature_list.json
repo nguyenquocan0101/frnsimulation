@@ -219,6 +219,26 @@
       "evidence": "Filter, manual refresh, 3-second polling, overlap guard, and refresh-retention tests pass; staging smoke pending.",
       "notes": "Polling every 3 seconds plus manual refresh; onSnapshot and pagination remain out of scope.",
       "priority": "P1"
+    },
+    {
+      "id": "camera-home-table-centered",
+      "title": "Home camera nhìn chính diện bàn và robot",
+      "user_visible_behavior": "Nút Home camera đưa bàn P1–P7 vào giữa khung hình và vẫn thấy tay robot ở mức zoom mặc định 100%.",
+      "verification_command": "Browser smoke FR3/FR5: Home dùng logical Front, tâm bàn nằm trong 5% tâm viewport, bàn/gripper/các link chính đều hiển thị.",
+      "status": "passing-unverified",
+      "evidence": "Camera helper/DOM tests pass; local HTTP smoke returns 200. Manual two-profile visual framing still requires browser screenshot review.",
+      "notes": "Camera-only; không thay đổi FK, points, gripper hoặc robotRoot.",
+      "priority": "P1"
+    },
+    {
+      "id": "camera-cardinal-reference-views",
+      "title": "Bốn góc nhìn Front/Right/Back/Left đồng nhất",
+      "user_visible_behavior": "Change view xoay lần lượt Front → Right → Back → Left → Front cho cả FR3 và FR5, không dùng offset riêng cho FR5.",
+      "verification_command": "Pure camera tests và browser test xác nhận 4 hướng trực giao, đúng thứ tự, cùng nhãn trên hai profile; zoom mới mặc định 100%.",
+      "status": "passing-unverified",
+      "evidence": "Camera helper and DOM cycle tests pass; FR3/FR5 runtime direction semantics are integrated without profile offsets. Manual view screenshots remain to be reviewed.",
+      "notes": "Anchor lấy từ tâm board/table; lưu zoom người dùng sau khi migrate giá trị legacy 118%.",
+      "priority": "P1"
     }
   ]
 }
