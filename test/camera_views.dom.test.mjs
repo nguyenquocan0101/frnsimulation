@@ -40,8 +40,12 @@ test("camera state hooks and zoom migration are deterministic", () => {
 
 test("all board slot labels remain generated independently of camera direction", () => {
   assert.match(appSource, /BLOCK_POSITIONS\.forEach\(\(name\) =>/);
+  assert.match(appSource, /const frontLabelName = name/);
+  assert.doesNotMatch(appSource, /BLOCK_POSITIONS\[BLOCK_POSITIONS\.length - 1 - index\]/);
   assert.match(appSource, /makeFrontBoardLabel\(/);
   assert.match(appSource, /syncBoardLabelMirroring\(\);/);
+  assert.match(appSource, /texture\.flipY = true/);
   assert.match(appSource, /texture\.repeat\.x = 1/);
+  assert.doesNotMatch(appSource, /backReferenceView/);
   assert.match(appSource, /label\.scale\.set\(0\.07, 0\.032, 1\)/);
 });

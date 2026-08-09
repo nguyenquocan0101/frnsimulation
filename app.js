@@ -977,7 +977,9 @@ function makeFrontBoardLabel(text, color = "#dcecff") {
   context.fillText(text, canvas.width / 2, canvas.height / 2);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.flipY = false;
+  // CanvasTexture is uploaded upside-down when flipY is disabled. Board
+  // labels are sprites, so keep the canvas orientation upright in every view.
+  texture.flipY = true;
   texture.wrapS = THREE.RepeatWrapping;
   texture.repeat.x = 1;
   texture.offset.x = 0;
