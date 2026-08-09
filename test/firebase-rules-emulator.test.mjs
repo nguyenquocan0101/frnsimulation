@@ -102,3 +102,17 @@ requireEmulator("public reads do not depend on a teacher identity", async () => 
   });
   await assertSucceeds(getDocs(collection(visitor.firestore(), "submissions")));
 });
+
+requireEmulator("competition results allow public reads and only better workshop updates", async () => {
+  const visitor = testEnv.unauthenticatedContext();
+  const reference = doc(visitor.firestore(), "competition_results", "techx_teama.py");
+  const first = { solutionName: "TechX_TeamA.py", score: 91.55, steps: 6, distance: 14 };
+  await assertSucceeds(setDoc(reference, first));
+  await assertSucceeds(getDoc(reference));
+  await assertFails(updateDoc(reference, { score: 90 }));
+  await assertSucceeds(updateDoc(reference, { score: 100, steps: 5, distance: 10 }));
+  await assertFails(setDoc(doc(visitor.firestore(), "competition_results", "techx_other.py"), {
+    solutionName: "TechX_Other.py", score: 101, steps: 6, distance: 14,
+  }));
+  await assertFails(deleteDoc(reference));
+});

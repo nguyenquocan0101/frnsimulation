@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>FPTU TechX Camp · Robot sorting</title>
+    <link rel="stylesheet" href="./competition.css" />
+    <script type="importmap">
+      {"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js","firebase/auth":"https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js","firebase/firestore":"https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js"}}
+    </script>
+  </head>
+  <body>
+    <main class="competition-shell">
+      <header class="competition-header">
+        <a class="brand" href="./">FPTU TECH<span>X</span> CAMP <small>FAIRINO SIMULATION</small></a>
+        <div class="workshop-chip">Workshop công khai</div>
+      </header>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">ROBOT SORTING CHALLENGE</p>
+          <h1>Sắp xếp nhanh, gọn, đúng.</h1>
+          <p>Marker cam mở đầu P1 → P7. Mỗi lần thả khối thành công tính một bước; quãng đường tính theo số ô. Không có đồng hồ — tập trung vào lời giải.</p>
+        </div>
+        <a class="button primary" href="./">Mở IDE</a>
+      </section>
+      <section class="rules-card" aria-labelledby="rulesTitle">
+        <div class="section-heading"><div><p class="eyebrow">LUẬT THI</p><h2 id="rulesTitle">Ba tiêu chí chấm điểm</h2></div><span class="muted">Workshop · không chống gian lận</span></div>
+        <div class="rule-grid">
+          <article><b>Đúng thứ tự</b><p>P2 xe · P3 gà · P4 chó · P5 ghế · P6 nhà.</p></article>
+          <article><b>Số bước</b><p>Mỗi lần chuyển một khối từ ô này sang ô khác là 1 bước.</p></article>
+          <article><b>Khoảng cách</b><p>P7 → P2 là 5 ô. Không dùng đơn vị cm.</p></article>
+        </div>
+        <p class="formula">Score = 60% đúng thứ tự + 25% ít bước + 15% ít ô di chuyển · làm tròn nửa lên đến 2 chữ số.</p>
+      </section>
+      <section class="leaderboard-card" aria-labelledby="leaderboardTitle">
+        <div class="section-heading"><div><p class="eyebrow">LEADERBOARD</p><h2 id="leaderboardTitle">Kết quả workshop</h2></div><button class="button quiet" id="refreshCompetitionBtn" type="button">Làm mới</button></div>
+        <p class="status" id="competitionStatus" role="status">Đang tải kết quả…</p>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>Tên bài</th><th>Score</th><th>Steps</th><th>Distance</th></tr></thead><tbody id="competitionRows"></tbody></table></div>
+      </section>
+      <p class="privacy-note">Bảng điểm workshop dùng dữ liệu công khai của Firebase. Chỉ lưu tên bài, score, steps và distance; không lưu code hay ảnh.</p>
+    </main>
+    <script type="module" src="./competition-page.mjs"></script>
+  </body>
+</html>

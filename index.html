@@ -57,6 +57,7 @@
               <span class="theme-icon">☀</span
               ><span class="theme-label sr-only">Light mode</span>
             </button>
+            <a class="competition-link" href="./competition">Luật thi</a>
           </header>
 
           <section class="panel code-panel" aria-label="Code and controls">
@@ -150,39 +151,15 @@
                 <textarea class="code" id="program" spellcheck="false">
 from techcamp_api import TechCamp
 
-POINTS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"]
-
 
 def main():
+    # Sau khi bấm Run, IDE tự đưa marker cam P1 -> P7.
+    # Học sinh chỉ cần sắp xếp 5 khối bên dưới.
+    transfers = [("P2", "P1"), ("P6", "P2"), ("P5", "P6"),
+                 ("P4", "P5"), ("P1", "P4")]
+
     with TechCamp() as bot:
-        # Marker cam: đưa từ P1 sang P7.
-        print("Marker cam: P1 -> P7")
-        bot.move_to("P1")
-        bot.move_down()
-        bot.grip()
-        bot.move_up()
-        bot.move_to("P7")
-        bot.move_down()
-        bot.release()
-        bot.move_up()
-
-        # Đưa marker cam về P1 để giải phóng P7 làm buffer sắp xếp.
-        print("Marker cam: P7 -> P1")
-        bot.move_to("P7")
-        bot.move_down()
-        bot.grip()
-        bot.move_up()
-        bot.move_to("P1")
-        bot.move_down()
-        bot.release()
-        bot.move_up()
-
-        # Đầu vào: P2 xe, P3 gà, P4 chó, P5 ghế, P6 nhà.
-        # Đích:    P2 chó, P3 gà, P4 ghế, P5 nhà, P6 xe.
-        # P7 là buffer tạm cho chu trình P2 -> P6 -> P5 -> P4 -> P2.
-        sort_steps = [("P2", "P7"), ("P6", "P5"), ("P5", "P4"),
-                      ("P4", "P2"), ("P7", "P6")]
-        for source, target in sort_steps:
+        for source, target in transfers:
             print(f"Đang chuyển {source} -> {target}")
             bot.move_to(source)
             bot.move_down()
@@ -374,6 +351,29 @@ if __name__ == "__main__":
             id="console"
             aria-live="polite"
           ></pre>
+          <section
+            class="competition-result-panel"
+            id="competitionResultPanel"
+            aria-labelledby="competitionResultTitle"
+            hidden
+          >
+            <div class="competition-result-heading">
+              <strong id="competitionResultTitle">Kết quả lần chạy</strong>
+              <span id="competitionResultStatus" aria-live="polite"></span>
+            </div>
+            <div class="competition-result-metrics" aria-label="Điểm workshop">
+              <span>Score: <b id="competitionScore">0.00</b></span>
+              <span>Steps: <b id="competitionSteps">0</b></span>
+              <span>Distance: <b id="competitionDistance">0 ô</b></span>
+            </div>
+            <div class="competition-result-actions">
+              <button class="button quiet" id="competitionImageDownloadBtn" type="button" disabled>
+                Tải ảnh kết quả
+              </button>
+              <a class="button quiet" href="./teacher.html">Xem bảng giáo viên</a>
+            </div>
+            <img id="competitionResultImage" alt="Ảnh kết quả lần chạy" hidden />
+          </section>
         </section>
       </div>
     </div>

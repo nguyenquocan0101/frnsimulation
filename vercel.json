@@ -4,5 +4,9 @@
     "api/**/*.py": {
       "excludeFiles": "{bridge/**,.agents/**,.codex/**,__pycache__/**}"
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/competition", "destination": "/competition.html" },
+    { "source": "/competition/", "destination": "/competition.html" }
+  ]
 }

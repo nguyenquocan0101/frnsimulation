@@ -26,9 +26,10 @@ The page loads Three.js from a CDN, so the first visit needs Internet access. FR
 - `HOME` is the canonical TechCamp point. `HOMECHESS` remains a deprecated compatibility alias.
 - `get_positions()` remains a simulator-only compatibility extension.
 - The Python runner response remains `{ok, actions, output}`. No step telemetry, SDK calls, DO pulses, camera capture, `run_status.json`, or `robot_done` feedback is exposed in the browser.
-- Programs must define a zero-argument main function (for example `main()` or
-  `move_cube()`) and call it from `if __name__ == "__main__":`; programs
-  without this entrypoint are rejected.
+- Programs must define a zero-argument `main()` and call it from
+  `if __name__ == "__main__":`. The IDE only blocks syntax, unsafe/private
+  commands, and clearly invalid robot order; this is a workshop, not an
+  anti-cheat judge.
 - `Home camera` uses the third reference view (`Back`) as the workshop preset
   and sets the camera to `View 200%`. `Change view` still cycles
   `Front → Right → Back → Left` from the table/robot frame for both FR3 and FR5;
@@ -42,7 +43,7 @@ The five classroom blocks use the workshop sticker set in
 
 ## Orange start/end marker
 
-After reset, the classroom layout is intentionally:
+The regular classroom reset layout is:
 
 - P1: orange marker
 - P2: car (block labelled P7)
@@ -52,7 +53,7 @@ After reset, the classroom layout is intentionally:
 - P6: house
 - P7: empty marker destination/buffer
 
-The sample sorting program changes this input into `P2` dog, `P3` chicken, `P4` chair, `P5` house, `P6` car using P7 as a temporary buffer. Students may sort the five blocks freely. The orange marker is draggable/grippable like a classroom start/end marker; the simulator does not enforce a route or decide whether the lesson is complete. The marker is not included in `get_positions()` or object-class counts. While it occupies a slot, another block cannot be dropped into that occupied slot.
+The competition Run button uses its own deterministic input (P1 marker, P2 dog, P3 chicken, P4 chair, P5 house, P6 car, P7 empty) before the marker opening. Students may sort the five blocks freely. The orange marker is draggable/grippable like a classroom start/end marker; the regular simulator does not enforce a route or decide whether the lesson is complete. The marker is not included in `get_positions()` or object-class counts. While it occupies a slot, another block cannot be dropped into that occupied slot.
 
 ## Live monitor
 
@@ -88,3 +89,19 @@ this workshop: anyone with the page URL can view and download submitted source c
 The workshop flow intentionally does not implement anti-cheating, App Check, rate limiting,
 pagination beyond 100 rows, or automatic cleanup. See
 [`docs/firebase-setup.md`](docs/firebase-setup.md) for setup and manual cleanup.
+
+## Robot sorting competition
+
+Open [`/competition`](competition.html) for the public rules and leaderboard. On **Run
+program**, the IDE resets the competition fixture and moves the orange marker P1 → P7 as
+the start signal; that movement is not counted. Students then sort the five blocks. Every
+successful release is one step and its distance is the number of slot gaps (for example,
+P7 → P2 is 5). The result card shows correctness, score, steps, distance, and a local
+snapshot; only the four result fields are written to the optional `competition_results`
+collection. No timer or centimetres are used.
+Competition result saving is intentionally public for this low-stakes workshop, so it does
+not require a Firebase login; the leaderboard is not a trusted anti-cheat judge.
+
+The existing `submissions` collection is not deleted by deployment. If an organizer wants
+to retire it, export/check the project `frteachxcamp`, deploy the replacement, and run an
+explicit Firebase console/CLI deletion as a separate, manually confirmed operation.

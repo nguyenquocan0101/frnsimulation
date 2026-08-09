@@ -239,6 +239,46 @@
       "evidence": "Camera helper and DOM cycle tests pass; FR3/FR5 runtime direction semantics are integrated without profile offsets. Manual view screenshots remain to be reviewed.",
       "notes": "Anchor lấy từ tâm board/table; lưu zoom người dùng sau khi migrate giá trị legacy 118%.",
       "priority": "P1"
+    },
+    {
+      "id": "competition-rules-page",
+      "title": "Trang luật thi đấu tại /competition",
+      "user_visible_behavior": "Học sinh hiểu chính xác cách viết lời giải và cách xếp hạng.",
+      "verification_command": "Route hiển thị luật, chuỗi thao tác hợp lệ, công thức điểm và ít nhất ba ví dụ tính điểm.",
+      "status": "passing-unverified",
+      "evidence": "",
+      "notes": "Implemented competition.html rules/leaderboard UI and /competition + /competition/ route tests; Firebase production smoke remains deployment verification.",
+      "priority": "P1"
+    },
+    {
+      "id": "competition-python-preflight",
+      "title": "Chặn code Python và chuỗi robot không hợp lệ",
+      "user_visible_behavior": "Lỗi cú pháp hoặc chuỗi robot không hợp lệ không gây chuyển động sai.",
+      "verification_command": "Syntax error, thiếu main(), main() có tham số hoặc hai move_to() liên tiếp không có move_down() đều bị chặn trước chuyển động tương ứng.",
+      "status": "passing",
+      "evidence": "",
+      "notes": "Python runner raw-trace preflight: 34 unittest cases pass; syntax/main/order errors are rejected before browser motion.",
+      "priority": "P1"
+    },
+    {
+      "id": "competition-efficiency-scoring",
+      "title": "Chấm bài theo correctness, steps và distance",
+      "user_visible_behavior": "Hai robot có cùng tốc độ được đánh giá công bằng theo chất lượng thuật toán.",
+      "verification_command": "Đúng bài tối đa 100 điểm, sai bài 0 điểm, một chu trình gắp-thả tính một step và distance là tổng số khoảng giữa ô nguồn-đích.",
+      "status": "passing",
+      "evidence": "Phase 1: competition engine 18/18; full Node suite 82 passed, 3 emulator-dependent skipped.",
+      "notes": "Pure fixture/FSM/scoring plus simulator session integration and session-only result image are implemented; browser smoke remains deployment verification.",
+      "priority": "P1"
+    },
+    {
+      "id": "competition-public-leaderboard",
+      "title": "Bảng xếp hạng cuộc thi công khai",
+      "user_visible_behavior": "Ban tổ chức so sánh được thành tích tốt nhất của từng file lời giải.",
+      "verification_command": "Bảng có tên file, score, steps, distance và sắp theo score giảm dần, steps tăng dần, distance tăng dần.",
+      "status": "passing-unverified",
+      "evidence": "",
+      "notes": "competition_results model/rules/index and public leaderboard route implemented; Firebase production smoke remains deployment verification.",
+      "priority": "P1"
     }
   ]
 }

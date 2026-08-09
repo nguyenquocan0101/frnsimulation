@@ -12,6 +12,7 @@
       {
         "imports": {
           "firebase/app": "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js",
+          "firebase/auth": "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js",
           "firebase/firestore": "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js"
         }
       }
@@ -110,12 +111,30 @@
           </form>
         </dialog>
       </section>
+      <section class="teacher-panel workshop-results-panel" aria-labelledby="workshopResultsTitle">
+        <div class="teacher-toolbar">
+          <div>
+            <p class="eyebrow">WORKSHOP RESULT</p>
+            <h2 id="workshopResultsTitle">Kết quả thi đấu</h2>
+          </div>
+          <button class="button primary" id="competitionResultsRefreshBtn" type="button">Làm mới điểm</button>
+        </div>
+        <p class="teacher-error" id="competitionResultsError" role="status"></p>
+        <div class="submission-table-wrap">
+          <table class="submission-table" id="competitionResultsTable">
+            <thead><tr><th>STT</th><th>Tên bài</th><th>Score</th><th>Steps</th><th>Distance (ô)</th></tr></thead>
+            <tbody id="competitionResultsBody"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
     <script type="module">
       import {
         listSubmissions,
         downloadSubmission,
       } from "./firebase-public-client.mjs";
+      import { listCompetitionResults } from "./firebase-competition-client.mjs";
+      import { compareCompetitionResults } from "./competition-results.mjs";
       import { initTeacherPortal } from "./teacher-submissions.mjs";
       initTeacherPortal({
         list: listSubmissions,
@@ -133,6 +152,33 @@
           "#previewDialog button[value=close]",
         ),
       });
+
+      const resultBody = document.getElementById("competitionResultsBody");
+      const resultError = document.getElementById("competitionResultsError");
+      const resultRefresh = document.getElementById("competitionResultsRefreshBtn");
+      async function loadCompetitionResults() {
+        resultRefresh.disabled = true;
+        resultError.textContent = "";
+        try {
+          const rows = (await listCompetitionResults()).sort(compareCompetitionResults);
+          resultBody.replaceChildren();
+          rows.forEach((row, index) => {
+            const tr = document.createElement("tr");
+            [index + 1, row.solutionName, Number(row.score).toFixed(2), row.steps, row.distance].forEach((value) => {
+              const td = document.createElement("td");
+              td.textContent = String(value);
+              tr.append(td);
+            });
+            resultBody.append(tr);
+          });
+        } catch (error) {
+          resultError.textContent = "Chưa tải được kết quả workshop.";
+        } finally {
+          resultRefresh.disabled = false;
+        }
+      }
+      resultRefresh.addEventListener("click", loadCompetitionResults);
+      loadCompetitionResults();
     </script>
   </body>
 </html>

@@ -84,7 +84,7 @@ function treeHasLiteral(node, value) {
 }
 
 test("teacher entry is public and has no auth/account/expiry controls", () => {
-  assert.doesNotMatch(html, /signInTeacher|resolveTeacherRedirect|firebase\/auth|teacherSignInBtn/i);
+  assert.doesNotMatch(html, /signInTeacher|resolveTeacherRedirect|teacherSignInBtn/i);
   assert.doesNotMatch(html, /Đăng nhập|Chưa đăng nhập|Đăng xuất|token|hết hạn|expiry/i);
   assert.match(html, /id=["']teacherPublicStatus["']/);
   assert.match(html, /Workshop công khai/i);
@@ -107,7 +107,8 @@ test("public page exposes refresh, filter, table, empty/error, and preview selec
 });
 
 test("public submissions table uses the exact desktop column order", () => {
-  const headers = [...html.matchAll(/<th[^>]*>([^<]+)<\/th>/gi)].map((match) => match[1].trim());
+  const submissionsTable = html.match(/<table[^>]*id=["']submissionTable["'][\s\S]*?<\/table>/i)?.[0] ?? "";
+  const headers = [...submissionsTable.matchAll(/<th[^>]*>([^<]+)<\/th>/gi)].map((match) => match[1].trim());
   assert.deepEqual(headers, ["STT", "Tên nhóm", "Tên file", "Nộp lúc", "Thao tác"]);
 });
 

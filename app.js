@@ -24,6 +24,12 @@ import {
   uploadSubmission,
 } from "./firebase-client.mjs";
 import { initStudentSubmissionUi } from "./student-submissions.mjs";
+import { saveCompetitionResult } from "./firebase-competition-client.mjs";
+import { buildCompetitionResult } from "./competition-results.mjs";
+import {
+  createCompetitionSession,
+  runCompetitionSession,
+} from "./competition-session.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -206,6 +212,13 @@ const SAFE_ZONE_BOUNDS = Object.freeze({
   // teaching guard must cover the same footprint instead of blocking P1/P7.
   fr5: Object.freeze({ x: [-850, 350], y: [-500, 600], z: [0, 950] }),
 });
+const COMPETITION_BLOCK_SETUP = Object.freeze([
+  { name: "P1", position: "P2", objectClass: "dog", color: 0xe7c85f },
+  { name: "P3", position: "P3", objectClass: "chicken", color: 0xf06b62 },
+  { name: "P5", position: "P4", objectClass: "chair", color: 0x56a9d9 },
+  { name: "P6", position: "P5", objectClass: "house", color: 0x7187d8 },
+  { name: "P7", position: "P6", objectClass: "car", color: 0xa879d6 },
+]);
 
 function safeZoneBoundsForProfile(profileId) {
   const bounds = SAFE_ZONE_BOUNDS[profileId] || SAFE_ZONE_BOUNDS.fr3;
@@ -305,6 +318,7 @@ const state = {
   calibratedPoints: {},
   blocks: [],
   checkpointToken: createCheckpointToken(),
+  competitionSession: null,
   activeMotion: null,
   programRun: null,
   toolPose: [0, 0, 0, 0, 0, 0],
@@ -1002,7 +1016,8 @@ function makeFrontBoardLabel(text, color = "#dcecff") {
 }
 
 function objectClassForBlock(blockName) {
-  const objectClassId = BLOCK_META[blockName]?.objectClass;
+  const liveBlock = state.blocks.find((block) => block.name === blockName);
+  const objectClassId = liveBlock?.objectClass?.id || BLOCK_META[blockName]?.objectClass;
   return OBJECT_CLASSES.find((item) => item.id === objectClassId) || null;
 }
 
@@ -2678,6 +2693,38 @@ function getRobotVisualDiagnostics() {
     gripperJoint,
   });
 }
+
+function resetCompetitionFixture(silent = true) {
+  if (state.competitionSession?.imageUrl) URL.revokeObjectURL(state.competitionSession.imageUrl);
+  state.blocks = COMPETITION_BLOCK_SETUP.map((entry) => ({
+    name: entry.name,
+    position: entry.position,
+    color: entry.color,
+    objectClass: OBJECT_CLASSES.find((item) => item.id === entry.objectClass) || null,
+    carried: false,
+  }));
+  state.checkpointToken = resetCheckpointToken();
+  techcampSim.reset();
+  state.competitionSession = null;
+  if ($("competitionResultPanel")) $("competitionResultPanel").hidden = true;
+  if ($("competitionSubmitBtn")) $("competitionSubmitBtn").disabled = true;
+  renderBlockBoard();
+  updateBlockVisuals();
+  if (boardGroup && state.modelReady) buildBlockBoard();
+  if (!silent) log("Competition fixture reset -> marker P1 · dog P2 · chicken P3 · chair P4 · house P5 · car P6");
+}
+
+async function performCompetitionOpening(token) {
+  await techcampSim.move_to("P1");
+  if (token?.cancelled) throw new TechCampError("Competition run cancelled.");
+  await techcampSim.move_down();
+  await techcampSim.grip();
+  await techcampSim.move_up();
+  await techcampSim.move_to("P7");
+  await techcampSim.move_down();
+  await techcampSim.release();
+  await techcampSim.move_up();
+}
 window.getRobotVisualDiagnostics = getRobotVisualDiagnostics;
 
 async function switchRobotProfile(profileId, { initial = false } = {}) {
@@ -3037,28 +3084,50 @@ const techcampSim = {
   async grip() {
     startTechCamp();
     if (this.gripping) return true;
+    const block = this.low && this.position ? blockAt(this.position) : null;
+    const tokenAvailable =
+      this.low &&
+      this.position &&
+      state.checkpointToken.position === this.position &&
+      !checkpointTokenCarried();
+    if (!block && !tokenAvailable) {
+      log("grip() -> gripper closed (no block at this slot)");
+      return true;
+    }
     this.gripping = true;
     await setGripperClosed(true);
-    const block = this.low && this.position ? blockAt(this.position) : null;
     if (block) {
       block.carried = true;
       this.carriedBlock = block.name;
       log(`grip() -> ${block.name} attached`);
-    } else if (
-      this.low &&
-      state.checkpointToken.position === this.position &&
-      !checkpointTokenCarried()
-    ) {
+    } else if (tokenAvailable) {
       state.checkpointToken = { ...state.checkpointToken, carried: true };
       this.carriedToken = true;
       log(`grip() -> ${CHECKPOINT_TOKEN_ID} attached`);
-    } else log("grip() -> gripper closed");
+    }
     renderBlockBoard();
     return true;
   },
   async release() {
     startTechCamp();
     if (!this.gripping) return true;
+    const carriedBlock = this.carriedBlock
+      ? state.blocks.find((item) => item.name === this.carriedBlock)
+      : null;
+    if (carriedBlock) {
+      const target = this.position;
+      const occupied = state.blocks.some(
+        (item) => item !== carriedBlock && !item.carried && item.position === target,
+      );
+      const tokenCollision =
+        target === state.checkpointToken?.position && !checkpointTokenCarried();
+      if (occupied || tokenCollision || !target) {
+        log(
+          `release() -> ${carriedBlock.name} kept at ${carriedBlock.position}; target ${target || "current position"} is occupied`,
+        );
+        return true;
+      }
+    }
     await setGripperClosed(false);
     if (this.carriedToken) {
       const from = state.checkpointToken.position;
@@ -3076,25 +3145,12 @@ const techcampSim = {
       updateBlockVisuals();
       return true;
     }
-    const block = this.carriedBlock
-      ? state.blocks.find((item) => item.name === this.carriedBlock)
-      : null;
+    const block = carriedBlock;
     if (block) {
       const target = this.position;
-      const occupied = state.blocks.some(
-        (item) => item !== block && !item.carried && item.position === target,
-      );
-      const tokenCollision =
-        target === state.checkpointToken?.position && !checkpointTokenCarried();
       block.carried = false;
-      if (occupied || tokenCollision || !target) {
-        log(
-          `release() -> ${block.name} kept at ${block.position}; target ${target || "current position"} is occupied`,
-        );
-      } else {
-        block.position = target;
-        log(`release() -> ${block.name} placed at ${target}`);
-      }
+      block.position = target;
+      log(`release() -> ${block.name} placed at ${target}`);
     } else log("release() -> gripper released");
     this.gripping = false;
     this.carriedBlock = null;
@@ -3748,37 +3804,106 @@ async function runPythonProgram(token) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       source: $("program").value,
-      positions: simulatorBlockPositions(),
+      // The competition runner owns a deterministic post-opening fixture;
+      // never let a dirty viewport from a previous run influence preflight.
+      positions: {
+        P1: false,
+        P2: true,
+        P3: true,
+        P4: true,
+        P5: true,
+        P6: true,
+        P7: true,
+      },
     }),
     signal: token.controller.signal,
   });
   const payload = await response.json().catch(() => null);
   if (token.cancelled) return;
   if (!response.ok || !payload?.ok) {
-    showPythonError(
-      payload?.error || {
-        message: "No result from the Python runner. Restart serve.mjs.",
-      },
-    );
-    return;
+    return payload || {
+      ok: false,
+      error: { message: "No result from the Python runner. Restart serve.mjs." },
+    };
   }
-  for (const text of payload.output || []) {
-    if (token.cancelled) return;
+  for (const text of payload.output || [])
     log("print: " + String(text).replace(/\n$/, ""));
+  return payload;
+}
+
+function renderCompetitionResult(result) {
+  const panel = $("competitionResultPanel");
+  if (!panel) return;
+  panel.hidden = false;
+  $("competitionResultStatus").textContent = result.correct
+    ? "Đã hoàn thành đúng"
+    : "Đã chạy xong — thứ tự chưa đúng";
+  $("competitionScore").textContent = Number(result.score).toFixed(2);
+  $("competitionSteps").textContent = String(result.steps);
+  $("competitionDistance").textContent = String(result.distance);
+  const submit = $("competitionSubmitBtn");
+  if (submit) {
+    submit.disabled = false;
+    submit.onclick = async () => {
+      const input = $("competitionSolutionName");
+      const status = $("competitionSubmitStatus");
+      try {
+        const payload = buildCompetitionResult({
+          solutionName: input?.value || "",
+          score: result.score,
+          steps: result.steps,
+          distance: result.distance,
+        });
+        if (status) status.textContent = "Đang lưu…";
+        const saved = await saveCompetitionResult(payload);
+        if (status) status.textContent = saved.saved ? "Đã lưu bảng xếp hạng." : "Bản tốt hơn đã được lưu trước đó.";
+      } catch (error) {
+        if (status) status.textContent = error?.message || "Không thể lưu kết quả.";
+      }
+    };
   }
-  for (const action of payload.actions || []) {
-    if (token.cancelled) return;
-    try {
-      if (action.type === "move_to") await techcampSim.move_to(action.position);
-      else if (action.type === "move_down") await techcampSim.move_down();
-      else if (action.type === "move_up") await techcampSim.move_up();
-      else if (action.type === "grip") await techcampSim.grip();
-      else if (action.type === "release") await techcampSim.release();
-    } catch (error) {
-      showPythonError({ line: action.line, message: error.message });
-      return;
-    }
+}
+
+async function captureCompetitionSnapshot(result) {
+  if (!renderer || !scene || !camera) throw new Error("Chưa sẵn sàng chụp ảnh mô phỏng.");
+  renderScene();
+  const source = renderer.domElement;
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const context = canvas.getContext("2d");
+  context.drawImage(source, 0, 0);
+  context.fillStyle = "rgba(5, 12, 22, .88)";
+  context.fillRect(16, 16, 390, 76);
+  context.fillStyle = "#f4d88d";
+  context.font = "700 18px Consolas, monospace";
+  context.fillText(`Score ${Number(result.score).toFixed(2)}`, 30, 42);
+  context.fillStyle = "#dcecff";
+  context.font = "14px Consolas, monospace";
+  context.fillText(`Steps ${result.steps}  ·  Distance ${result.distance} ô`, 30, 70);
+  const pixels = context.getImageData(0, 0, Math.min(canvas.width, 24), Math.min(canvas.height, 24)).data;
+  if (!pixels.some((value) => value !== 0)) throw new Error("Ảnh mô phỏng trống.");
+  const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Không tạo được ảnh.")), "image/png"));
+  const previous = state.competitionSession?.imageUrl;
+  if (previous) URL.revokeObjectURL(previous);
+  const imageUrl = URL.createObjectURL(blob);
+  state.competitionSession.imageUrl = imageUrl;
+  const image = $("competitionResultImage");
+  if (image) {
+    image.src = imageUrl;
+    image.hidden = false;
   }
+  const download = $("competitionImageDownloadBtn");
+  if (download) {
+    download.disabled = false;
+    download.onclick = () => {
+      const link = document.createElement("a");
+      link.href = imageUrl;
+      link.download = "competition-result.png";
+      link.click();
+    };
+  }
+  return { blob, imageUrl };
 }
 
 async function runProgram() {
@@ -3805,7 +3930,75 @@ async function runProgram() {
   state.programRun = token;
   renderState();
   try {
-    await runPythonProgram(token);
+    const result = await runCompetitionSession({
+      preflight: () => runPythonProgram(token),
+      reset: async () => {
+        resetCompetitionFixture(true);
+        state.competitionSession = createCompetitionSession();
+      },
+      opening: async (session) => {
+        await performCompetitionOpening(token);
+        if (!session.activateOpening()) throw new TechCampError(session.error || "Marker opening failed.");
+        state.competitionSession = session;
+        log("Competition start: marker P1 -> P7 (not counted)");
+      },
+      replay: async (session, actions) => {
+        for (const action of actions) {
+          if (token.cancelled) throw new TechCampError("Competition run cancelled.");
+          try {
+            if (action.type === "move_to") await techcampSim.move_to(action.position);
+            else if (action.type === "move_down") await techcampSim.move_down();
+            else if (action.type === "move_up") await techcampSim.move_up();
+            else if (action.type === "grip") {
+              await techcampSim.grip();
+              if (!session.applyEvent({
+                type: "grip",
+                position: techcampSim.position,
+                success: action.success !== false,
+              }))
+                throw new TechCampError(session.error || "Gripper state mismatch.");
+            } else if (action.type === "release") {
+              await techcampSim.release();
+              if (!session.applyEvent({
+                type: "release",
+                position: techcampSim.position,
+                success: action.success !== false,
+              }))
+                throw new TechCampError(session.error || "Release state mismatch.");
+            }
+          } catch (error) {
+            showPythonError({ line: action.line, message: error.message });
+            return false;
+          }
+        }
+        return true;
+      },
+      capture: async ({ state: sessionState }) => {
+        const result = {
+          correct: sessionState.correct,
+          score: sessionState.score,
+          steps: sessionState.steps,
+          distance: sessionState.distance,
+        };
+        renderCompetitionResult(result);
+        try {
+          const savedGroup = localStorage.getItem("techcamp-last-group") || "Workshop";
+          await saveCompetitionResult(buildCompetitionResult({
+            solutionName: savedGroup,
+            score: result.score,
+            steps: result.steps,
+            distance: result.distance,
+          }));
+        } catch {
+          // Leaderboard persistence is optional during a local workshop run.
+        }
+        return captureCompetitionSnapshot(result);
+      },
+    });
+    if (!result.ok && !token.cancelled) {
+      const error = result.validation?.error || result.error || { message: "Competition run failed." };
+      showPythonError(error);
+    }
   } catch (error) {
     if (!token.cancelled)
       showPythonError({

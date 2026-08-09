@@ -84,7 +84,9 @@ const server = http.createServer(async (request, response) => {
     }
     return;
   }
-  const relative = requestPath === '/' ? 'index.html' : requestPath.replace(/^\/+/, '');
+  const relative = requestPath === '/' ? 'index.html'
+    : ['/competition', '/competition/'].includes(requestPath) ? 'competition.html'
+    : requestPath.replace(/^\/+/, '');
   const filePath = path.resolve(root, relative);
   if (!filePath.startsWith(root + path.sep)) {
     response.writeHead(403).end('Forbidden');

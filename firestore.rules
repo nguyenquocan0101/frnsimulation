@@ -27,10 +27,50 @@ service cloud.firestore {
         && request.resource.data.submittedAt == request.time;
     }
 
+    function validCompetitionResult(solutionId) {
+      return request.resource.data.keys().hasOnly([
+          'solutionName', 'score', 'steps', 'distance'
+        ])
+        && request.resource.data.solutionName is string
+        && request.resource.data.solutionName.matches('^TechX_[A-Za-z0-9_-]{2,32}\\.py$')
+        && solutionId == request.resource.data.solutionName.lower()
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 100
+        // Scores are produced by the browser's deterministic HALF_UP helper;
+        // the workshop rules keep the numeric range simple and do not attempt
+        // to be an anti-cheat judge.
+        && request.resource.data.steps is int
+        && request.resource.data.steps >= 0
+        && request.resource.data.steps <= 500
+        && request.resource.data.distance is int
+        && request.resource.data.distance >= 0
+        && request.resource.data.distance <= 5000;
+    }
+
+    function betterCompetitionResult() {
+      return request.resource.data.score > resource.data.score
+        || (request.resource.data.score == resource.data.score
+          && request.resource.data.steps < resource.data.steps)
+        || (request.resource.data.score == resource.data.score
+          && request.resource.data.steps == resource.data.steps
+          && request.resource.data.distance < resource.data.distance);
+    }
+
     match /submissions/{submissionId} {
       allow create: if isAnonymous() && validSubmission(submissionId);
       allow get, list: if true;
       allow update, delete: if false;
+    }
+
+    match /competition_results/{solutionId} {
+      allow get, list: if true;
+      // Competition scores are intentionally public for this low-stakes workshop;
+      // the leaderboard is not an anti-cheat or trusted-judge system.
+      allow create: if validCompetitionResult(solutionId);
+      allow update: if validCompetitionResult(solutionId)
+        && betterCompetitionResult();
+      allow delete: if false;
     }
   }
 }

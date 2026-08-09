@@ -46,6 +46,7 @@ export function createSubmissionController({ getSource, ensureUser, upload, onSt
           source,
           onMetadata: () => setStatus("saving", "Đang lưu bài vào danh sách…"),
         });
+        try { localStorage.setItem("techcamp-last-group", groupName); } catch {}
         setStatus("success", `${metadata.filename} đã được nộp lúc ${new Date().toLocaleTimeString()}.`);
         return { ok: true, metadata };
       } catch (error) {
