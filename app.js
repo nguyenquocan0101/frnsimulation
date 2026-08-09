@@ -174,8 +174,8 @@ const BLOCK_META = Object.freeze({
   P1: { color: 0xf06b62, objectClass: "chicken" },
   P3: { color: 0xe7c85f, objectClass: "dog" },
   P5: { color: 0x56a9d9, objectClass: "chair" },
-  P6: { color: 0x7187d8, objectClass: "umbrella" },
-  P7: { color: 0xa879d6, objectClass: "elephant" },
+  P6: { color: 0x7187d8, objectClass: "house" },
+  P7: { color: 0xa879d6, objectClass: "car" },
 });
 const BLOCK_COLORS = [
   0xf06b62, 0xf3a64a, 0xe7c85f, 0x6fc88f, 0x56a9d9, 0x7187d8, 0xa879d6,
@@ -246,8 +246,8 @@ const OBJECT_CLASS_TEXTURE_FILES = Object.freeze({
   chicken: "./assets/sticker-objects/chicken.png",
   dog: "./assets/sticker-objects/dog.png",
   chair: "./assets/sticker-objects/chair.png",
-  umbrella: "./assets/sticker-objects/house.png",
-  elephant: "./assets/sticker-objects/car.png",
+  house: "./assets/sticker-objects/house.png",
+  car: "./assets/sticker-objects/car.png",
 });
 const TECHCAMP_MAX_SPEED = 40;
 const TECHCAMP_MAX_ACC = 20;
@@ -1046,13 +1046,7 @@ function updateCheckpointTokenVisual() {
     cart[1] / 1000,
     cart[2] / 1000,
   );
-  if (carried) {
-    checkpointTokenMesh.quaternion.setFromRotationMatrix(
-      gripperJawMatrix(state.jointsDeg),
-    );
-  } else {
-    checkpointTokenMesh.rotation.set(0, 0, boardSlotRotation);
-  }
+  checkpointTokenMesh.rotation.set(0, 0, boardSlotRotation);
   checkpointTokenMesh.visible = true;
 }
 
@@ -1370,15 +1364,9 @@ function updateBlockVisuals() {
         : null;
     if (!cart) return;
     mesh.position.set(cart[0] / 1000, cart[1] / 1000, cart[2] / 1000);
-    if (block.carried) {
-      // A carried block uses the complete jaw pose, not only the jaw
-      // position. This keeps its faces aligned with J6 while the robot moves.
-      mesh.quaternion.setFromRotationMatrix(
-        gripperJawMatrix(state.jointsDeg),
-      );
-    } else {
-      mesh.rotation.set(0, 0, boardSlotRotation);
-    }
+    // The block follows the jaw position while keeping its face upright,
+    // matching the table orientation instead of turning edge-on with J6.
+    mesh.rotation.set(0, 0, boardSlotRotation);
     mesh.visible = true;
   });
   updateCheckpointTokenVisual();
