@@ -224,12 +224,16 @@ test("failed release and cancelled transfer never increment metrics", () => {
   assert.equal(cancelled.distance, 0);
 });
 
-test("the marker cannot become a scored student transfer", () => {
-  let state = openAndActivate();
-  state = event(state, "grip", "P7", { success: true });
-  state = event(state, "release", "P1", { success: true });
+test("student code moves the P1 marker to P7 without scoring a transfer", () => {
+  let state = createCompetitionState();
+  state = event(state, "activate", undefined, { withoutMarker: true });
 
-  assert.equal(state.phase, "invalid");
+  assert.equal(state.phase, "scoring");
+  assert.deepEqual(state.fixture, SOURCE);
+
+  state = transfer(state, "P1", "P7");
+  assert.equal(state.phase, "scoring");
+  assert.deepEqual(state.fixture, AFTER_OPENING);
   assert.equal(state.steps, 0);
   assert.equal(state.distance, 0);
 });

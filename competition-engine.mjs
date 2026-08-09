@@ -77,9 +77,6 @@ function reduceGrip(state, event) {
   if (state.phase === "opening" && (position !== "P1" || blockId !== "marker")) {
     return invalidState(state, "Opening must move the marker from P1 to P7.");
   }
-  if (state.phase === "scoring" && blockId === "marker") {
-    return invalidState(state, "The orange marker is not a scored block.");
-  }
   const fixture = cloneFixture(state.fixture);
   fixture[position] = null;
   return {
@@ -103,13 +100,11 @@ function reduceRelease(state, event) {
   if (state.phase === "opening" && (blockId !== "marker" || source !== "P1" || destination !== "P7")) {
     return invalidState(state, "Opening must move the marker from P1 to P7.");
   }
-  if (state.phase === "scoring" && blockId === "marker") {
-    return invalidState(state, "The orange marker is not a scored block.");
-  }
-
   const fixture = cloneFixture(state.fixture);
   fixture[destination] = blockId;
-  const committed = state.phase === "scoring" && source !== destination;
+  // The marker is moved by student code, but it does not consume a sorting
+  // step or distance. Every ordinary block transfer does.
+  const committed = state.phase === "scoring" && blockId !== "marker" && source !== destination;
   return {
     ...state,
     fixture,
@@ -141,7 +136,6 @@ export function reduceCompetitionEvent(inputState, event = {}) {
       return {
         ...state,
         phase: "scoring",
-        fixture: cloneFixture(SCORED_INITIAL_FIXTURE),
         steps: 0,
         distance: 0,
         error: null,

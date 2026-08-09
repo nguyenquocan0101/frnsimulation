@@ -11,13 +11,13 @@ import types
 VALID_POINTS = {"P1", "P2", "P3", "P4", "P5", "P6", "P7", "HOME", "HOMECHESS"}
 BLOCK_POINTS = {"P1", "P2", "P3", "P4", "P5", "P6", "P7"}
 CANONICAL_COMPETITION_FIXTURE = {
-    "P1": None,
+    "P1": "marker",
     "P2": "dog",
     "P3": "chicken",
     "P4": "chair",
     "P5": "house",
     "P6": "car",
-    "P7": "marker",
+    "P7": None,
 }
 CANONICAL_COMPETITION_OCCUPANCY = {
     point: block is not None
@@ -336,9 +336,6 @@ def validate_protocol_trace(raw_trace):
             if block is None:
                 entry["success"] = False
                 continue
-            if block == "marker":
-                entry["success"] = False
-                continue
             carried = block
             carried_source = position
             fixture[position] = None
@@ -353,9 +350,6 @@ def validate_protocol_trace(raw_trace):
                 entry["success"] = False
                 continue
             destination_block = fixture[position]
-            if destination_block == "marker":
-                entry["success"] = False
-                continue
             if destination_block is not None:
                 entry["success"] = False
                 continue

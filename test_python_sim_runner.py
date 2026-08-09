@@ -307,16 +307,7 @@ class PythonSimRunnerFixturePreflightTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertFalse(result["rawTrace"][-1]["success"])
 
-    def test_grip_at_empty_p1_is_a_noop(self):
-        result = execute(program(
-            "with TechCamp() as bot:\n"
-            '    bot.move_to("P1")\n'
-            "    bot.move_down()\n"
-            "    bot.grip()"))
-        self.assertTrue(result["ok"], result)
-        self.assertFalse(result["rawTrace"][-1]["success"])
-
-    def test_marker_at_p7_is_a_noop_for_students(self):
+    def test_grip_at_empty_p7_is_a_noop(self):
         result = execute(program(
             "with TechCamp() as bot:\n"
             '    bot.move_to("P7")\n'
@@ -325,10 +316,23 @@ class PythonSimRunnerFixturePreflightTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertFalse(result["rawTrace"][-1]["success"])
 
-    def test_release_without_carrying_is_a_noop(self):
+    def test_student_can_move_marker_from_p1_to_p7(self):
         result = execute(program(
             "with TechCamp() as bot:\n"
             '    bot.move_to("P1")\n'
+            "    bot.move_down()\n"
+            "    bot.grip()\n"
+            "    bot.move_up()\n"
+            '    bot.move_to("P7")\n'
+            "    bot.move_down()\n"
+            "    bot.release()"))
+        self.assertTrue(result["ok"], result)
+        self.assertTrue(result["rawTrace"][-1]["success"])
+
+    def test_release_without_carrying_is_a_noop(self):
+        result = execute(program(
+            "with TechCamp() as bot:\n"
+            '    bot.move_to("P7")\n'
             "    bot.move_down()\n"
             "    bot.release()"))
         self.assertTrue(result["ok"], result)
@@ -347,7 +351,7 @@ class PythonSimRunnerFixturePreflightTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertFalse(result["rawTrace"][-1]["success"])
 
-    def test_release_into_reserved_marker_slot_is_a_noop(self):
+    def test_release_into_empty_p7_is_allowed_after_marker_moves(self):
         result = execute(program(
             "with TechCamp() as bot:\n"
             '    bot.move_to("P2")\n'
@@ -358,7 +362,7 @@ class PythonSimRunnerFixturePreflightTests(unittest.TestCase):
             "    bot.move_down()\n"
             "    bot.release()"))
         self.assertTrue(result["ok"], result)
-        self.assertFalse(result["rawTrace"][-1]["success"])
+        self.assertTrue(result["rawTrace"][-1]["success"])
 
     def test_finish_while_carrying_is_allowed_for_workshop(self):
         result = execute(program(
@@ -383,7 +387,7 @@ class PythonSimRunnerFixturePreflightTests(unittest.TestCase):
         branch_program = program(
             "with TechCamp() as bot:\n"
             "    blocks = bot.get_positions()\n"
-            '    if blocks == {"P1": False, "P2": True, "P3": True, "P4": True, "P5": True, "P6": True, "P7": True}:\n'
+            '    if blocks == {"P1": True, "P2": True, "P3": True, "P4": True, "P5": True, "P6": True, "P7": False}:\n'
             '        source, destination = "P2", "P1"\n'
             "    else:\n"
             '        source, destination = "P6", "P7"\n'

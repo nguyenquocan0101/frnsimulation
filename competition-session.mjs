@@ -9,17 +9,9 @@ export function createCompetitionSession() {
     error: null,
     captureError: null,
     activateOpening() {
-      let next = reduceCompetitionEvent(session.state, {
-        type: "grip",
-        position: "P1",
-      });
-      next = reduceCompetitionEvent(next, {
-        type: "release",
-        position: "P7",
-      });
-      // The orange marker is a visual endpoint only. It no longer moves
-      // automatically from P1 to P7 when a student presses Run.
-      next = reduceCompetitionEvent(next, { type: "activate", withoutMarker: true });
+      // Opening only enables scoring. The marker stays at P1 and is moved
+      // exclusively by the student's Python code.
+      const next = reduceCompetitionEvent(session.state, { type: "activate", withoutMarker: true });
       session.state = next;
       session.error = next.phase === "invalid" ? next.error : null;
       return next.phase === "scoring";

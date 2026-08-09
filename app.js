@@ -2776,8 +2776,10 @@ function resetCompetitionFixture(silent = true) {
     objectClass: OBJECT_CLASSES.find((item) => item.id === entry.objectClass) || null,
     carried: false,
   }));
-  // Competition marker is a static P7 endpoint; no automatic P1 -> P7 move.
-  state.checkpointToken = { ...resetCheckpointToken(), position: "P7" };
+  // Keep the marker at P1 when Run starts. It only moves when the student's
+  // Python program grips and releases it; the simulator never moves it for
+  // them before replaying their code.
+  state.checkpointToken = resetCheckpointToken();
   techcampSim.reset();
   state.competitionSession = null;
   if ($("competitionResultPanel")) $("competitionResultPanel").hidden = true;
@@ -2785,7 +2787,7 @@ function resetCompetitionFixture(silent = true) {
   renderBlockBoard();
   updateBlockVisuals();
   if (boardGroup && state.modelReady) buildBlockBoard();
-  if (!silent) log("Competition fixture reset -> marker P7 · dog P2 · chicken P3 · chair P4 · house P5 · car P6");
+  if (!silent) log("Competition fixture reset -> marker P1 · dog P2 · chicken P3 · chair P4 · house P5 · car P6");
 }
 
 window.getRobotVisualDiagnostics = getRobotVisualDiagnostics;
@@ -3165,7 +3167,6 @@ const techcampSim = {
     if (this.gripping) return true;
     const block = this.low && this.position ? blockAt(this.position) : null;
     const tokenAvailable =
-      !state.competitionSession &&
       this.low &&
       this.position &&
       state.checkpointToken.position === this.position &&
@@ -4207,7 +4208,7 @@ async function runProgram() {
       opening: async (session) => {
         if (!session.activateOpening()) throw new TechCampError(session.error || "Competition start failed.");
         state.competitionSession = session;
-        log("Competition start: orange marker fixed at P7 (not counted)");
+        log("Run start: orange marker stays at P1 until your code moves it.");
       },
       replay: async (session, actions) => {
         for (const action of actions) {
@@ -4220,18 +4221,22 @@ async function runProgram() {
             else if (action.type === "detect") await techcampSim.detect();
             else if (action.type === "grip") {
               await techcampSim.grip();
+              const movedMarker = techcampSim.carriedToken;
               if (!session.applyEvent({
                 type: "grip",
                 position: techcampSim.position,
-                success: action.success !== false,
+                // The Python preflight scores only sortable blocks, while the
+                // browser also lets students move the orange marker from P1.
+                success: movedMarker || action.success !== false,
               }))
                 throw new TechCampError(session.error || "Gripper state mismatch.");
             } else if (action.type === "release") {
+              const movedMarker = techcampSim.carriedToken;
               await techcampSim.release();
               if (!session.applyEvent({
                 type: "release",
                 position: techcampSim.position,
-                success: action.success !== false,
+                success: movedMarker || action.success !== false,
               }))
                 throw new TechCampError(session.error || "Release state mismatch.");
             }

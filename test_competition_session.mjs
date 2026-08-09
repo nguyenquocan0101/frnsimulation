@@ -1,18 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  createCompetitionSession,
-  runCompetitionSession,
-} from "./competition-session.mjs";
+import { COMPETITION_SOURCE_FIXTURE } from "./competition-engine.mjs";
+import { createCompetitionSession, runCompetitionSession } from "./competition-session.mjs";
 
-test("a session starts at zero and opening marker is excluded", () => {
+test("a session starts with the marker at P1 and does not move it automatically", () => {
   const session = createCompetitionSession();
   assert.equal(session.state.steps, 0);
   assert.equal(session.state.distance, 0);
   assert.equal(session.state.phase, "opening");
   assert.equal(session.activateOpening(), true);
   assert.equal(session.state.phase, "scoring");
+  assert.deepEqual(session.state.fixture, COMPETITION_SOURCE_FIXTURE);
   assert.equal(session.state.steps, 0);
   assert.equal(session.state.distance, 0);
 });

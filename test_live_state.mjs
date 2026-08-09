@@ -59,6 +59,17 @@ test("simulator exposes every motion control audited by live lock", () => {
   assert.match(html, /id=["']blockStateStrip["']/);
 });
 
+test("running a program leaves the orange marker at P1 until student code moves it", () => {
+  const app = readFileSync(new URL("./app.js", import.meta.url), "utf8");
+  const resetStart = app.indexOf("function resetCompetitionFixture");
+  const resetEnd = app.indexOf("function switchRobotProfile", resetStart);
+  const resetFixture = app.slice(resetStart, resetEnd);
+
+  assert.match(resetFixture, /state\.checkpointToken = resetCheckpointToken\(\)/);
+  assert.doesNotMatch(resetFixture, /checkpointToken.*position:\s*["']P7["']/);
+  assert.doesNotMatch(app, /!state\.competitionSession\s*&&\s*\n?\s*this\.low/);
+});
+
 test("stale detection uses local receipt time", () => {
   assert.equal(isLiveStale(2501, 500), true);
   assert.equal(isLiveStale(2400, 500), false);
