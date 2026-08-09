@@ -264,6 +264,7 @@ html[data-theme="dark"] .brand strong { color: #fff5e6; }
 .code-card { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
 .code-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); color: var(--good); font: 700 11px "Consolas", monospace; }
 .code-block { overflow: auto; margin: 0; padding: 18px; background: #111820; color: #dce6ef; font: 13px/1.6 "Consolas", monospace; }
+.code-block > code { color: #dce6ef; }
 .code-block .syntax-keyword { color: #c49af2; font-weight: 700; }
 .code-block .syntax-class { color: #73c9f4; font-weight: 700; }
 .code-block .syntax-method { color: #68d5cf; }
