@@ -505,6 +505,27 @@ class PythonSimRunnerCompatibilityAndSandboxTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertIn("Đang kiểm tra P2", result["output"][0])
 
+    def test_capture_and_detect_are_available_to_simulator_programs(self):
+        result = execute(
+            program(
+                "with TechCamp() as bot:\n"
+                "    image = bot.capture()\n"
+                "    objects = bot.detect()\n"
+                "    print(objects)"
+            )
+        )
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(
+            [entry["method"] for entry in result["rawTrace"]],
+            ["capture", "detect"],
+        )
+        self.assertEqual(
+            [action["type"] for action in result["actions"]],
+            ["capture", "detect"],
+        )
+        self.assertIn("'P2': 'cho'", result["output"][0])
+
 
 if __name__ == "__main__":
     unittest.main()

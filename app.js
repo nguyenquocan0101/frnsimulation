@@ -180,6 +180,13 @@ const BLOCK_META = Object.freeze({
   P6: { color: 0x7187d8, objectClass: "house" },
   P7: { color: 0xa879d6, objectClass: "car" },
 });
+const TECHCAMP_DETECTION_LABELS = Object.freeze({
+  car: "oto",
+  chair: "ghe",
+  chicken: "ga",
+  dog: "cho",
+  house: "nha",
+});
 const BLOCK_COLORS = [
   0xf06b62, 0xf3a64a, 0xe7c85f, 0x6fc88f, 0x56a9d9, 0x7187d8, 0xa879d6,
 ];
@@ -468,7 +475,7 @@ function initTheme() {
 }
 
 const PYTHON_TOKEN_PATTERN =
-  /(#[^\n]*)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\b(from|import|class|def|with|as|if|for|in|return|True|False|None)\b|\b(TechCamp|TechCampError)\b|\b(move_to|move_down|move_up|grip|release|get_image|get_positions|close)\b/g;
+  /(#[^\n]*)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\b(from|import|class|def|with|as|if|for|in|return|True|False|None)\b|\b(TechCamp|TechCampError)\b|\b(move_to|move_down|move_up|grip|release|capture|detect|get_image|get_positions|close)\b/g;
 
 function escapeCodeHtml(value) {
   return value
@@ -3071,6 +3078,7 @@ async function techCampMove(point, speed) {
 const techcampSim = {
   position: null,
   low: false,
+  workedPosition: null,
   gripping: false,
   carriedBlock: null,
   carriedToken: false,
@@ -3086,6 +3094,17 @@ const techcampSim = {
       throw new TechCampError(
         `Invalid position '${position}'. Valid: P1…P7, HOME`,
       );
+    if (
+      this.position &&
+      this.position !== "HOME" &&
+      pos !== this.position &&
+      pos !== "HOME" &&
+      this.workedPosition !== this.position
+    ) {
+      throw new TechCampError(
+        `Call move_down() at ${this.position} before move_to('${pos}').`,
+      );
+    }
     if (this.low) await this.move_up();
     if (this.position === pos) return true;
     const point = calibratedPointFor(pos === "HOME" ? "HOME" : `${pos}UP`);
@@ -3098,6 +3117,7 @@ const techcampSim = {
       );
     this.position = pos;
     this.low = false;
+    this.workedPosition = null;
     renderBlockBoard();
     return true;
   },
@@ -3117,6 +3137,7 @@ const techcampSim = {
         `move_down() at ${this.position} failed (simulator error ${result})`,
       );
     this.low = true;
+    this.workedPosition = this.position;
     return true;
   },
   async move_up() {
@@ -3217,10 +3238,35 @@ const techcampSim = {
     updateBlockVisuals();
     return true;
   },
-  async get_image() {
+  async capture() {
     startTechCamp();
-    log("get_image() -> simulated top-down board");
-    return { type: "simulated_board", positions: this.get_positions() };
+    renderer.render(scene, camera);
+    const image = renderer.domElement?.toDataURL?.("image/png") || null;
+    log("capture() -> simulated camera image");
+    return {
+      type: "simulated_camera",
+      image,
+      positions: await this.get_positions(),
+    };
+  },
+  async detect() {
+    startTechCamp();
+    const detected = Object.fromEntries(
+      ["P2", "P3", "P4", "P5", "P6"].map((position) => {
+        const block = state.blocks.find(
+          (item) => !item.carried && item.position === position,
+        );
+        return [
+          position,
+          TECHCAMP_DETECTION_LABELS[block?.objectClass?.id] || "empty",
+        ];
+      }),
+    );
+    log(`detect() -> ${JSON.stringify(detected)}`);
+    return detected;
+  },
+  async get_image() {
+    return this.capture();
   },
   async get_positions() {
     return getApiPositions(state.blocks);
@@ -3235,6 +3281,7 @@ const techcampSim = {
   reset() {
     this.position = null;
     this.low = false;
+    this.workedPosition = null;
     this.gripping = false;
     this.carriedBlock = null;
     this.carriedToken = false;
@@ -3541,7 +3588,12 @@ const TECHCAMP_EMPTY_METHODS = new Set([
   "release",
   "close",
 ]);
-const TECHCAMP_READ_METHODS = new Set(["get_image", "get_positions"]);
+const TECHCAMP_READ_METHODS = new Set([
+  "capture",
+  "detect",
+  "get_image",
+  "get_positions",
+]);
 
 function stripPythonComment(line) {
   let quote = null;
@@ -3786,7 +3838,7 @@ function validateStudentProgram(source) {
     }
 
     const readAssignment = trimmed.match(
-      /^(\w+)\s*=\s*bot\.(get_positions|get_image)\(\s*\)$/,
+      /^(\w+)\s*=\s*bot\.(capture|detect|get_positions|get_image)\(\s*\)$/,
     );
     if (readAssignment) {
       if (!botCreated)
@@ -3798,7 +3850,7 @@ function validateStudentProgram(source) {
     if (/^\w+\s*=\s*bot\./.test(trimmed)) {
       addError(
         lineNumber,
-        "Only assign results from bot.get_positions() or bot.get_image().",
+        "Only assign results from bot.capture(), bot.detect(), bot.get_positions(), or bot.get_image().",
       );
       previousOpenedBlock = false;
       continue;
@@ -3919,7 +3971,7 @@ async function runTechCampLine(trimmed, indent, context) {
     return true;
   }
   const readMatch = trimmed.match(
-    /^(\w+)\s*=\s*bot\.(get_positions|get_image)\(\s*\)$/,
+    /^(\w+)\s*=\s*bot\.(capture|detect|get_positions|get_image)\(\s*\)$/,
   );
   if (readMatch) {
     context.vars[readMatch[1]] = await techcampSim[readMatch[2]]();
@@ -4164,6 +4216,8 @@ async function runProgram() {
             if (action.type === "move_to") await techcampSim.move_to(action.position);
             else if (action.type === "move_down") await techcampSim.move_down();
             else if (action.type === "move_up") await techcampSim.move_up();
+            else if (action.type === "capture") await techcampSim.capture();
+            else if (action.type === "detect") await techcampSim.detect();
             else if (action.type === "grip") {
               await techcampSim.grip();
               if (!session.applyEvent({

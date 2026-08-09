@@ -23,6 +23,17 @@ CANONICAL_COMPETITION_OCCUPANCY = {
     point: block is not None
     for point, block in CANONICAL_COMPETITION_FIXTURE.items()
 }
+DETECTION_LABELS = {
+    "car": "oto",
+    "chair": "ghe",
+    "chicken": "ga",
+    "dog": "cho",
+    "house": "nha",
+}
+CANONICAL_DETECTIONS = {
+    point: DETECTION_LABELS.get(CANONICAL_COMPETITION_FIXTURE[point], "empty")
+    for point in ("P2", "P3", "P4", "P5", "P6")
+}
 MAX_TRACE_ACTIONS = 500
 MAX_STUDENT_LINE_EVENTS = 50_000
 MAX_COLLECTION_ITEMS = 10_000
@@ -244,6 +255,14 @@ class SimTechCamp:
         self._attempt("get_positions")
         return dict(self._positions)
 
+    def capture(self):
+        self._attempt("capture")
+        return {"type": "simulated_camera", "positions": dict(self._positions)}
+
+    def detect(self):
+        self._attempt("detect")
+        return dict(CANONICAL_DETECTIONS)
+
     def get_image(self):
         self._attempt("get_image")
         return {"type": "simulated_board", "positions": self.get_positions()}
@@ -273,7 +292,7 @@ def validate_protocol_trace(raw_trace):
     for entry in raw_trace:
         method = entry["method"]
         args = entry["args"]
-        if method in {"get_positions", "get_image"}:
+        if method in {"capture", "detect", "get_positions", "get_image"}:
             continue
 
         if method == "move_to":
@@ -356,7 +375,10 @@ def normalize_replay_actions(raw_trace):
     actions = []
     for entry in raw_trace:
         method = entry["method"]
-        if method not in {"move_to", "move_down", "move_up", "grip", "release"}:
+        if method not in {
+            "move_to", "move_down", "move_up", "grip", "release",
+            "capture", "detect",
+        }:
             continue
         action = {"type": method, "line": entry["line"]}
         action["success"] = entry.get("success", True)
