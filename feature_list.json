@@ -279,6 +279,166 @@
       "evidence": "",
       "notes": "competition_results model/rules/index and public leaderboard route implemented; Firebase production smoke remains deployment verification.",
       "priority": "P1"
+    },
+    {
+      "id": "project-guide-visual-intro",
+      "title": "Giới thiệu trực quan FAIRINO và bàn P1–P7",
+      "user_visible_behavior": "Học sinh cấp 2 hiểu robot, gripper, P1–P7 và khối cam trước khi viết Python.",
+      "verification_command": "Guide có hình robot/bàn, nhãn P1–P7, giải thích gripper và marker cam với alt/caption dễ đọc.",
+      "status": "passing",
+      "evidence": "Guide content tests: 5 passed; hero, P1–P7 board, J6/gripper, and marker visuals are present with accessible labels.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-api-workflow",
+      "title": "Thẻ lệnh API và ví dụ gắp-thả",
+      "user_visible_behavior": "Học sinh tra được từng lệnh TechCamp và hiểu thứ tự một lần chuyển khối.",
+      "verification_command": "Guide giải thích TechCamp, move_to, move_down, grip, move_up, release, get_positions và có ví dụ có chú thích.",
+      "status": "passing",
+      "evidence": "Guide content tests: 5 passed; all seven TechCamp/API names and annotated transfer sequence are documented.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-arrangement-example",
+      "title": "Bố cục ban đầu, mục tiêu và main() hoàn chỉnh",
+      "user_visible_behavior": "Học sinh cấp 3 có thể suy luận cách sắp xếp từ trạng thái đầu vào đến mục tiêu.",
+      "verification_command": "Guide hiển thị đúng hai bố cục và ví dụ main() không tham số với guard __name__ chính xác.",
+      "status": "passing",
+      "evidence": "Guide content tests: 5 passed; initial/target maps and exact zero-argument main guard are included.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-troubleshooting",
+      "title": "Hướng dẫn tự sửa lỗi Python và gripper",
+      "user_visible_behavior": "Học sinh biết đọc số dòng và tự xử lý các lỗi thường gặp khi chạy chương trình.",
+      "verification_command": "Guide bao phủ main/guard, syntax, hạ gripper, grip/release, điểm lặp và trạng thái đang cầm khối.",
+      "status": "passing",
+      "evidence": "Guide content tests: 9 pass; main/guard, syntax, gripper order, empty release, repeated points, and unfinished carry guidance are included.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-navigation-route",
+      "title": "Điều hướng IDE ↔ Tài liệu dự án",
+      "user_visible_behavior": "Học sinh mở Tài liệu dự án từ IDE và quay lại IDE mà không gặp trang luật thi tạm thời.",
+      "verification_command": "index.html có Tài liệu dự án; /project-guide và /project-guide/ trả 200; guide có nút Mở IDE.",
+      "status": "passing",
+      "evidence": "Guide/competition route tests: 9 guide assertions pass; /project-guide and /project-guide/ map to project-guide.html and IDE link replaces Luật thi.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-learning-tracks",
+      "title": "Hai lộ trình Bắt đầu nhanh và Hiểu sâu hơn",
+      "user_visible_behavior": "Học sinh chọn được mức giải thích phù hợp với tuổi và kinh nghiệm.",
+      "verification_command": "Mục lục và nội dung hiển thị độc lập cho cả hai track, không có phần bắt buộc bị ẩn.",
+      "status": "passing",
+      "evidence": "Guide contains independent Bắt đầu nhanh and Hiểu sâu hơn tracks with section navigation.",
+      "notes": "",
+      "priority": "P2"
+    },
+    {
+      "id": "project-guide-practice-closing",
+      "title": "Bài luyện tập và checklist kết thúc",
+      "user_visible_behavior": "Học sinh có thể luyện từng bước và tự phản hồi sau khi chạy chương trình.",
+      "verification_command": "Guide có ít nhất 3 prompt tăng dần và checklist cuối, không yêu cầu nộp bài hay hiển thị điểm.",
+      "status": "passing",
+      "evidence": "Guide content tests: 9 pass; three practice prompts and a final four-item checklist are present without submission or score requirements.",
+      "notes": "",
+      "priority": "P2"
+    },
+    {
+      "id": "project-guide-3d-embed",
+      "title": "Playground 3D dùng chung simulator",
+      "user_visible_behavior": "Học sinh mở được simulator 3D mini ngay trong tài liệu dự án mà không rời bài học.",
+      "verification_command": "Guide tại /project-guide lazy-load một iframe nội bộ /?embed=guide; dùng scene hiện tại và có fallback khi WebGL lỗi, không tạo route public thứ hai.",
+      "status": "passing",
+      "evidence": "Phase 01–04 TDD: query-driven embed mode, lazy iframe, hidden IDE controls, normal-mode preservation, dynamic Firebase isolation, command allowlist, origin/source trust, memory storage, sample bounds, toolbar, fallback, accessible step/status UI, and bounded same-task snapshot capture verified. Full npm: 127 pass, 4 expected emulator skips.",
+      "notes": "Không tạo renderer/robot model thứ hai; chỉ mở pathname-driven embed mode của index.html.",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-3d-controls",
+      "title": "Điều khiển góc nhìn và FR3/FR5 trong playground",
+      "user_visible_behavior": "Học sinh kéo xoay, zoom, đổi FR3/FR5 và chọn Home/Front/Right/Back/Left.",
+      "verification_command": "Toolbar gửi message hợp lệ, embed cập nhật profile/view/zoom, command cards chạy đúng lệnh API và thao tác không đổi IDE chính.",
+      "status": "passing",
+      "evidence": "Phase 03 focused TDD: toolbar contract passes with FR3/FR5, Home/Front/Right/Back/Left, zoom, and parent message actions; 22/22 focused tests green.",
+      "notes": "Parent guide sở hữu toolbar; iframe sở hữu scene và OrbitControls.",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-3d-command-cards",
+      "title": "Thử từng lệnh Python trong playground",
+      "user_visible_behavior": "Học sinh bấm chạy từng lệnh move_to, move_down, move_up, grip, release hoặc get_positions và thấy trạng thái robot giải thích bằng chữ.",
+      "verification_command": "Mỗi command card gửi đúng allowlisted message; move_to nhận P1–P7, lệnh sai trạng thái trả lỗi thân thiện, không nhận arbitrary source.",
+      "status": "passing",
+      "evidence": "Phase 03 focused TDD: six bounded command cards and protocol-only dispatch pass; arbitrary source/eval is rejected by contract tests.",
+      "notes": "Command cards chạy trong iframe riêng; Reset đưa playground về fixture ban đầu.",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-3d-sample-run",
+      "title": "Chạy ví dụ Python giới hạn trong playground",
+      "user_visible_behavior": "Học sinh bấm Chạy ví dụ, xem từng bước gắp-thả, dừng và đặt lại được mô phỏng.",
+      "verification_command": "sampleId và sáu command API được allowlist; guide nhận ready/running/command/step/complete/error/reset và không gửi arbitrary source hay score.",
+      "status": "passing",
+      "evidence": "Phase 03–04 focused TDD: allowlisted p2-to-p7 sample, stop/reset actions, duplicate-run guard, ready/running/step/complete/error event handling, and fallback text are covered; full npm remains green.",
+      "notes": "Run sample và command cards là fixture cố định, không mở endpoint chạy code công khai mới.",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-3d-snapshots",
+      "title": "Snapshot bốn góc nhìn từ scene live",
+      "user_visible_behavior": "Học sinh xem được ảnh Front/Right/Back/Left có chú thích ngay trong tài liệu.",
+      "verification_command": "Mỗi view có caption, capture xảy ra sau render, ảnh được dọn theo session và không ghi Firebase/localStorage.",
+      "status": "passing-unverified",
+      "evidence": "Phase 04 TDD: render-before-capture, preserveDrawingBuffer in embed only, byte-capped PNG/JPEG fallback, safe view validation, one preview per view, reset cleanup, and capture/run busy guards pass; 27 focused tests and full npm 127 pass / 4 expected emulator skips. Browser visual smoke remains Phase 05.",
+      "notes": "Nếu WebGL/capture không khả dụng, hiển thị mô tả chữ thay vì làm hỏng tài liệu.",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-3d-accessibility",
+      "title": "Playground keyboard và trạng thái văn bản",
+      "user_visible_behavior": "Học sinh dùng bàn phím hoặc screen reader vẫn hiểu được điều khiển và từng bước chạy.",
+      "verification_command": "Control có accessible name/focus, live region hiển thị trạng thái, layout 320px không tạo horizontal scroll.",
+      "status": "passing",
+      "evidence": "Phase 03 focused TDD: keyboard/focus-visible, aria-live status and step log, captions, and 320px responsive CSS contracts pass.",
+      "notes": "Giữ nguyên thẻ API/code mẫu nếu iframe chưa load hoặc load thất bại.",
+      "priority": "P2"
+    },
+    {
+      "id": "project-guide-3d-isolation",
+      "title": "Cách ly playground khỏi IDE chính",
+      "user_visible_behavior": "Đổi profile/camera/run/reset trong playground không làm thay đổi code, camera, khối, kết quả hay localStorage của IDE.",
+      "verification_command": "Isolation test chụp snapshot parent state trước/sau toàn bộ message flow; foreign origin/source và message sai schema bị từ chối.",
+      "status": "passing",
+      "evidence": "Phase 02–03 TDD: memory-isolated iframe, exact origin/source checks, disposable listener, and protocol-only parent messages pass; 22/22 focused tests green.",
+      "notes": "Same-origin iframe vẫn dùng storage adapter in-memory/session riêng.",
+      "priority": "P2"
+    },
+    {
+      "id": "project-guide-fr5-command-gifs",
+      "title": "FR5 command cards with short GIFs",
+      "user_visible_behavior": "Students see a short FR5 Home-camera animation beside each Python command.",
+      "verification_command": "Six command cards show local GIFs or readable fallbacks; each GIF is 2–3 seconds and no larger than 1 MB.",
+      "status": "passing-unverified",
+      "evidence": "node --test test_project_guide_gifs.mjs test_project_guide.mjs (10 passed); six GIF assets <= 1 MB",
+      "notes": "Use the shared FR5 Home camera framing; the full simulator remains at /.",
+      "priority": "P1"
+    },
+    {
+      "id": "project-guide-no-embedded-simulator",
+      "title": "Simple guide without embedded simulator",
+      "user_visible_behavior": "The guide loads as a lightweight document and links to the full simulator when students need practice.",
+      "verification_command": "Project guide contains no iframe/playground bridge and Open full simulator links to /; both guide routes return HTTP 200.",
+      "status": "passing-unverified",
+      "evidence": "node --test test_project_guide_playground.mjs test_project_guide_gifs.mjs (12 passed); /project-guide and /project-guide/ HTTP 200",
+      "notes": "Keep the existing English guide, IDE palette, accessibility, and responsive layout.",
+      "priority": "P1"
     }
   ]
 }

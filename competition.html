@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -13,31 +13,31 @@
     <main class="competition-shell">
       <header class="competition-header">
         <a class="brand" href="./">FPTU TECH<span>X</span> CAMP <small>FAIRINO SIMULATION</small></a>
-        <div class="workshop-chip">Workshop công khai</div>
+        <div class="workshop-chip">Public workshop</div>
       </header>
       <section class="hero">
         <div>
           <p class="eyebrow">ROBOT SORTING CHALLENGE</p>
-          <h1>Sắp xếp nhanh, gọn, đúng.</h1>
-          <p>Marker cam cố định ở P7 để đánh dấu điểm kết thúc. Mỗi lần thả khối thành công tính một bước; quãng đường tính theo số ô. Không có đồng hồ — tập trung vào lời giải.</p>
+          <h1>Sort fast, clean, and correctly.</h1>
+          <p>The orange marker stays at P7 to mark the finish. Each successful block release counts as one step; distance is measured in slots. There is no timer — focus on your solution.</p>
         </div>
-        <a class="button primary" href="./">Mở IDE</a>
+        <a class="button primary" href="./">Open IDE</a>
       </section>
       <section class="rules-card" aria-labelledby="rulesTitle">
-        <div class="section-heading"><div><p class="eyebrow">LUẬT THI</p><h2 id="rulesTitle">Ba tiêu chí chấm điểm</h2></div><span class="muted">Workshop · không chống gian lận</span></div>
+        <div class="section-heading"><div><p class="eyebrow">WORKSHOP RULES</p><h2 id="rulesTitle">Three scoring criteria</h2></div><span class="muted">Workshop · no anti-cheat</span></div>
         <div class="rule-grid">
-          <article><b>Đúng thứ tự</b><p>P2 xe · P3 gà · P4 chó · P5 ghế · P6 nhà.</p></article>
-          <article><b>Số bước</b><p>Mỗi lần chuyển một khối từ ô này sang ô khác là 1 bước.</p></article>
-          <article><b>Khoảng cách</b><p>P7 → P2 là 5 ô. Không dùng đơn vị cm.</p></article>
+          <article><b>Correct order</b><p>P2 car · P3 chicken · P4 dog · P5 chair · P6 house.</p></article>
+          <article><b>Steps</b><p>Each successful transfer from one slot to another is one step.</p></article>
+          <article><b>Distance</b><p>P7 → P2 is 5 slots. No centimetres.</p></article>
         </div>
-        <p class="formula">Score = 60% đúng thứ tự + 25% ít bước + 15% ít ô di chuyển · làm tròn nửa lên đến 2 chữ số.</p>
+        <p class="formula">Score = 60% correct order + 25% fewer steps + 15% shorter distance · rounded half up to two decimals.</p>
       </section>
       <section class="leaderboard-card" aria-labelledby="leaderboardTitle">
-        <div class="section-heading"><div><p class="eyebrow">LEADERBOARD</p><h2 id="leaderboardTitle">Kết quả workshop</h2></div><button class="button quiet" id="refreshCompetitionBtn" type="button">Làm mới</button></div>
-        <p class="status" id="competitionStatus" role="status">Đang tải kết quả…</p>
-        <div class="table-wrap"><table><thead><tr><th>#</th><th>Tên bài</th><th>Score</th><th>Steps</th><th>Distance</th></tr></thead><tbody id="competitionRows"></tbody></table></div>
+        <div class="section-heading"><div><p class="eyebrow">LEADERBOARD</p><h2 id="leaderboardTitle">Workshop results</h2></div><button class="button quiet" id="refreshCompetitionBtn" type="button">Refresh</button></div>
+        <p class="status" id="competitionStatus" role="status">Loading results…</p>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>Solution</th><th>Score</th><th>Steps</th><th>Distance</th></tr></thead><tbody id="competitionRows"></tbody></table></div>
       </section>
-      <p class="privacy-note">Bảng điểm workshop dùng dữ liệu công khai của Firebase. Chỉ lưu tên bài, score, steps và distance; không lưu code hay ảnh.</p>
+      <p class="privacy-note">The workshop leaderboard uses public Firebase data. It stores only the solution name, score, steps, and distance; code and images are not stored.</p>
     </main>
     <script type="module" src="./competition-page.mjs"></script>
   </body>

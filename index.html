@@ -32,12 +32,13 @@
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="app-shell">
       <div class="ide-layout" id="ideLayout">
-        <main id="main-content" class="code-column">
+        <main id="main-content" class="code-column" data-embed-hidden="editor">
           <header class="column-header">
-            <div class="header-brand">
+              <div class="header-brand" data-embed-hidden="navigation">
               <div
                 class="techx-logo"
                 id="teacherPortalShortcut"
+                data-embed-hidden="teacher"
                 role="button"
                 tabindex="0"
                 aria-label="FPTU TechX Camp"
@@ -57,7 +58,7 @@
               <span class="theme-icon">☀</span
               ><span class="theme-label sr-only">Light mode</span>
             </button>
-            <a class="competition-link" href="./competition">Luật thi</a>
+            <a class="competition-link" href="/project-guide">Project guide</a>
           </header>
 
           <section class="panel code-panel" aria-label="Code and controls">
@@ -120,14 +121,15 @@
                   <button
                     class="button quiet editor-upload-button"
                     id="uploadProgramBtn"
+                    data-embed-hidden="upload"
                     type="button"
-                    aria-label="Upload Python submission"
-                    title="Upload Python submission"
+                    aria-label="Submit Python"
+                    title="Submit Python"
                   >
-                    Upload bài
+                    Submit
                   </button>
                   <button class="button primary editor-run-button" id="runBtn">
-                    <span class="button-symbol">▶</span> Run program
+                <span class="button-symbol">▶</span> Run program
                   </button>
                 </div>
               </div>
@@ -153,14 +155,14 @@ from techcamp_api import TechCamp
 
 
 def main():
-    # Khối cam là marker cố định ở P7 và không tham gia chấm điểm.
-    # Học sinh chỉ cần sắp xếp 5 khối bên dưới.
+    # The orange cube is a fixed marker at P7 and is not scored.
+    # Students only need to sort the five blocks below.
     transfers = [("P2", "P1"), ("P6", "P2"), ("P5", "P6"),
                  ("P4", "P5"), ("P1", "P4")]
 
     with TechCamp() as bot:
         for source, target in transfers:
-            print(f"Đang chuyển {source} -> {target}")
+            print(f"Moving {source} -> {target}")
             bot.move_to(source)
             bot.move_down()
             bot.grip()
@@ -210,7 +212,7 @@ if __name__ == "__main__":
                     Apply target
                   </button>
                   <button class="button primary" id="moveLBtn">
-                    MoveL to target
+                    Move to target
                   </button>
                 </div>
               </div>
@@ -232,9 +234,9 @@ if __name__ == "__main__":
             <h2 id="viewport-title">Simulation</h2>
             <div class="simulation-actions" id="robotProfileControl">
               <label class="robot-profile-label" for="robotProfileSelect"
-                >Model</label
+                >Robot</label
               >
-              <select id="robotProfileSelect" class="robot-profile-select">
+              <select id="robotProfileSelect" class="robot-profile-select" data-embed-profile>
                 <option value="fr3">FAIRINO FR3</option>
                 <option value="fr5" selected>FAIRINO FR5</option>
               </select>
@@ -262,11 +264,13 @@ if __name__ == "__main__":
           <div class="viewport-wrap" id="viewportWrap">
             <div
               id="viewport"
+              data-embed-viewport
+              data-embed-camera-view="Front"
               aria-label="FAIRINO FR5 3D model interactive with mouse or touch"
             ></div>
             <div class="loading-card" id="loadingCard">
               <span class="loader"></span
-              ><span>Loading the official 3D model…</span>
+              ><span>Loading 3D model…</span>
             </div>
             <button
               class="viewport-home-button"
@@ -293,7 +297,7 @@ if __name__ == "__main__":
               type="button"
               aria-pressed="true"
             >
-              Safe ON
+              Safe zone
             </button>
             <button
               class="button quiet"
@@ -319,7 +323,7 @@ if __name__ == "__main__":
                 aria-expanded="false"
                 aria-controls="cameraZoomPopover"
               >
-                View 200%
+                Zoom 200%
               </button>
               <div
                 class="speed-popover camera-popover"
@@ -327,8 +331,8 @@ if __name__ == "__main__":
                 hidden
               >
                 <label for="cameraZoomRange"
-                  >Camera view
-                  <output id="cameraZoomOutput">100%</output></label
+                  >Zoom
+                  <output id="cameraZoomOutput">200%</output></label
                 >
                 <input
                   id="cameraZoomRange"
@@ -336,7 +340,7 @@ if __name__ == "__main__":
                   min="100"
                   max="200"
                   step="1"
-                  value="100"
+                  value="200"
                   aria-label="Overall camera zoom"
                 />
               </div>
@@ -354,25 +358,26 @@ if __name__ == "__main__":
           <section
             class="competition-result-panel"
             id="competitionResultPanel"
+            data-embed-hidden="competition"
             aria-labelledby="competitionResultTitle"
             hidden
           >
             <div class="competition-result-heading">
-              <strong id="competitionResultTitle">Kết quả lần chạy</strong>
+              <strong id="competitionResultTitle">Run result</strong>
               <span id="competitionResultStatus" aria-live="polite"></span>
             </div>
-            <div class="competition-result-metrics" aria-label="Điểm workshop">
+            <div class="competition-result-metrics" aria-label="Workshop score">
               <span>Score: <b id="competitionScore">0.00</b></span>
               <span>Steps: <b id="competitionSteps">0</b></span>
-              <span>Distance: <b id="competitionDistance">0 ô</b></span>
+              <span>Distance: <b id="competitionDistance">0 slots</b></span>
             </div>
             <div class="competition-result-actions">
-              <button class="button quiet" id="competitionImageDownloadBtn" type="button" disabled>
-                Tải ảnh kết quả
+              <button class="button quiet" id="competitionImageDownloadBtn" data-embed-hidden="firebase" type="button" disabled>
+                Download result image
               </button>
-              <a class="button quiet" href="./teacher.html">Xem bảng giáo viên</a>
+              <a class="button quiet" href="./teacher.html">Open teacher board</a>
             </div>
-            <img id="competitionResultImage" alt="Ảnh kết quả lần chạy" hidden />
+            <img id="competitionResultImage" alt="Run result snapshot" hidden />
           </section>
         </section>
       </div>
@@ -384,9 +389,9 @@ if __name__ == "__main__":
     >
       <form method="dialog" id="teacherAccessForm">
         <p class="eyebrow">FPTU TECHX CAMP</p>
-        <h2 id="teacherAccessTitle">Mở trang giáo viên</h2>
-        <p class="teacher-access-help">Nhập mật khẩu để tiếp tục.</p>
-        <label for="teacherAccessPassword">Mật khẩu</label>
+        <h2 id="teacherAccessTitle">Open teacher page</h2>
+        <p class="teacher-access-help">Enter the password to continue.</p>
+        <label for="teacherAccessPassword">Password</label>
         <input
           id="teacherAccessPassword"
           type="password"
@@ -400,9 +405,9 @@ if __name__ == "__main__":
           aria-live="polite"
         ></p>
         <div class="teacher-access-actions">
-          <button class="button" value="cancel" type="submit">Hủy</button>
+          <button class="button" value="cancel" type="submit">Cancel</button>
           <button class="button primary" id="teacherAccessSubmit" type="button">
-            Tiếp tục
+            Continue
           </button>
         </div>
       </form>
@@ -416,7 +421,7 @@ if __name__ == "__main__":
         <div class="upload-dialog-header">
           <div>
             <p class="eyebrow">TECHX WORKSHOP</p>
-            <h2 id="uploadDialogTitle">Nộp bài Python</h2>
+            <h2 id="uploadDialogTitle">Submit Python</h2>
           </div>
           <button
             class="button quiet upload-close"
@@ -428,7 +433,7 @@ if __name__ == "__main__":
           </button>
         </div>
         <label class="upload-field" for="groupNameInput">
-          Tên nhóm
+          Group name
           <input
             id="groupNameInput"
             name="groupName"
@@ -439,7 +444,7 @@ if __name__ == "__main__":
           />
         </label>
         <p class="upload-preview">
-          Tên file: <strong id="uploadFilenamePreview">TechX_TenNhom.py</strong>
+          File name: <strong id="uploadFilenamePreview">TechX_GroupName.py</strong>
         </p>
         <p
           class="upload-status"
@@ -449,10 +454,10 @@ if __name__ == "__main__":
         ></p>
         <div class="upload-actions">
           <button class="button quiet" type="button" data-upload-cancel>
-            Hủy
+            Cancel
           </button>
           <button class="button primary" id="uploadSubmitBtn" type="submit">
-            Nộp bài
+            Submit
           </button>
         </div>
       </form>

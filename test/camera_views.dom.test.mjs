@@ -43,6 +43,9 @@ test("all board slot labels remain generated independently of camera direction",
   assert.match(appSource, /const frontLabelName = name/);
   assert.doesNotMatch(appSource, /BLOCK_POSITIONS\[BLOCK_POSITIONS\.length - 1 - index\]/);
   assert.match(appSource, /makeFrontBoardLabel\(/);
+  assert.match(appSource, /frontLabel\.position\.set\([\s\S]*localX[\s\S]*localY/);
+  assert.match(appSource, /board\.add\(frontLabel\)/);
+  assert.doesNotMatch(appSource, /boardGroup\.add\(frontLabel\)/);
   assert.match(appSource, /syncBoardLabelMirroring\(\);/);
   assert.match(appSource, /texture\.flipY = true/);
   assert.match(appSource, /texture\.repeat\.x = 1/);

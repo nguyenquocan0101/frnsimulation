@@ -1,0 +1,91 @@
+Exit code: 0
+Wall time: 0.4 seconds
+Output:
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A short FAIRINO TechX Camp Python guide.">
+  <title>Project guide · FPTU TechX Camp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Paytone+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/project-guide.css">
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.176.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/"}}
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.min.js"></script>
+</head>
+<body>
+<script>try{if(localStorage.getItem("techx-theme")==="light")document.documentElement.dataset.theme="light"}catch{}</script>
+<a class="skip-link" href="#welcome">Skip to content</a>
+<header class="guide-header">
+  <a class="brand" href="/" aria-label="Back to the FAIRINO TechX Camp simulator"><strong>FPTU TECH<span>X</span> CAMP</strong><small>FAIRINO SIMULATION</small></a>
+  <nav aria-label="Guide navigation"><a href="#quick-start">Start</a><a href="#api-reference">Commands</a><a class="button button-primary" href="/">Open IDE</a><button class="theme-button" id="guideThemeToggle" type="button" aria-label="Toggle light and dark mode"><span class="theme-icon" aria-hidden="true">☀</span></button></nav>
+</header>
+<main class="guide-shell">
+<section id="welcome" class="hero-section" aria-labelledby="welcome-title">
+  <div class="hero-copy"><p class="eyebrow">PROJECT GUIDE</p><h1 id="welcome-title">Control the robot with Python.</h1><p class="hero-lead">Move blocks between P1 and P7 with a simple sequence.</p><div class="hero-actions"><a class="button button-primary" href="/">Open IDE</a><a class="button" href="/">Open full simulator</a><a class="button" href="#quick-start">How it works</a></div></div>
+  <div class="visual-card" role="img" aria-label="Rotating FAIRINO FR5 robot arm in its Home pose"><div id="armHeroViewport" class="arm-hero-viewport" data-arm-hero><span class="arm-hero-status">Loading FR5 arm…</span></div><p class="visual-caption">FAIRINO FR5 · rotating Home view</p></div>
+</section>
+<aside class="section-index" aria-label="Guide contents"><a href="#visual-vocabulary">Table</a><a href="#quick-start">Quick start</a><a href="#api-reference">Commands</a><a href="#complete-example">Example</a><a href="#troubleshooting">Help</a></aside>
+<section id="visual-vocabulary" class="guide-section" aria-labelledby="visual-title">
+  <div class="section-heading"><p class="eyebrow">TABLE</p><h2 id="visual-title">Know the basics.</h2></div>
+  <div class="vocabulary-grid">
+    <article class="vocab-card"><div class="mini-visual vocab-gif-visual vocab-gif-visual--points" role="img" aria-label="FR5 arm showing the P1 to P7 positions"><img class="vocab-gif" src="/assets/guide/fr5-command-get-positions.gif?v=20260810-motion" loading="lazy" alt="FR5 arm and the P1 to P7 positions"><p class="gif-fallback" data-gif-fallback hidden>Animation unavailable.</p></div><h3>P1–P7</h3><p>These are the robot positions.</p></article>
+    <article class="vocab-card"><div class="mini-visual vocab-gif-visual vocab-gif-visual--gripper" role="img" aria-label="FR5 gripper holding a block"><img class="vocab-gif" src="/assets/guide/fr5-command-grip.gif?v=20260810-motion" loading="lazy" alt="FR5 gripper closing around a block"><p class="gif-fallback" data-gif-fallback hidden>Animation unavailable.</p></div><h3>Gripper</h3><p>Lower before <code>grip()</code>. Lift before moving.</p></article>
+    <article class="vocab-card"><div class="mini-visual vocab-gif-visual vocab-gif-visual--marker" role="img" aria-label="FR5 arm moving to the orange start and end marker"><img class="vocab-gif" src="/assets/guide/fr5-command-move-to.gif?v=20260810-motion" loading="lazy" alt="FR5 arm moving toward the orange marker"><p class="gif-fallback" data-gif-fallback hidden>Animation unavailable.</p></div><h3>Orange marker</h3><p>It marks the start and end. Do not sort it.</p></article>
+  </div>
+</section>
+<section id="quick-start" class="guide-section track-section" aria-labelledby="quick-title">
+  <div class="section-heading"><p class="eyebrow">QUICK START</p><h2 id="quick-title">One transfer. Four actions.</h2></div>
+  <div class="step-grid"><article><span>1</span><h3>Source</h3><p><code>move_to("P2")</code></p></article><article><span>2</span><h3>Pick up</h3><p><code>move_down()</code> · <code>grip()</code> · <code>move_up()</code></p></article><article><span>3</span><h3>Target</h3><p><code>move_to("P7")</code></p></article><article><span>4</span><h3>Drop</h3><p><code>move_down()</code> · <code>release()</code> · <code>move_up()</code></p></article></div>
+</section>
+<section id="deeper-learning" class="guide-section" aria-labelledby="deep-title"><div class="section-heading"><p class="eyebrow">RULE</p><h2 id="deep-title">Move while the gripper is up.</h2><p>Each position holds one block. Use P7 as temporary space.</p></div></section>
+<section id="api-reference" class="guide-section" aria-labelledby="command-cards-title">
+  <div class="section-heading"><p class="eyebrow">COMMANDS</p><h2 id="command-cards-title">Python command cards.</h2><p>Each animation uses the FR5 Home camera.</p></div>
+  <div class="gif-command-grid">
+    <article class="gif-command-card" data-command-card><div class="gif-command-media"><img src="/assets/guide/fr5-command-move-to.gif?v=20260810-motion" loading="lazy" alt="FR5 Home camera: gripper moves to a table point"><p class="gif-fallback" data-gif-fallback hidden>Animation unavailable. Read the command below.</p></div><code>move_to("P?")</code><h3>Move to a point</h3><p>Choose P1–P7.</p></article>
+    <article class="gif-command-card" data-command-card><div class="gif-command-media"><img src="/assets/guide/fr5-command-move-down.gif?v=20260810-motion" loading="lazy" alt="FR5 Home camera: gripper lowers toward a block"><p class="gif-fallback" data-gif-fallback hidden>Animation unavailable. Read the command below.</p></div><code>move_down()</code><h3>Lower the gripper</h3><p>Lower before grip or release.</p></article>
+    <article class="gif-command-card" data-command-card><div class="gif-command-media"><img src="/assets/guide/fr5-command-grip.gif?v=20260810-motion" loading="lazy" alt="FR5 Home camera: gripper closes around a block"><p class="gif-fallback" data-gif-fallback hidden>Animation unavailable. Read the command below.</p></div><code>grip()</code><h3>Grip a block</h3><p>Hold the block.</p></article>
+    <article class="gif-command-card" data-command-card><div class="gif-command-media"><img src="/assets/guide/fr5-command-move-up.gif?v=20260810-motion" loading="lazy" alt="FR5 Home camera: gripper lifts a block"><p class="gif-fallback" data-gif-fallback hidden>Animation unavailable. Read the command below.</p></div><code>move_up()</code><h3>Lift the gripper</h3><p>Lift before moving.</p></article>
+    <article class="gif-command-card" data-command-card><div class="gif-command-media"><img src="/assets/guide/fr5-command-release.gif?v=20260810-motion" loading="lazy" alt="FR5 Home camera: gripper releases a block"><p class="gif-fallback" data-gif-fallback hidden>Animation unavailable. Read the command below.</p></div><code>release()</code><h3>Release a block</h3><p>Place the block.</p></article>
+    <article class="gif-command-card" data-command-card><div class="gif-command-media"><img src="/assets/guide/fr5-command-get-positions.gif?v=20260810-motion" loading="lazy" alt="FR5 Home camera: table positions are visible"><p class="gif-fallback" data-gif-fallback hidden>Animation unavailable. Read the command below.</p></div><code>get_positions()</code><h3>Read the table</h3><p>Inspect every slot.</p></article>
+  </div>
+</section>
+
+<section id="complete-example" class="guide-section example-section" aria-labelledby="example-title">
+  <div class="section-heading"><p class="eyebrow">EXAMPLE</p><h2 id="example-title">A complete program.</h2><p>Current: <code>P2 = dog</code>, <code>P3 = chicken</code>, <code>P4 = chair</code>, <code>P5 = house</code>, <code>P6 = car</code>. Target: <code>P2 = car</code>, <code>P3 = chicken</code>, <code>P4 = dog</code>, <code>P5 = chair</code>, <code>P6 = house</code>.</p></div>
+  <div class="code-card"><div class="code-card-head"><span>main.py</span><button class="button copy-button" type="button" data-copy-source="starter-code">Copy code</button></div><pre class="code-block"><code id="starter-code">from techcamp_api import TechCamp
+
+def move_block(bot, source, target):
+    bot.move_to(source)
+    bot.move_down()
+    bot.grip()
+    bot.move_up()
+    bot.move_to(target)
+    bot.move_down()
+    bot.release()
+    bot.move_up()
+
+def main():
+    with TechCamp() as bot:
+        move_block(bot, "P2", "P7")
+        move_block(bot, "P6", "P2")
+        move_block(bot, "P5", "P6")
+        move_block(bot, "P4", "P5")
+        move_block(bot, "P7", "P4")
+
+if __name__ == "__main__":
+    main()</code></pre><p class="copy-status" id="copy-status" role="status" aria-live="polite"></p></div>
+</section>
+<section id="troubleshooting" class="guide-section" aria-labelledby="trouble-title"><div class="section-heading"><p class="eyebrow">HELP</p><h2 id="trouble-title">Common fixes.</h2></div><div class="trouble-list"><details open><summary>Missing <code>main()</code></summary><p>Define <code>main()</code> with no parameters and call it at the end.</p><pre><code>if __name__ == "__main__":
+    main()</code></pre></details><details><summary>Syntax error</summary><p>Check colons, brackets, quotes, and indentation.</p></details><details><summary>Grip or release error</summary><p>Use <code>move_down()</code> before <code>grip()</code> or <code>release()</code>.</p></details><details><summary>Occupied destination</summary><p>Use P7 as a temporary position.</p></details></div><a class="return-link" href="/#code">← Back to IDE</a></section>
+</main>
+<footer class="guide-footer"><span>FPTU TECHX CAMP · FAIRINO SIMULATION</span><a href="/">Open IDE</a></footer>
+<script>(()=>{const code=document.querySelector("#starter-code");if(!code)return;const escape=(value)=>value.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");const pattern=/(#[^\n]*)|(\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')|\b(from|import|class|def|with|as|if|for|in|return|True|False|None)\b|\b(TechCamp|TechCampError)\b|\b(move_to|move_down|move_up|grip|release|get_image|get_positions|close)\b/g;const source=code.textContent;let cursor=0;let html="";for(const token of source.matchAll(pattern)){const [value,comment,string,keyword,apiClass,apiMethod]=token;html+=escape(source.slice(cursor,token.index));const type=comment?"comment":string?"string":keyword?"keyword":apiClass?"class":apiMethod?"method":"plain";html+=`<span class="syntax-${type}">${escape(value)}</span>`;cursor=token.index+value.length}code.innerHTML=html+escape(source.slice(cursor))})()</script>
+<script>const copyStatus=document.querySelector("#copy-status");document.querySelectorAll("[data-copy-source]").forEach((button)=>{button.addEventListener("click",async()=>{const text=document.getElementById(button.dataset.copySource)?.textContent||"";try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);else throw new Error("clipboard unavailable")}catch{const fallback=document.createElement("textarea");fallback.value=text;fallback.setAttribute("readonly","");fallback.style.position="fixed";fallback.style.opacity="0";document.body.appendChild(fallback);fallback.select();document.execCommand("copy");fallback.remove()}if(copyStatus)copyStatus.textContent="Code copied.";button.focus()})});const guideThemeToggle=document.querySelector("#guideThemeToggle");guideThemeToggle?.addEventListener("click",()=>{const next=document.documentElement.dataset.theme==="light"?"dark":"light";document.documentElement.dataset.theme=next;try{localStorage.setItem("techx-theme",next)}catch{}guideThemeToggle.setAttribute("aria-pressed",String(next==="light"))})</script>
+<script type="module" src="/project-guide-arm.mjs"></script>
+</body>
+</html>

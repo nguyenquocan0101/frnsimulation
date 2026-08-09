@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="vi" data-theme="dark">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TechX · Bài nộp workshop</title>
+    <title>TechX · Workshop submissions</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Paytone+One&display=swap" rel="stylesheet" />
@@ -26,34 +26,34 @@
             <div class="techx-logo" aria-label="FPTU TechX Camp">FPTU TECH<span>X</span> CAMP</div>
             <span>FAIRINO SIMULATION</span>
           </div>
-          <h1>Quản lý bài nộp TechX</h1>
-          <p>Danh sách bài nộp cho buổi workshop .</p>
+          <h1>TechX submissions</h1>
+          <p>Workshop submissions</p>
         </div>
         <a class="button" href="./index.html">Simulator</a>
       </header>
-      <section class="teacher-panel" aria-label="Danh sách bài nộp">
+      <section class="teacher-panel" aria-label="Submission list">
         <div class="teacher-toolbar">
           <span
             class="public-status"
             id="teacherPublicStatus"
             data-status="loading"
             aria-live="polite"
-            >Workshop công khai</span
+            >Public workshop</span
           >
           <input
             class="teacher-filter"
             id="teacherFilter"
             type="search"
-            placeholder="Lọc theo tên nhóm…"
-            aria-label="Lọc theo tên nhóm"
+            placeholder="Filter by group…"
+            aria-label="Filter by group"
           />
           <button
             class="button primary"
             id="teacherRefreshBtn"
             type="button"
-            aria-label="Làm mới danh sách"
+            aria-label="Refresh submissions"
           >
-            Làm mới
+            Refresh
           </button>
         </div>
         <p
@@ -63,7 +63,7 @@
           aria-live="polite"
           hidden
         ></p>
-        <span class="visually-hidden" data-status="ready">Sẵn sàng</span>
+        <span class="visually-hidden" data-status="ready">Ready</span>
         <p
           class="teacher-empty"
           id="submissionEmpty"
@@ -71,17 +71,17 @@
           aria-live="polite"
           hidden
         >
-          Chưa có bài nộp.
+          No submissions yet.
         </p>
         <div class="submission-table-wrap">
           <table class="submission-table" id="submissionTable">
             <thead>
               <tr>
-                <th scope="col">STT</th>
-                <th scope="col">Tên nhóm</th>
-                <th scope="col">Tên file</th>
-                <th scope="col">Nộp lúc</th>
-                <th scope="col">Thao tác</th>
+                <th scope="col">No.</th>
+                <th scope="col">Group</th>
+                <th scope="col">File</th>
+                <th scope="col">Submitted</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody id="submissionTableBody"></tbody>
@@ -96,14 +96,14 @@
             <div class="preview-header">
               <div>
                 <p class="eyebrow">CODE PREVIEW</p>
-                <h2 id="previewTitle">Xem trước code</h2>
+                <h2 id="previewTitle">Code preview</h2>
               </div>
               <button
                 class="button quiet"
                 value="close"
-                aria-label="Đóng xem trước"
+                aria-label="Close preview"
               >
-                Đóng
+                Close
               </button>
             </div>
             <p class="preview-meta" id="previewMeta"></p>
@@ -114,15 +114,15 @@
       <section class="teacher-panel workshop-results-panel" aria-labelledby="workshopResultsTitle">
         <div class="teacher-toolbar">
           <div>
-            <p class="eyebrow">WORKSHOP RESULT</p>
-            <h2 id="workshopResultsTitle">Kết quả thi đấu</h2>
+            <p class="eyebrow">WORKSHOP RESULTS</p>
+            <h2 id="workshopResultsTitle">Workshop results</h2>
           </div>
-          <button class="button primary" id="competitionResultsRefreshBtn" type="button">Làm mới điểm</button>
+          <button class="button primary" id="competitionResultsRefreshBtn" type="button">Refresh</button>
         </div>
         <p class="teacher-error" id="competitionResultsError" role="status"></p>
         <div class="submission-table-wrap">
           <table class="submission-table" id="competitionResultsTable">
-            <thead><tr><th>STT</th><th>Tên bài</th><th>Score</th><th>Steps</th><th>Distance (ô)</th></tr></thead>
+            <thead><tr><th>No.</th><th>Solution</th><th>Score</th><th>Steps</th><th>Distance (slots)</th></tr></thead>
             <tbody id="competitionResultsBody"></tbody>
           </table>
         </div>
@@ -172,7 +172,7 @@
             resultBody.append(tr);
           });
         } catch (error) {
-          resultError.textContent = "Chưa tải được kết quả workshop.";
+      resultError.textContent = "Unable to load workshop results.";
         } finally {
           resultRefresh.disabled = false;
         }

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -30,37 +30,37 @@
   </head>
   <body>
     <main>
-      <h1>Điều khiển CNC Shield</h1>
-      <p>Kết nối Arduino Uno, sau đó bấm mũi tên hoặc dùng phím mũi tên trên bàn phím.</p>
+      <h1>CNC Shield controller</h1>
+      <p>Connect an Arduino Uno, then click an arrow or use the keyboard arrow keys.</p>
 
       <div class="top">
-        <button class="primary" id="connectBtn" type="button">Kết nối Arduino</button>
-        <button id="disconnectBtn" type="button" disabled>Ngắt kết nối</button>
-        <span class="status" id="status">Chưa kết nối</span>
+        <button class="primary" id="connectBtn" type="button">Connect Arduino</button>
+        <button id="disconnectBtn" type="button" disabled>Disconnect</button>
+        <span class="status" id="status">Disconnected</span>
       </div>
 
       <label>
-        Bước mỗi lần bấm
+        Step per click
         <input id="stepInput" type="number" min="1" value="150" inputmode="numeric" />
       </label>
 
-      <div class="pad" aria-label="Điều khiển X và Z">
-        <button class="up" data-axis="Z" data-direction="1" type="button" aria-label="Z dương">↑</button>
-        <button class="left" data-axis="X" data-direction="-1" type="button" aria-label="X âm">←</button>
-        <button class="right" data-axis="X" data-direction="1" type="button" aria-label="X dương">→</button>
-        <button class="down" data-axis="Z" data-direction="-1" type="button" aria-label="Z âm">↓</button>
+      <div class="pad" aria-label="X and Z controls">
+        <button class="up" data-axis="Z" data-direction="1" type="button" aria-label="Positive Z">↑</button>
+        <button class="left" data-axis="X" data-direction="-1" type="button" aria-label="Negative X">←</button>
+        <button class="right" data-axis="X" data-direction="1" type="button" aria-label="Positive X">→</button>
+        <button class="down" data-axis="Z" data-direction="-1" type="button" aria-label="Negative Z">↓</button>
       </div>
-      <div class="legend"><span>←/→: trục X</span><span>↑/↓: trục Z</span></div>
+      <div class="legend"><span>←/→: X axis</span><span>↑/↓: Z axis</span></div>
 
       <div class="actions" style="margin-top:18px">
         <button id="enableBtn" type="button">Enable</button>
-        <button id="homeBtn" type="button">Home (đặt 0)</button>
+        <button id="homeBtn" type="button">Home (zero)</button>
         <button id="stopBtn" class="danger" type="button">STOP</button>
         <button id="statusBtn" type="button">Status</button>
       </div>
 
-      <pre id="log" aria-live="polite">Sẵn sàng.</pre>
-      <p class="hint">Trang này chỉ hoạt động trên Chrome hoặc Edge. Chiều quay phụ thuộc cách bạn cắm dây NEMA17.</p>
+      <pre id="log" aria-live="polite">Ready.</pre>
+      <p class="hint">This page works only in Chrome or Edge. Direction depends on how the NEMA17 wires are connected.</p>
     </main>
 
     <script>
@@ -82,7 +82,7 @@
       const setConnected = (value) => {
         $("connectBtn").disabled = value;
         $("disconnectBtn").disabled = !value;
-        $("status").textContent = value ? "Đã kết nối" : "Chưa kết nối";
+        $("status").textContent = value ? "Connected" : "Disconnected";
       };
 
       async function readSerial() {
@@ -95,7 +95,7 @@
               if (value) log(decoder.decode(value, { stream: true }).trim());
             }
           } catch (error) {
-            if (keepReading) log(`Lỗi đọc: ${error.message}`);
+            if (keepReading) log(`Read error: ${error.message}`);
           } finally {
             reader.releaseLock();
             reader = undefined;
@@ -105,7 +105,7 @@
 
       async function send(command) {
         if (!connected()) {
-          log("Hãy bấm Kết nối Arduino trước.");
+          log("Click Connect Arduino first.");
           return;
         }
         await writer.write(new TextEncoder().encode(`${command}\n`));
@@ -114,7 +114,7 @@
 
       async function connect() {
         if (!('serial' in navigator)) {
-          log("Trình duyệt này không hỗ trợ Web Serial. Hãy dùng Chrome hoặc Edge.");
+          log("This browser does not support Web Serial. Use Chrome or Edge.");
           return;
         }
         try {
@@ -124,10 +124,10 @@
           decoder = new TextDecoder();
           keepReading = true;
           setConnected(true);
-          log("Đã kết nối. Arduino có thể khởi động lại trong khoảng 2 giây.");
+          log("Connected. The Arduino may restart for about two seconds.");
           readSerial();
         } catch (error) {
-          log(`Không kết nối được: ${error.message}`);
+          log(`Unable to connect: ${error.message}`);
           await disconnect();
         }
       }

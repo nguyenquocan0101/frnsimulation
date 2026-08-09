@@ -20,13 +20,13 @@ function render(rows) {
 
 async function load() {
   refreshButton.disabled = true;
-  statusNode.textContent = "Đang tải kết quả…";
+  statusNode.textContent = "Loading results…";
   try {
     const rows = await listCompetitionResults();
     render(rows);
-    statusNode.textContent = rows.length ? `${rows.length} bài đã nộp · cập nhật mới nhất` : "Chưa có bài nộp. Hãy là đội đầu tiên!";
+    statusNode.textContent = rows.length ? `${rows.length} submissions · latest update` : "No submissions yet. Be the first team!";
   } catch (error) {
-    statusNode.textContent = "Chưa kết nối được bảng điểm — luật thi vẫn xem được ở trên.";
+    statusNode.textContent = "The leaderboard is unavailable — the rules above are still available.";
   } finally {
     refreshButton.disabled = false;
   }

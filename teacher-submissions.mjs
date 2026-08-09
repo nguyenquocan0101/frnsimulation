@@ -9,9 +9,9 @@ export function filterSubmissions(rows, filter) {
 }
 
 export function formatSubmissionTime(value, locale = undefined) {
-  if (!value) return "Đang chờ thời gian…";
+  if (!value) return "Waiting for timestamp…";
   const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
-  return Number.isNaN(date.getTime()) ? "Không rõ thời gian" : date.toLocaleString(locale);
+  return Number.isNaN(date.getTime()) ? "Unknown time" : date.toLocaleString(locale);
 }
 
 function canonicalFilename(row = {}) {
@@ -61,40 +61,40 @@ export function initTeacherPortal({
     setVisible(emptyNode, rows.length === 0 || visible.length === 0);
     if (emptyNode) {
       emptyNode.dataset.status = rows.length === 0 ? "empty" : "filtered-empty";
-      emptyNode.textContent = rows.length === 0 ? "Chưa có bài nộp." : "Không có bài của nhóm này.";
+      emptyNode.textContent = rows.length === 0 ? "No submissions yet." : "No submissions match this group.";
     }
     visible.forEach((row, index) => {
       const item = document.createElement("tr");
       item.className = "submission-row";
       item.dataset.submissionId = row.id || row.submissionId || "";
       const numberCell = document.createElement("td");
-      numberCell.dataset.label = "STT";
+      numberCell.dataset.label = "No.";
       numberCell.textContent = String(index + 1);
       const groupCell = document.createElement("td");
-      groupCell.dataset.label = "Tên nhóm";
+      groupCell.dataset.label = "Group";
       const group = document.createElement("strong");
-      group.textContent = row.groupName || row.groupKey || "Không rõ nhóm";
+      group.textContent = row.groupName || row.groupKey || "Unknown group";
       groupCell.append(group);
       const filenameCell = document.createElement("td");
-      filenameCell.dataset.label = "Tên file";
+      filenameCell.dataset.label = "File";
       const filename = document.createElement("span");
       filename.textContent = typeof row.filename === "string" && row.filename ? row.filename : canonicalFilename(row);
       filenameCell.append(filename);
       const timeCell = document.createElement("td");
-      timeCell.dataset.label = "Nộp lúc";
+      timeCell.dataset.label = "Submitted";
       timeCell.textContent = formatSubmissionTime(row.submittedAt);
       const actionsCell = document.createElement("td");
-      actionsCell.dataset.label = "Thao tác";
+      actionsCell.dataset.label = "Actions";
       actionsCell.className = "submission-actions";
       const previewButton = document.createElement("button");
       previewButton.type = "button";
       previewButton.className = "button quiet preview-button";
-      previewButton.textContent = "Xem trước";
+      previewButton.textContent = "Preview";
       previewButton.dataset.action = "preview";
       const downloadButton = document.createElement("button");
       downloadButton.type = "button";
       downloadButton.className = "button primary download-button";
-      downloadButton.textContent = "Tải .py";
+      downloadButton.textContent = "Download .py";
       downloadButton.dataset.action = "download";
       actionsCell.append(previewButton, downloadButton);
       item.append(numberCell, groupCell, filenameCell, timeCell, actionsCell);
@@ -102,8 +102,8 @@ export function initTeacherPortal({
       previewButton.addEventListener("click", () => {
         activeTrigger = previewButton;
         if (previewDialog && previewCode && previewMeta) {
-          previewCode.textContent = typeof row.source === "string" ? row.source : "Code không khả dụng cho bài nộp này.";
-          previewMeta.textContent = `${canonicalFilename(row)} · ${row.groupName || row.groupKey || "Không rõ nhóm"} · ${formatSubmissionTime(row.submittedAt)}`;
+          previewCode.textContent = typeof row.source === "string" ? row.source : "Source code is unavailable for this submission.";
+          previewMeta.textContent = `${canonicalFilename(row)} · ${row.groupName || row.groupKey || "Unknown group"} · ${formatSubmissionTime(row.submittedAt)}`;
           if (typeof previewDialog.showModal === "function") previewDialog.showModal();
           else previewDialog.open = true;
         }
@@ -122,7 +122,7 @@ export function initTeacherPortal({
             try { anchor.click(); } finally { URL.revokeObjectURL(objectUrl); }
           }
         }
-        catch { setState("error", "Không thể tải file này."); }
+        catch { setState("error", "Unable to download this file."); }
         finally { downloadButton.disabled = false; }
       });
     });
@@ -147,16 +147,16 @@ export function initTeacherPortal({
     if (busy) return false;
     busy = true;
     refreshButton.disabled = true;
-    setState("loading", "Đang tải danh sách bài…");
+    setState("loading", "Loading submissions…");
     try {
       const nextRows = await list();
       rows = Array.isArray(nextRows) ? nextRows : [];
       lastUpdated = new Date();
-      setState(rows.length ? "ready" : "empty", rows.length ? `${rows.length} bài · Cập nhật ${lastUpdated.toLocaleTimeString()}` : "Workshop công khai · Chưa có bài nộp");
+      setState(rows.length ? "ready" : "empty", rows.length ? `${rows.length} submissions · Updated ${lastUpdated.toLocaleTimeString()}` : "Public workshop · No submissions yet");
       render();
       return true;
     } catch (error) {
-      setState("error", error?.message || "Không thể tải danh sách bài nộp.");
+      setState("error", error?.message || "Unable to load submissions.");
       render();
       setVisible(emptyNode, false);
       return false;

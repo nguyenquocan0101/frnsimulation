@@ -18,18 +18,21 @@ import {
   transitionCheckpointToken,
 } from "./checkpoint_token.mjs";
 import { getApiPositions } from "./slot_layout.mjs";
-import {
-  ensureAnonymousUser,
-  firebaseAvailable,
-  uploadSubmission,
-} from "./firebase-client.mjs";
 import { initStudentSubmissionUi } from "./student-submissions.mjs";
-import { saveCompetitionResult } from "./firebase-competition-client.mjs";
 import { buildCompetitionResult } from "./competition-results.mjs";
 import {
   createCompetitionSession,
   runCompetitionSession,
 } from "./competition-session.mjs";
+import {
+  createEmbedStorage,
+  getGuideSampleSteps,
+  isGuideEmbedUrl,
+  isSnapshotPayloadAllowed,
+  isTrustedEmbedMessage,
+  validateEmbedEvent,
+  validateParentMessage,
+} from "./guide-embed-protocol.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -302,6 +305,52 @@ const fmt = (v) => Number(v).toFixed(1);
 const sleepFrame = () =>
   new Promise((resolve) => requestAnimationFrame(resolve));
 
+const isEmbedMode = isGuideEmbedUrl(
+  `${window.location.pathname}${window.location.search}`,
+);
+// Detect the internal guide embed before bindUI() so normal IDE startup and
+// persistence can be guarded without changing the production route.
+document.documentElement.dataset.embedMode = isEmbedMode ? "guide" : "normal";
+document.documentElement.setAttribute("data-embed-mode", isEmbedMode ? "guide" : "normal");
+const appStorage = createEmbedStorage({
+  storage: isEmbedMode ? null : window.localStorage,
+  embed: isEmbedMode,
+});
+if (!isEmbedMode) {
+  // Normal IDE mode intentionally remains backed by browser localStorage.
+  void window.localStorage;
+}
+
+// Firebase is an optional normal-IDE service.  Keep it out of the module graph
+// for ?embed=guide so the project guide can boot without Firebase/CDN startup.
+let ensureAnonymousUser = async () => {
+  throw new Error("Firebase upload is unavailable until normal IDE services load.");
+};
+let firebaseAvailable = () => false;
+let uploadSubmission = async () => {
+  throw new Error("Firebase upload is unavailable until normal IDE services load.");
+};
+let saveCompetitionResult = async () => {
+  throw new Error("Firebase leaderboard is unavailable until normal IDE services load.");
+};
+let normalServicesPromise = null;
+async function initNormalServices() {
+  if (isEmbedMode) return;
+  if (!normalServicesPromise) {
+    normalServicesPromise = Promise.all([
+      import("./firebase-client.mjs"),
+      import("./firebase-competition-client.mjs"),
+    ]).then(([firebaseClient, competitionClient]) => {
+      ensureAnonymousUser = firebaseClient.ensureAnonymousUser;
+      firebaseAvailable = firebaseClient.firebaseAvailable;
+      uploadSubmission = firebaseClient.uploadSubmission;
+      saveCompetitionResult = competitionClient.saveCompetitionResult;
+      return true;
+    });
+  }
+  return normalServicesPromise;
+}
+
 const state = {
   jointsDeg: [...DEFAULT_HOME_JOINTS],
   targetDeg: [...DEFAULT_HOME_JOINTS],
@@ -376,11 +425,14 @@ const gripperVisual = {
   animation: null,
 };
 let logElement;
+let embedInitReceived = false;
+let embedRunToken = null;
+let embedMessageHandler = null;
 
 function applyTheme(theme) {
   const selected = theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = selected;
-  localStorage.setItem("fr3-theme", selected);
+  appStorage.setItem("fr3-theme", selected);
   updateSceneTheme();
   const toggle = $("themeToggleBtn");
   if (toggle) {
@@ -406,7 +458,7 @@ function updateSceneTheme() {
 }
 
 function initTheme() {
-  const saved = localStorage.getItem("fr3-theme");
+  const saved = appStorage.getItem("fr3-theme");
   applyTheme(saved || "dark");
   $("themeToggleBtn")?.addEventListener("click", () =>
     applyTheme(
@@ -454,18 +506,18 @@ function initCodeEditor() {
   const highlightCode = highlight?.querySelector("code");
   const lineNumbers = $("codeLineNumbers");
   if (!editor || !highlight || !highlightCode || !lineNumbers) return;
-  const storedSource = localStorage.getItem(PROGRAM_STORAGE_KEY);
+  const storedSource = appStorage.getItem(PROGRAM_STORAGE_KEY);
   if (storedSource !== null) {
     // Migrate only the old built-in checkpoint demo; preserve any student code.
     if (storedSource.includes(LEGACY_CHECKPOINT_PROGRAM_MARKER)) {
-      localStorage.removeItem(PROGRAM_STORAGE_KEY);
+      appStorage.removeItem(PROGRAM_STORAGE_KEY);
     } else {
       editor.value = storedSource;
     }
   }
   const decrease = $("codeFontDecrease");
   const increase = $("codeFontIncrease");
-  const storedSize = Number(localStorage.getItem("fr3-code-font-size"));
+  const storedSize = Number(appStorage.getItem("fr3-code-font-size"));
   let fontSize = clamp(Number.isFinite(storedSize) ? storedSize : 12, 11, 20);
   const applyFontSize = () => {
     document.documentElement.style.setProperty(
@@ -474,7 +526,7 @@ function initCodeEditor() {
     );
     if (decrease) decrease.disabled = fontSize <= 11;
     if (increase) increase.disabled = fontSize >= 20;
-    localStorage.setItem("fr3-code-font-size", String(fontSize));
+    appStorage.setItem("fr3-code-font-size", String(fontSize));
   };
   const render = () => {
     highlightCode.innerHTML = highlightPython(editor.value);
@@ -488,7 +540,7 @@ function initCodeEditor() {
     clearCodeValidation();
   };
   const persistSource = () =>
-    localStorage.setItem(PROGRAM_STORAGE_KEY, editor.value);
+    appStorage.setItem(PROGRAM_STORAGE_KEY, editor.value);
   editor.addEventListener("input", () => {
     persistSource();
     render();
@@ -569,10 +621,10 @@ function initResizableWorkspace() {
     splitter.setAttribute("aria-valuemin", String(minimum));
     splitter.setAttribute("aria-valuemax", String(Math.round(maximum)));
     splitter.setAttribute("aria-valuenow", String(Math.round(width)));
-    if (persist) localStorage.setItem("fr3-code-column-width", String(width));
+    if (persist) appStorage.setItem("fr3-code-column-width", String(width));
     resizeRenderer();
   };
-  const storedWidthValue = localStorage.getItem("fr3-code-column-width");
+  const storedWidthValue = appStorage.getItem("fr3-code-column-width");
   const storedWidth = storedWidthValue ? Number(storedWidthValue) : NaN;
   if (Number.isFinite(storedWidth)) applyWidth(storedWidth, false);
   splitter.addEventListener("pointerdown", (event) => {
@@ -901,7 +953,7 @@ function initTeacherPortalShortcut() {
       window.location.href = "./teacher.html";
       return;
     }
-    if (error) error.textContent = "Mật khẩu chưa đúng.";
+    if (error) error.textContent = "Incorrect password.";
     password.select();
   };
 
@@ -1207,7 +1259,6 @@ function buildBlockBoard() {
     if (Math.hypot(dx, dy) > 1) boardRotation = Math.atan2(dy, dx);
   }
   boardSlotRotation = boardRotation;
-  const frontNormal = [-Math.sin(boardRotation), Math.cos(boardRotation)];
   const boardSize = {
     length: boardLayout.length,
     depth: boardLayout.depth,
@@ -1282,12 +1333,21 @@ function buildBlockBoard() {
       frontLabelName,
       frontLabelName === "P1" ? "#f7b0a8" : "#dcecff",
     );
+    // Attach the label to the board itself.  Convert the calibrated world
+    // slot delta into the board's local frame before placing it on the
+    // front fascia; this keeps P1-P7 locked to the table when FR5 rotates.
+    const dx = cart[0] / 1000 - board.position.x;
+    const dy = cart[1] / 1000 - board.position.y;
+    const cos = Math.cos(boardRotation);
+    const sin = Math.sin(boardRotation);
+    const localX = cos * dx + sin * dy;
+    const localY = -sin * dx + cos * dy;
     frontLabel.position.set(
-      cart[0] / 1000 + frontNormal[0] * (boardSize.depth / 2 + 0.002),
-      cart[1] / 1000 + frontNormal[1] * (boardSize.depth / 2 + 0.002),
-      board.position.z,
+      localX,
+      localY + boardSize.depth / 2 + 0.002,
+      0,
     );
-    boardGroup.add(frontLabel);
+    board.add(frontLabel);
   });
   SORTABLE_BLOCK_NAMES.forEach((name) => {
     const objectClass = objectClassForBlock(name);
@@ -1655,7 +1715,7 @@ function resetBlocks(silent = false) {
   renderBlockBoard();
   updateBlockVisuals();
   if (!silent)
-    log("Scene reset -> P1 cam · P2 xe · P3 gà · P4 chó · P5 ghế · P6 nhà · P7 trống");
+    log("Scene reset -> P1 marker · P2 car · P3 chicken · P4 dog · P5 chair · P6 house · P7 empty");
 }
 
 async function loadCalibratedPoints(profileId = state.robotProfileId) {
@@ -1834,7 +1894,7 @@ function renderSafeZone() {
   }
   const toggle = $("safeZoneToggleBtn");
   if (toggle) {
-    toggle.textContent = state.safeZone.enabled ? "Safe ON" : "Safe OFF";
+    toggle.textContent = state.safeZone.enabled ? "Safe zone" : "Enable safe zone";
     toggle.setAttribute("aria-pressed", String(state.safeZone.enabled));
     toggle.classList.toggle("primary", state.safeZone.enabled);
     toggle.classList.toggle("quiet", !state.safeZone.enabled);
@@ -2370,6 +2430,9 @@ function initScene() {
   renderer = new THREE.WebGLRenderer({
     antialias: true,
     powerPreference: "high-performance",
+    // Embed snapshots are captured immediately after renderScene(); normal IDE
+    // rendering keeps the default buffer behavior for performance.
+    preserveDrawingBuffer: isEmbedMode,
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.autoClear = false;
@@ -2779,7 +2842,7 @@ async function switchRobotProfile(profileId, { initial = false } = {}) {
     state.safeZone.alert = null;
     state.modelReady = true;
     state.robotLoading = false;
-    localStorage.setItem(ROBOT_PROFILE_STORAGE_KEY, profile.id);
+    appStorage.setItem(ROBOT_PROFILE_STORAGE_KEY, profile.id);
     await loadCalibratedPoints(profile.id);
     syncRobotProfileUi(profile);
     setJointVisualization($("controlTab")?.classList.contains("active"));
@@ -2838,7 +2901,7 @@ async function loadModel() {
   if (!loaded) {
     loaded = await switchRobotProfile("fr3", { initial: true });
     if (loaded) {
-      localStorage.setItem(ROBOT_PROFILE_STORAGE_KEY, "fr3");
+      appStorage.setItem(ROBOT_PROFILE_STORAGE_KEY, "fr3");
       setStatus("FR5 model unavailable · FR3 remains active", "error");
     }
   }
@@ -2848,6 +2911,7 @@ async function loadModel() {
   // needed to keep the larger FR5 arm and rotated table centered.
   homeView();
   syncRobotProfileUi();
+  maybeSendEmbedReady();
 }
 
 function cameraMatrixRowMajor(matrix) {
@@ -2897,7 +2961,7 @@ window.getCameraDiagnostics = () => {
   const frame = cameraSceneFrame();
   return {
     profile: state.robotProfileId,
-    view: HOME_CAMERA_VIEW_NAMES[cameraViewIndex] || "Front",
+    view: CAMERA_VIEW_NAMES[cameraViewIndex] || "Front",
     zoom: state.cameraZoom,
     anchor: [...frame.anchor],
     fitRadius: frame.fitRadius,
@@ -2940,6 +3004,7 @@ function setHomeCameraView(index) {
   }
   const viewport = $("viewport");
   viewport?.setAttribute("data-camera-view", logicalView.name);
+  viewport?.setAttribute("data-embed-camera-view", logicalView.name);
   viewport?.setAttribute("data-camera-zoom", String(state.cameraZoom));
 }
 
@@ -2948,7 +3013,7 @@ function setCameraZoom(value, { userSet = true } = {}) {
     Number(value) || HOME_CAMERA_ZOOM_DEFAULT,
     ...HOME_CAMERA_ZOOM_RANGE,
   );
-  localStorage.setItem(
+  appStorage.setItem(
     CAMERA_ZOOM_STORAGE_KEY,
     JSON.stringify({ value: state.cameraZoom, userSet, version: 1 }),
   );
@@ -2957,7 +3022,7 @@ function setCameraZoom(value, { userSet = true } = {}) {
   if ($("cameraZoomOutput"))
     $("cameraZoomOutput").textContent = `${state.cameraZoom}%`;
   if ($("cameraZoomBtn"))
-    $("cameraZoomBtn").textContent = `View ${state.cameraZoom}%`;
+    $("cameraZoomBtn").textContent = `Zoom ${state.cameraZoom}%`;
   setHomeCameraView(cameraViewIndex < 0 ? 0 : cameraViewIndex);
 }
 
@@ -3175,6 +3240,159 @@ const techcampSim = {
     this.carriedToken = false;
   },
 };
+
+function postEmbedEvent(type, payload = {}) {
+  if (!isEmbedMode || window.parent === window) return;
+  window.parent.postMessage({ protocol: 1, type, ...payload }, window.location.origin);
+}
+
+function embedStatePayload() {
+  return {
+    profile: state.robotProfileId,
+    loading: state.robotLoading,
+    modelReady: state.modelReady,
+    view: CAMERA_VIEW_NAMES[cameraViewIndex] || "Front",
+    zoom: state.cameraZoom,
+    position: techcampSim.position,
+    low: techcampSim.low,
+    gripping: techcampSim.gripping,
+  };
+}
+
+function maybeSendEmbedReady() {
+  if (!isEmbedMode || !embedInitReceived || !state.modelReady) return;
+  postEmbedEvent("guide:ready", embedStatePayload());
+  postEmbedEvent("guide:state", embedStatePayload());
+}
+
+async function resetEmbedSession() {
+  if (embedRunToken) embedRunToken.cancelled = true;
+  embedRunToken = null;
+  await api.StopMotion();
+  resetBlocks(true);
+  techcampSim.reset();
+  resetPoseToCalibratedHome();
+  homeView();
+  postEmbedEvent("guide:reset", embedStatePayload());
+  postEmbedEvent("guide:state", embedStatePayload());
+}
+
+async function dispatchEmbedCommand(message, { emit = true } = {}) {
+  const started = performance.now();
+  let result = null;
+  if (message.command === "move_to") result = await techcampSim.move_to(message.position);
+  else if (message.command === "move_down") result = await techcampSim.move_down();
+  else if (message.command === "move_up") result = await techcampSim.move_up();
+  else if (message.command === "grip") result = await techcampSim.grip();
+  else if (message.command === "release") result = await techcampSim.release();
+  else if (message.command === "get_positions") result = await techcampSim.get_positions();
+  else throw new TechCampError("This command is not available in the playground.");
+  const payload = {
+    command: message.command,
+    ...(message.position ? { position: message.position } : {}),
+    result,
+    elapsedMs: Math.round(performance.now() - started),
+    state: embedStatePayload(),
+  };
+  if (emit) {
+    postEmbedEvent("guide:command", payload);
+    postEmbedEvent("guide:state", embedStatePayload());
+  }
+  return payload;
+}
+
+async function runEmbedSample(sampleId) {
+  const steps = getGuideSampleSteps(sampleId);
+  if (!steps) throw new TechCampError("Invalid playground example.");
+  if (embedRunToken) throw new TechCampError("An example is already running.");
+  const token = { cancelled: false };
+  embedRunToken = token;
+  postEmbedEvent("guide:running", { sampleId, total: steps.length });
+  try {
+    for (const [index, step] of steps.entries()) {
+    if (token.cancelled) throw new TechCampError("Example stopped.");
+      const result = await dispatchEmbedCommand(
+        { command: step.command, ...(step.position ? { position: step.position } : {}) },
+        { emit: false },
+      );
+      postEmbedEvent("guide:step", {
+        index: index + 1,
+        total: steps.length,
+        source: step.source,
+        target: step.target,
+        action: step.command,
+        result,
+      });
+    }
+    postEmbedEvent("guide:complete", { sampleId, total: steps.length, state: embedStatePayload() });
+  } finally {
+    if (embedRunToken === token) embedRunToken = null;
+  }
+}
+
+function captureEmbedSnapshot(view) {
+  const captureView = String(view || "").toLowerCase();
+  const allowedCaptureViews = ["home", ...CAMERA_VIEW_NAMES.map((name) => name.toLowerCase())];
+  if (!allowedCaptureViews.includes(captureView)) {
+    throw new TechCampError("Invalid capture view.");
+  }
+  renderScene();
+  const source = renderer?.domElement;
+  if (!source?.toDataURL) throw new TechCampError("Unable to capture the playground.");
+  let dataUrl = source.toDataURL("image/png");
+  if (!isSnapshotPayloadAllowed(dataUrl)) dataUrl = source.toDataURL("image/jpeg", 0.82);
+  if (!isSnapshotPayloadAllowed(dataUrl)) {
+    throw new TechCampError("The snapshot is too large. Reduce the zoom and try again.");
+  }
+  postEmbedEvent("guide:snapshot", { view: captureView, dataUrl });
+}
+
+function initEmbedBridge() {
+  if (!isEmbedMode || embedMessageHandler) return;
+  embedMessageHandler = async (event) => {
+    if (event.origin !== window.location.origin || event.source !== window.parent) return;
+    if (!isTrustedEmbedMessage(event, window.location.origin, window.parent)) return;
+    const message = validateParentMessage(event.data);
+    if (!message) {
+      postEmbedEvent("guide:error", { message: "Invalid playground message." });
+      return;
+    }
+    try {
+      if (message.type === "guide:init") {
+        embedInitReceived = true;
+        maybeSendEmbedReady();
+      } else if (message.type === "guide:set-profile") {
+        if (embedRunToken) throw new TechCampError("Stop the example before changing the model.");
+        await switchRobotProfile(message.profile);
+        postEmbedEvent("guide:state", embedStatePayload());
+      } else if (message.type === "guide:set-view") {
+        if (message.view === "home") homeView();
+        else setHomeCameraView({ front: 0, right: 1, back: 2, left: 3 }[message.view]);
+        postEmbedEvent("guide:state", embedStatePayload());
+      } else if (message.type === "guide:set-zoom") {
+        setCameraZoom(message.value);
+        postEmbedEvent("guide:state", embedStatePayload());
+      } else if (message.type === "guide:run-command") {
+        const result = await dispatchEmbedCommand(message);
+        postEmbedEvent("guide:state", { ...embedStatePayload(), lastCommand: result });
+      } else if (message.type === "guide:run-sample") {
+        await runEmbedSample(message.sampleId);
+      } else if (message.type === "guide:stop") {
+        if (embedRunToken) embedRunToken.cancelled = true;
+        await api.StopMotion();
+        postEmbedEvent("guide:state", embedStatePayload());
+      } else if (message.type === "guide:reset") {
+        await resetEmbedSession();
+      } else if (message.type === "guide:capture") {
+        captureEmbedSnapshot(message.view);
+      }
+    } catch (error) {
+      postEmbedEvent("guide:error", { message: error?.message || "The command could not be completed." });
+    }
+  };
+  window.addEventListener("message", embedMessageHandler);
+}
+
 window.techcampSim = techcampSim;
 window.TechCamp = () => {
   startTechCamp();
@@ -3830,8 +4048,8 @@ function renderCompetitionResult(result) {
   if (!panel) return;
   panel.hidden = false;
   $("competitionResultStatus").textContent = result.correct
-    ? "Đã hoàn thành đúng"
-    : "Đã chạy xong — thứ tự chưa đúng";
+    ? "Completed correctly"
+    : "Run complete — the order is not correct";
   $("competitionScore").textContent = Number(result.score).toFixed(2);
   $("competitionSteps").textContent = String(result.steps);
   $("competitionDistance").textContent = String(result.distance);
@@ -3848,18 +4066,18 @@ function renderCompetitionResult(result) {
           steps: result.steps,
           distance: result.distance,
         });
-        if (status) status.textContent = "Đang lưu…";
+        if (status) status.textContent = "Saving…";
         const saved = await saveCompetitionResult(payload);
-        if (status) status.textContent = saved.saved ? "Đã lưu bảng xếp hạng." : "Bản tốt hơn đã được lưu trước đó.";
+        if (status) status.textContent = saved.saved ? "Leaderboard result saved." : "A better result was already saved.";
       } catch (error) {
-        if (status) status.textContent = error?.message || "Không thể lưu kết quả.";
+        if (status) status.textContent = error?.message || "Unable to save the result.";
       }
     };
   }
 }
 
 async function captureCompetitionSnapshot(result) {
-  if (!renderer || !scene || !camera) throw new Error("Chưa sẵn sàng chụp ảnh mô phỏng.");
+  if (!renderer || !scene || !camera) throw new Error("The simulator is not ready for a snapshot.");
   renderScene();
   const source = renderer.domElement;
   const canvas = document.createElement("canvas");
@@ -3874,10 +4092,10 @@ async function captureCompetitionSnapshot(result) {
   context.fillText(`Score ${Number(result.score).toFixed(2)}`, 30, 42);
   context.fillStyle = "#dcecff";
   context.font = "14px Consolas, monospace";
-  context.fillText(`Steps ${result.steps}  ·  Distance ${result.distance} ô`, 30, 70);
+  context.fillText(`Steps ${result.steps}  ·  Distance ${result.distance} slots`, 30, 70);
   const pixels = context.getImageData(0, 0, Math.min(canvas.width, 24), Math.min(canvas.height, 24)).data;
-  if (!pixels.some((value) => value !== 0)) throw new Error("Ảnh mô phỏng trống.");
-  const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Không tạo được ảnh.")), "image/png"));
+  if (!pixels.some((value) => value !== 0)) throw new Error("The simulator snapshot is blank.");
+  const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Unable to create the snapshot.")), "image/png"));
   const previous = state.competitionSession?.imageUrl;
   if (previous) URL.revokeObjectURL(previous);
   const imageUrl = URL.createObjectURL(blob);
@@ -3903,6 +4121,10 @@ async function captureCompetitionSnapshot(result) {
 async function runProgram() {
   if (state.running || state.programRun) {
     await api.StopMotion();
+    return;
+  }
+  if (!isEmbedMode && !runCompetitionSession) {
+    log("Normal IDE services are still loading; please wait a moment and try again.");
     return;
   }
   if (state.robotLoading || !state.modelReady) {
@@ -3975,7 +4197,7 @@ async function runProgram() {
         };
         renderCompetitionResult(result);
         try {
-          const savedGroup = localStorage.getItem("techcamp-last-group") || "Workshop";
+          const savedGroup = appStorage.getItem("techcamp-last-group") || "Workshop";
           await saveCompetitionResult(buildCompetitionResult({
             solutionName: savedGroup,
             score: result.score,
@@ -4009,10 +4231,14 @@ async function runProgram() {
 
 function bindUI() {
   initTheme();
-  initTeacherPortalShortcut();
-  initCodeEditor();
-  initWorkspaceTabs();
-  initResizableWorkspace();
+  if (!isEmbedMode) {
+    // Normal IDE mode wires runProgram, upload, competition, and teacher controls below.
+    initTeacherPortalShortcut();
+    initCodeEditor();
+    initWorkspaceTabs();
+    initResizableWorkspace();
+    initNormalServices().catch((error) => log(`Normal IDE services error: ${error.message}`));
+  }
   renderHomePoint();
   renderJointControls();
   state.lastTargetPose = currentPose();
@@ -4020,20 +4246,30 @@ function bindUI() {
   renderTargetInputs();
   renderState();
   renderSafeZone();
-  initStudentSubmissionUi({
-    openButton: $("uploadProgramBtn"),
-    dialog: $("uploadDialog"),
-    form: $("uploadForm"),
-    groupInput: $("groupNameInput"),
-    filenamePreview: $("uploadFilenamePreview"),
-    statusNode: $("uploadStatus"),
-    submitButton: $("uploadSubmitBtn"),
-    getSource: () => $("program")?.value ?? "",
-    ensureUser: ensureAnonymousUser,
-    upload: uploadSubmission,
-    available: firebaseAvailable(),
-    log,
-  });
+  if (isEmbedMode) {
+    initEmbedBridge();
+    setSceneObjectsVisible(true);
+    return;
+  }
+  if (!isEmbedMode) {
+    // Upload is initialized after the guarded Firebase import resolves.
+    initNormalServices().then(() => {
+      initStudentSubmissionUi({
+        openButton: $("uploadProgramBtn"),
+        dialog: $("uploadDialog"),
+        form: $("uploadForm"),
+        groupInput: $("groupNameInput"),
+        filenamePreview: $("uploadFilenamePreview"),
+        statusNode: $("uploadStatus"),
+        submitButton: $("uploadSubmitBtn"),
+        getSource: () => $("program")?.value ?? "",
+        ensureUser: ensureAnonymousUser,
+        upload: uploadSubmission,
+        available: firebaseAvailable(),
+        log,
+      });
+    }).catch((error) => log(`Upload services error: ${error.message}`));
+  }
   setSceneObjectsVisible(state.sceneObjectsVisible);
   $("toggleSceneObjectsBtn")?.addEventListener("click", () => {
     setSceneObjectsVisible(!state.sceneObjectsVisible);
@@ -4086,12 +4322,12 @@ function bindUI() {
   };
   let savedCameraZoom;
   try {
-    savedCameraZoom = JSON.parse(localStorage.getItem(CAMERA_ZOOM_STORAGE_KEY));
+    savedCameraZoom = JSON.parse(appStorage.getItem(CAMERA_ZOOM_STORAGE_KEY));
   } catch {
     savedCameraZoom = null;
   }
   if (!savedCameraZoom) {
-    const legacyZoom = localStorage.getItem(LEGACY_CAMERA_ZOOM_STORAGE_KEY);
+    const legacyZoom = appStorage.getItem(LEGACY_CAMERA_ZOOM_STORAGE_KEY);
     savedCameraZoom = legacyZoom === null ? undefined : legacyZoom;
   }
   const migratedZoom = migrateZoomValue(savedCameraZoom, HOME_CAMERA_ZOOM_DEFAULT);

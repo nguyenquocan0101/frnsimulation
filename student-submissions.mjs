@@ -19,16 +19,16 @@ export function createSubmissionController({ getSource, ensureUser, upload, onSt
       if (busy) return { ok: false, reason: "busy" };
       const source = getSource?.() ?? "";
       if (!validateGroupName(groupName)) {
-        setStatus("error", "Tên nhóm phải có 2–30 ký tự không dấu, viết liền (A–Z, a–z, 0–9).");
+        setStatus("error", "Group names must be 2–30 ASCII letters or digits with no spaces.");
         return { ok: false, reason: "group" };
       }
       if (!isSourceSizeValid(source)) {
-        setStatus("error", "Code phải có từ 1 đến 100 KB.");
+        setStatus("error", "Code must be between 1 and 100 KB.");
         return { ok: false, reason: "source" };
       }
 
       busy = true;
-      setStatus("validating", "Đang kiểm tra bài nộp…");
+      setStatus("validating", "Validating submission…");
       try {
         const user = await ensureUser();
         const identity = createSubmissionIdentity({ uid: user.uid });
@@ -38,23 +38,23 @@ export function createSubmissionController({ getSource, ensureUser, upload, onSt
           groupName,
           source,
         });
-        setStatus("uploading", `Đang tải ${metadata.filename}…`);
+        setStatus("uploading", `Uploading ${metadata.filename}…`);
         await upload({
           user,
           identity,
           metadata,
           source,
-          onMetadata: () => setStatus("saving", "Đang lưu bài vào danh sách…"),
+          onMetadata: () => setStatus("saving", "Saving submission to the list…"),
         });
         try { localStorage.setItem("techcamp-last-group", groupName); } catch {}
-        setStatus("success", `${metadata.filename} đã được nộp lúc ${new Date().toLocaleTimeString()}.`);
+        setStatus("success", `${metadata.filename} submitted at ${new Date().toLocaleTimeString()}.`);
         return { ok: true, metadata };
       } catch (error) {
         if (error?.stage === "metadata") {
-          setStatus("error", "Bài chưa xuất hiện trong danh sách. Hãy thử lại.");
+          setStatus("error", "The submission is not visible in the list yet. Try again.");
           return { ok: false, reason: "metadata", error };
         }
-        setStatus("error", error?.message || "Không thể nộp bài. Hãy thử lại.");
+        setStatus("error", error?.message || "Unable to submit the file. Try again.");
         return { ok: false, reason: "network", error };
       } finally {
         busy = false;
@@ -96,7 +96,7 @@ export function initStudentSubmissionUi({
   openButton.addEventListener("click", () => {
     form.reset();
     updatePreview();
-    renderStatus(available ? "idle" : "error", available ? "" : "Firebase chưa được cấu hình cho workshop.");
+    renderStatus(available ? "idle" : "error", available ? "" : "Firebase is not configured for this workshop.");
     if (typeof dialog.showModal === "function") dialog.showModal();
     else dialog.hidden = false;
     groupInput.focus();
@@ -106,11 +106,11 @@ export function initStudentSubmissionUi({
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!available) {
-      renderStatus("error", "Firebase chưa được cấu hình cho workshop.");
+      renderStatus("error", "Firebase is not configured for this workshop.");
       return;
     }
     const result = await controller.submit(groupInput.value.trim());
-    if (result.ok) log?.(`Upload ${result.metadata.filename} thành công`);
+    if (result.ok) log?.(`Upload complete: ${result.metadata.filename}`);
   });
   form.querySelectorAll("[data-upload-cancel]").forEach((cancelButton) => cancelButton.addEventListener("click", () => {
     if (dialog.open) dialog.close();

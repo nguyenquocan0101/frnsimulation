@@ -85,9 +85,9 @@ function treeHasLiteral(node, value) {
 
 test("teacher entry is public and has no auth/account/expiry controls", () => {
   assert.doesNotMatch(html, /signInTeacher|resolveTeacherRedirect|teacherSignInBtn/i);
-  assert.doesNotMatch(html, /Đăng nhập|Chưa đăng nhập|Đăng xuất|token|hết hạn|expiry/i);
+  assert.doesNotMatch(html, /Sign in|Signed out|Sign out|token|expired|expiry/i);
   assert.match(html, /id=["']teacherPublicStatus["']/);
-  assert.match(html, /Workshop công khai/i);
+  assert.match(html, /Public workshop/i);
 });
 
 test("public page exposes refresh, filter, table, empty/error, and preview selectors", () => {
@@ -103,13 +103,13 @@ test("public page exposes refresh, filter, table, empty/error, and preview selec
     assert.match(html, new RegExp(`id=["']${id}["']`), `missing #${id}`);
   }
   assert.match(html, /aria-live=["']polite["']/);
-  assert.match(html, /Xem trước/);
+  assert.match(html, /preview/i);
 });
 
 test("public submissions table uses the exact desktop column order", () => {
   const submissionsTable = html.match(/<table[^>]*id=["']submissionTable["'][\s\S]*?<\/table>/i)?.[0] ?? "";
   const headers = [...submissionsTable.matchAll(/<th[^>]*>([^<]+)<\/th>/gi)].map((match) => match[1].trim());
-  assert.deepEqual(headers, ["STT", "Tên nhóm", "Tên file", "Nộp lúc", "Thao tác"]);
+  assert.deepEqual(headers, ["No.", "Group", "File", "Submitted", "Actions"]);
 });
 
 test("teacher rendering never assigns untrusted submission content as HTML", () => {

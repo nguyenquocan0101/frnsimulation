@@ -71,6 +71,18 @@ See [API_INSTRUCTIONS.md](API_INSTRUCTIONS.md) for the student-facing TechCamp c
 
 The live bridge and physical SDK are intentionally FR3-specific and run only on a machine connected to the robot LAN. They are not used by the browser simulator.
 
+## Student project guide
+
+Open [`/project-guide`](project-guide.html) for the visual project guide. It is a
+static page for cấp 2/cấp 3 students with a quick-start track, a deeper explanation
+of robot state, API cards, the P1–P7 arrangements, a complete `main()` example,
+troubleshooting, practice prompts, and a closing checklist. It has no Firebase
+dependency and can be read even when the simulator or network is unavailable.
+
+The guide is also available at `/project-guide/`; both URLs serve the same document.
+The IDE links to it as **Tài liệu dự án**, while the direct competition page remains
+separate and is not promoted from the student navigation.
+
 ## Workshop submissions
 
 The editor toolbar has **Upload bài** instead of a local `.py` download. Students enter a

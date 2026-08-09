@@ -1,0 +1,11 @@
+.playground-card{border:1px solid var(--line);border-radius:14px;background:#0e1b2aee;padding:16px}
+.playground-preload,.playground-toolbar,.playground-actions,.playground-views{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.playground-preload{justify-content:space-between}.playground-preload span{color:var(--muted)}
+.playground-viewport{min-height:300px;margin-top:12px;border:1px solid var(--line);border-radius:10px;background:#07111c;overflow:hidden;aspect-ratio:16/9}
+.playground-viewport iframe{display:block;width:100%;height:100%;min-height:300px;border:0}
+.playground-toolbar{padding:12px 0;border-bottom:1px solid var(--line)}.playground-toolbar label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:14px}
+.playground-status{min-height:28px;margin-top:10px;color:var(--teal)}.playground-fallback{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px;margin-top:12px;border:1px solid #9b5b47;border-radius:10px;color:var(--muted)}
+.playground-log,.playground-commands{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.playground-log h3,.playground-commands h3{margin:0 0 8px;font-size:16px}.playground-log ol{margin:0;padding-left:24px;color:var(--muted);max-height:130px;overflow:auto}
+.command-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.command-card{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}.command-card code{color:var(--teal)}
+.command-card select{max-width:100%;background:var(--surface2);color:var(--ink);border:1px solid var(--line);padding:6px;border-radius:6px}.playground-snapshots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}.playground-snapshots figure{margin:0}.playground-snapshots img{display:block;width:100%;border-radius:8px}.playground-snapshots figcaption{color:var(--muted);font-size:12px;text-align:center}
+@media(max-width:600px){.playground-card{padding:12px}.command-grid{grid-template-columns:1fr}.playground-snapshots{grid-template-columns:repeat(2,minmax(0,1fr))}.playground-preload,.playground-toolbar{align-items:flex-start;flex-direction:column}.playground-viewport,.playground-viewport iframe{min-height:220px}}

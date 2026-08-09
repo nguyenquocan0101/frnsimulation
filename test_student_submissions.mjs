@@ -122,7 +122,7 @@ test("metadata failure is visible as an unlisted submission", async () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.reason, "metadata");
-  assert.match(statuses.at(-1)?.message ?? "", /not listed|chưa.*danh sách/i);
+  assert.match(statuses.at(-1)?.message ?? "", /not visible|not listed/i);
 });
 
 test("Firestore failure reports an error and does not claim success", async () => {
