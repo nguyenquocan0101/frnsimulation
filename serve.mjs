@@ -86,6 +86,7 @@ const server = http.createServer(async (request, response) => {
   }
   const relative = requestPath === '/' ? 'index.html'
     : ['/competition', '/competition/'].includes(requestPath) ? 'competition.html'
+    : ['/competitive', '/competitive/'].includes(requestPath) ? 'competitive.html'
     : ['/project-guide', '/project-guide/'].includes(requestPath) ? 'project-guide.html'
     : requestPath.replace(/^\/+/, '');
   const filePath = path.resolve(root, relative);

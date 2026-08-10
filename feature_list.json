@@ -439,6 +439,66 @@
       "evidence": "node --test test_project_guide_playground.mjs test_project_guide_gifs.mjs (12 passed); /project-guide and /project-guide/ HTTP 200",
       "notes": "Keep the existing English guide, IDE palette, accessibility, and responsive layout.",
       "priority": "P1"
+    },
+    {
+      "id": "live-arm-competition-rules",
+      "title": "Physical-arm competition rules page",
+      "user_visible_behavior": "Students can read the real-arm vision challenge without opening or controlling the simulator.",
+      "verification_command": "`/competitive` describes capture, detect, transfer, distance, eligibility, and ranking in English without loading simulator/Firebase/camera/model APIs.",
+      "status": "passing-unverified",
+      "evidence": "node --test test_competitive_page.mjs test_competitive_rules_page.mjs (9 passed); static-only page contains capture, detect, transfer, and final-arrangement rules.",
+      "notes": "Static documentation only; physical robot and model operations are out of scope.",
+      "priority": "P1"
+    },
+    {
+      "id": "live-arm-competition-cost-pool",
+      "title": "Clear low-cost scoring formula",
+      "user_visible_behavior": "Students can calculate that lower total cost wins a correct real-arm challenge.",
+      "verification_command": "The page visibly shows capture=1 (max 3), detect=3, move=1, distance per slot=1, plus the worked 2/1/5/10 = 20 example.",
+      "status": "passing-unverified",
+      "evidence": "node --test test_competitive_rules_page.mjs (9 passed); cost table and worked result 20 are present.",
+      "notes": "No timer and no live score calculation.",
+      "priority": "P1"
+    },
+    {
+      "id": "live-arm-competition-static-route",
+      "title": "Static competitive route",
+      "user_visible_behavior": "Students can open the rules at either `/competitive` or `/competitive/` on local hosting and Vercel.",
+      "verification_command": "Both route forms return the same responsive rules document and include a keyboard-visible link back to the IDE.",
+      "status": "passing-unverified",
+      "evidence": "node --test test_competitive_page.mjs (4 passed); local and Vercel slash mappings are locked without changing /competition.",
+      "notes": "No route data loading or authentication.",
+      "priority": "P1"
+    },
+    {
+      "id": "competitive-ide-visual-parity",
+      "title": "Competitive rules page matches the IDE UI",
+      "user_visible_behavior": "Students see the same FPTU TECHX CAMP identity, dark surfaces, orange emphasis, panels, and code treatment as the IDE.",
+      "verification_command": "Static/CSS tests and screenshots confirm IDE tokens, exact wordmark structure, focus treatment, and absence of legacy teal/radial leaderboard styling.",
+      "status": "passing",
+      "evidence": "Phase 01: node --test test_competitive_page.mjs (4 passed); review approved shared IDE wordmark, static shell, and route isolation.",
+      "notes": "Static physical-arm rulebook, not a clone of the two-pane simulator workspace.",
+      "priority": "P1"
+    },
+    {
+      "id": "competitive-explanatory-fr5-media",
+      "title": "Concise FR5 visuals explain real-arm rules",
+      "user_visible_behavior": "Students see short contextual FR5 arm, board, and transfer visuals beside the rules without mistaking them for live controls.",
+      "verification_command": "No more than three existing 640×360 GIFs are used with fixed aspect ratio, caption/fallback, reduced-motion behavior, and no simulator chrome visible.",
+      "status": "passing-unverified",
+      "evidence": "node --test test_competitive_rules_page.mjs (9 passed); three 640x360 FR5 GIFs use captions and reduced-motion posters.",
+      "notes": "Reuse existing lightweight guide GIFs; do not load large sticker PNGs.",
+      "priority": "P1"
+    },
+    {
+      "id": "competitive-responsive-rulebook",
+      "title": "Accessible responsive competition rulebook",
+      "user_visible_behavior": "Students can read the physical-arm rules, formula, and code example on desktop or a 320px phone screen.",
+      "verification_command": "Semantic landmark/focus/static tests and browser checks show no horizontal overflow, readable table/code, captions, and keyboard-visible Open IDE link at 320/768/1440 widths.",
+      "status": "passing-unverified",
+      "evidence": "node --test test_competitive_responsive.mjs (4 passed); IDE tokens, focus treatment, 320px stack, 16:9 media, and 44px coarse-pointer targets are covered.",
+      "notes": "No data loading, authentication, camera, or robot operation.",
+      "priority": "P2"
     }
   ]
 }

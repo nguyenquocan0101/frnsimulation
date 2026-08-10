@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <title>Physical Arm Challenge · FPTU TECHX CAMP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Paytone+One&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/competitive.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to rules</a>
+    <header class="site-header">
+      <a class="header-brand brand" href="/" aria-label="FPTU TechX Camp home">
+        <span class="techx-logo">FPTU TECH<span>X</span> CAMP</span>
+        <span>FAIRINO SIMULATION</span>
+      </a>
+      <a class="open-ide-link" href="/">Open IDE</a>
+    </header>
+
+    <main id="main-content" class="rules-shell">
+      <section class="intro-panel hero-panel" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <p class="section-label">LIVE ARM VISION CHALLENGE</p>
+          <h1 id="page-title">Sort the board with the real arm.</h1>
+          <p>Use camera data, identify the blocks, and finish the correct final arrangement with the lowest total cost.</p>
+          <p class="quiet-note">This page explains the workshop rules. It does not operate the arm, run a model, or store results.</p>
+        </div>
+        <figure class="media-card hero-media">
+          <picture>
+            <source media="(prefers-reduced-motion: reduce)" srcset="/assets/competitive/fr5-command-move-to-poster.png" />
+            <img src="/assets/guide/fr5-command-move-to.gif" width="640" height="360" alt="FR5 arm moving toward a board position" />
+          </picture>
+          <figcaption>Illustration only · FR5 arm and board</figcaption>
+        </figure>
+      </section>
+
+      <section class="section-block" aria-labelledby="flow-title">
+        <div class="section-heading"><p class="section-label">THE FLOW</p><h2 id="flow-title">Four steps</h2></div>
+        <ol class="process-list">
+          <li><span class="step-number">01</span><strong>Capture</strong><code>capture()</code><p>Take a camera frame. Each call costs <b>1 energy</b>; maximum <b>3</b> captures.</p></li>
+          <li><span class="step-number">02</span><strong>Detect</strong><code>detect()</code><p>Use your model to return the block positions and identities.</p></li>
+          <li><span class="step-number">03</span><strong>Transfer</strong><code>move_to()</code><p>Pick one block and place it in the correct slot. One completed transfer is <b>1 move</b>.</p></li>
+          <li><span class="step-number">04</span><strong>Finish</strong><code>verify()</code><p>Only a <b>correct final arrangement</b> can be ranked.</p></li>
+        </ol>
+      </section>
+
+      <section class="section-block cost-section" aria-labelledby="cost-title">
+        <div class="section-heading"><p class="section-label">THE COST POOL</p><h2 id="cost-title">Every action has a fixed weight</h2></div>
+        <div class="cost-layout">
+          <div class="table-wrap">
+            <table>
+              <caption class="sr-only">Competition cost table</caption>
+              <thead><tr><th scope="col">Action</th><th scope="col">Cost</th><th scope="col">Limit / meaning</th></tr></thead>
+              <tbody>
+                <tr><th scope="row"><code>capture()</code></th><td>1 energy</td><td>Maximum 3 calls</td></tr>
+                <tr><th scope="row"><code>detect()</code></th><td>3 energy</td><td>Model reads the scene</td></tr>
+                <tr><th scope="row">Completed transfer</th><td>1 move</td><td>One block from source to target</td></tr>
+                <tr><th scope="row">Slot distance</th><td>1 distance</td><td>Count every slot crossed</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <aside class="formula-card" aria-label="Cost formula and worked example">
+            <p class="eyebrow">FORMULA</p>
+            <p class="formula">total cost = captures × 1 + detects × 3 + moves × 1 + distance × 1</p>
+            <p class="example-label">Worked result</p>
+            <p class="example-math"><b>2</b> captures × 1 + <b>1</b> detection × 3 + <b>5</b> completed transfers × 1 + <b>10</b> distance = <strong>20</strong></p>
+            <p class="winner-note">Lowest total cost wins — if the final arrangement is correct.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section-block split-section" aria-labelledby="code-title">
+        <div>
+          <p class="section-label">ONE TRANSFER</p>
+          <h2 id="code-title">A complete P2 → P5 move</h2>
+          <p class="muted-copy">The code below is a reference. It is displayed only; this page has no Run button.</p>
+          <pre class="code-panel"><code>bot.move_to("P2")
+bot.move_down()
+bot.grip()
+bot.move_up()
+bot.move_to("P5")
+bot.move_down()
+bot.release()
+bot.move_up()</code></pre>
+          <p class="distance-callout"><code>P2 → P5 = 3 distance</code></p>
+        </div>
+        <figure class="media-card" data-media="transfer">
+          <picture>
+            <source media="(prefers-reduced-motion: reduce)" srcset="/assets/competitive/fr5-command-grip-poster.png" />
+            <img src="/assets/guide/fr5-command-grip.gif" width="640" height="360" loading="lazy" alt="FR5 gripper holding a block above the board" />
+          </picture>
+          <figcaption>Illustration only · grip before the transfer</figcaption>
+        </figure>
+      </section>
+
+      <section class="section-block split-section detection-section" aria-labelledby="vision-title">
+        <figure class="media-card order-last">
+          <picture>
+            <source media="(prefers-reduced-motion: reduce)" srcset="/assets/competitive/fr5-command-get-positions-poster.png" />
+            <img src="/assets/guide/fr5-command-get-positions.gif" width="640" height="360" loading="lazy" alt="FR5 board positions used to explain slot distance" />
+          </picture>
+          <figcaption>Illustration only · positions and slot distance</figcaption>
+        </figure>
+        <div>
+          <p class="section-label">VISION DATA</p>
+          <h2 id="vision-title">Capture and detect before moving</h2>
+          <p class="muted-copy">Your model can return a list such as this. The page does not execute it.</p>
+          <pre class="code-panel compact"><code>frame = bot.capture()       # costs 1 energy
+objects = bot.detect()      # costs 3 energy
+# objects → [{"slot": "P2", "name": "car"}, ...]</code></pre>
+          <p class="muted-copy">Use the board order and count each slot crossed. A shorter route lowers distance.</p>
+        </div>
+      </section>
+
+      <section class="section-block ranking-panel" aria-labelledby="ranking-title">
+        <p class="section-label">HOW WINNERS ARE ORDERED</p>
+        <h2 id="ranking-title">Lowest total cost wins</h2>
+        <p>Teams must first reach the correct final arrangement. If two teams have the same total cost, compare in this order:</p>
+        <ol class="tie-list"><li>lower energy</li><li>fewer completed moves</li><li>shorter distance</li></ol>
+        <p class="quiet-note">The arm runs in the workshop. Follow the instructor’s safety rules and keep clear of the robot.</p>
+      </section>
+    </main>
+
+    <footer class="site-footer"><span>FPTU TECHX CAMP</span><a href="/">Open IDE</a></footer>
+  </body>
+</html>
