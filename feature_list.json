@@ -499,6 +499,46 @@
       "evidence": "node --test test_competitive_responsive.mjs (4 passed); IDE tokens, focus treatment, 320px stack, 16:9 media, and 44px coarse-pointer targets are covered.",
       "notes": "No data loading, authentication, camera, or robot operation.",
       "priority": "P2"
+    },
+    {
+      "id": "random-sticker-five-unique-draw",
+      "title": "Quay ngẫu nhiên năm Sticker không trùng",
+      "user_visible_behavior": "Người điều phối quay được đúng năm hình khác nhau từ Sticker 1–8 để hiển thị một bộ chọn ngẫu nhiên.",
+      "verification_command": "Một lượt quay chỉ dùng manifest Sticker 1–8, chọn đúng năm ID riêng biệt trước animation, và không tham chiếu Sticker 9 hay PNG nguồn.",
+      "status": "passing",
+      "evidence": "Phase 03 focused accessibility/state/page suite passes 26/26; browser smoke completed with five distinct labeled results.",
+      "notes": "Client-only, workshop utility; không có weighted odds hoặc prize allocation.",
+      "priority": "P1"
+    },
+    {
+      "id": "random-sticker-sequential-slot-reels",
+      "title": "Năm cuộn ảnh dừng lần lượt như slot machine",
+      "user_visible_behavior": "Người xem thấy năm cuộn cùng bắt đầu và dừng từ trái sang phải, giúp kết quả dễ theo dõi.",
+      "verification_command": "Một click khóa điều khiển, bắt đầu năm cuộn cùng lúc, rồi settle reel 1–5 theo thứ tự trong tối đa bốn giây.",
+      "status": "passing",
+      "evidence": "Phase 03 focused suite passes; browser smoke visibly confirms all vertical tracks spin together and settle left-to-right.",
+      "notes": "Reduced motion hiển thị ngay kết quả tương đương, không chạy animation.",
+      "priority": "P1"
+    },
+    {
+      "id": "random-sticker-result-actions",
+      "title": "Lưu, sao chép, đặt lại và quay lại kết quả Sticker",
+      "user_visible_behavior": "Người điều phối xem thứ tự năm hình, sao chép kết quả, đặt lại hoặc quay bộ mới mà không cần chép tay.",
+      "verification_command": "Kết quả hoàn tất được lưu local storage hợp lệ, khôi phục sau refresh; Copy xuất plain text không throw; Reset xóa state; state lỗi/duplicate bị bỏ qua an toàn.",
+      "status": "passing",
+      "evidence": "Phase 03 focused suite passes persistence, restore, copy fallback, reset, action locks, storage errors, and reduced motion.",
+      "notes": "Không lưu server hoặc Firebase; không persist lượt quay đang chạy.",
+      "priority": "P1"
+    },
+    {
+      "id": "random-sticker-accessible-ide-route",
+      "title": "Trang random picker đồng bộ IDE và hỗ trợ truy cập",
+      "user_visible_behavior": "Người dùng mở `/random-picker` trên desktop hoặc điện thoại, dùng bàn phím/reduced-motion vẫn hiểu và điều khiển được kết quả.",
+      "verification_command": "Hai route slash/non-slash trả 200 tại local/Vercel; UI dùng token/wordmark IDE, aria-live, focus-visible, target touch 44px và không overflow tại 320px.",
+      "status": "passing",
+      "evidence": "Phase 04: focused suite 26/26; both local route forms return 200, WebP returns image/webp, and browser smoke passes at 1440/768/320px without overflow.",
+      "notes": "Không sử dụng Firebase, API, simulator, iframe, canvas hoặc account state.",
+      "priority": "P2"
     }
   ]
 }

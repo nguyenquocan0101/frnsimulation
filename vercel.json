@@ -10,6 +10,8 @@
     { "source": "/competition/", "destination": "/competition.html" },
     { "source": "/competitive", "destination": "/competitive.html" },
     { "source": "/competitive/", "destination": "/competitive.html" },
+    { "source": "/random-picker", "destination": "/random-picker.html" },
+    { "source": "/random-picker/", "destination": "/random-picker.html" },
     { "source": "/project-guide", "destination": "/project-guide.html" },
     { "source": "/project-guide/", "destination": "/project-guide.html" }
   ]

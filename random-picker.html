@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <title>Random Picker · FPTU TECHX CAMP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Paytone+One&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/random-picker.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to picker</a>
+    <header class="site-header">
+      <a class="header-brand brand" href="/" aria-label="FPTU TechX Camp home">
+        <span class="techx-logo">FPTU TECH<span>X</span> CAMP</span>
+        <span>FAIRINO SIMULATION</span>
+      </a>
+      <a class="open-ide-link" href="/">Open IDE</a>
+    </header>
+
+    <main id="main-content" class="picker-shell">
+      <section class="picker-panel" aria-labelledby="picker-title">
+        <p class="section-label">RANDOM STICKER PICKER</p>
+        <h1 id="picker-title">Pick five unique stickers.</h1>
+        <p class="intro-copy">Five reels spin together and settle from left to right.</p>
+
+        <section class="reel-group" aria-label="Five sticker reels" aria-busy="false" data-reel-group>
+          <article class="reel" data-reel="0"><span class="reel-number">01</span><div class="reel-window" data-reel-window></div><p>Sticker slot 1</p></article>
+          <article class="reel" data-reel="1"><span class="reel-number">02</span><div class="reel-window" data-reel-window></div><p>Sticker slot 2</p></article>
+          <article class="reel" data-reel="2"><span class="reel-number">03</span><div class="reel-window" data-reel-window></div><p>Sticker slot 3</p></article>
+          <article class="reel" data-reel="3"><span class="reel-number">04</span><div class="reel-window" data-reel-window></div><p>Sticker slot 4</p></article>
+          <article class="reel" data-reel="4"><span class="reel-number">05</span><div class="reel-window" data-reel-window></div><p>Sticker slot 5</p></article>
+        </section>
+
+        <div class="action-row" aria-label="Picker actions">
+          <button type="button" class="spin-button" data-spin>Spin</button>
+          <button type="button" data-copy disabled>Copy result</button>
+          <button type="button" data-reset disabled>Reset</button>
+        </div>
+        <p class="status" aria-live="polite" data-status>Ready to spin five different stickers.</p>
+        <ol class="result-list" aria-label="Selected sticker order" data-results></ol>
+      </section>
+    </main>
+
+    <footer class="site-footer"><span>FPTU TECHX CAMP</span><a href="/">Open IDE</a></footer>
+    <script type="module" src="/random-picker.mjs"></script>
+  </body>
+</html>

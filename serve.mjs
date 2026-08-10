@@ -12,6 +12,7 @@ const types = {
   '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.webp': 'image/webp',
   '.urdf': 'application/xml; charset=utf-8',
   '.stl': 'application/sla',
   '.stp': 'model/step',
@@ -87,6 +88,7 @@ const server = http.createServer(async (request, response) => {
   const relative = requestPath === '/' ? 'index.html'
     : ['/competition', '/competition/'].includes(requestPath) ? 'competition.html'
     : ['/competitive', '/competitive/'].includes(requestPath) ? 'competitive.html'
+    : ['/random-picker', '/random-picker/'].includes(requestPath) ? 'random-picker.html'
     : ['/project-guide', '/project-guide/'].includes(requestPath) ? 'project-guide.html'
     : requestPath.replace(/^\/+/, '');
   const filePath = path.resolve(root, relative);
