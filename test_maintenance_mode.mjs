@@ -7,7 +7,9 @@ const config = fs.readFileSync("maintenance-config.js", "utf8");
 const css = fs.readFileSync("maintenance.css", "utf8");
 
 test("maintenance switch defaults on and is reversible in one file", () => {
-  assert.match(config, /FR5_MAINTENANCE_MODE\s*=\s*true/);
+  assert.match(config, /const MAINTENANCE_MODE\s*=\s*true/);
+  assert.match(config, /const LOCAL_MAINTENANCE_MODE\s*=\s*false/);
+  assert.match(config, /localHost/);
   assert.match(index, /maintenance-config\.js/);
 });
 
