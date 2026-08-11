@@ -1,0 +1,2 @@
+# Control service dependencies are intentionally separate from telemetry.
+websockets==15.0.1

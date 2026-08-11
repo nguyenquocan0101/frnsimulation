@@ -1,0 +1,7 @@
+{
+  "point_count": 2,
+  "points": [
+    {"name":"HOME","toolnum":0,"workpiecenum":0,"j1":0,"j2":1,"j3":2,"j4":3,"j5":4,"j6":5,"x":10,"y":11,"z":12,"rx":13,"ry":14,"rz":15},
+    {"name":"P2","toolnum":0,"workpiecenum":0,"j1":20,"j2":21,"j3":22,"j4":23,"j5":24,"j6":25,"x":30,"y":31,"z":32,"rx":33,"ry":34,"rz":35}
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "host": "127.0.0.1",
+  "port": 8766,
+  "scheme": "wss",
+  "origins": ["https://fairino-robot-simulator.vercel.app", "http://127.0.0.1:8080"],
+  "dry_run": true,
+  "disarmed": true,
+  "points_file": "",
+  "certificate_thumbprint": ""
+}
