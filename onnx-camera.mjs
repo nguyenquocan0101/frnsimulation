@@ -160,8 +160,8 @@ export function createOnnxCameraController({ root, deps = {} }) {
     nodes.captureMode.setAttribute('aria-pressed', String(state.mode === 'capture'));
     nodes.liveMode.setAttribute('aria-pressed', String(state.mode === 'live'));
     nodes.modeHelp.textContent = state.mode === 'live'
-      ? 'Draw on the running camera. Each completed box snapshots the current frame and predicts all boxes.'
-      : 'Capture a stable frame, then draw regions and choose Predict all.';
+      ? 'Live draw · each completed box predicts all boxes.'
+      : 'Capture frame · Predict all manually.';
     nodes.overlay.setAttribute('aria-disabled', String(busy || state.mode === 'live' && (!hasStream || nodes.video.readyState < 2)));
     nodes.overlay.setAttribute('aria-label', state.mode === 'live'
       ? 'Draw classification boxes on the running camera. Each completed box is snapshotted and predicted.'
@@ -747,7 +747,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
   windowRef.addEventListener('pagehide', destroy, { once: true });
 
   setProvider('MODEL OFF');
-  setStatus('Load a model and connect a camera to begin.');
+  setStatus('');
   updateStage();
   return { destroy, stopStream };
 }

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -9,11 +9,18 @@
   </head>
   <body class="onnx-camera-window-body">
     <main class="onnx-camera-window-shell" aria-labelledby="onnxWindowTitle">
-      <div class="onnx-window-intro">
-        <p class="eyebrow">TECHCAMP AI WORKSHOP</p>
-        <h1 id="onnxWindowTitle">AI camera</h1>
-        <p>Load a local YOLO26-cls model, capture a frame, or draw directly on live camera video.</p>
-      </div>
+      <header class="onnx-window-header">
+        <div class="onnx-brand-lockup" aria-label="FPTU TechX Camp">
+          <div class="onnx-techx-logo">FPTU TECH<span>X</span> CAMP</div>
+          <span>FAIRINO SIMULATION</span>
+        </div>
+        <div class="onnx-window-title">
+          <span class="onnx-window-kicker">LOCAL AI CAMERA</span>
+          <h1 id="onnxWindowTitle">AI camera</h1>
+        </div>
+      </header>
+
+      <div class="onnx-window-rule" aria-hidden="true"></div>
 
       <section
         class="panel onnx-camera-card onnx-camera-window-card"
@@ -22,30 +29,31 @@
       >
         <div class="onnx-camera-heading">
           <div>
-            <h2 id="onnxCameraTitle">Classification camera</h2>
+            <h2 id="onnxCameraTitle">Camera workspace</h2>
             <span class="onnx-status-chip" id="onnxProviderStatus">MODEL OFF</span>
           </div>
-          <span class="onnx-local-note">Model and frames stay on this device.</span>
         </div>
 
-        <label class="onnx-field" for="onnxModelInput">
-          <span>YOLO26-cls model (.onnx)</span>
-          <input id="onnxModelInput" type="file" accept=".onnx,application/octet-stream" />
-        </label>
+        <div class="onnx-source-grid">
+          <label class="onnx-field" for="onnxModelInput">
+            <span>YOLO26-cls model (.onnx)</span>
+            <input id="onnxModelInput" type="file" accept=".onnx,application/octet-stream" />
+          </label>
+
+          <label class="onnx-field" for="onnxCameraSelect">
+            <span>Camera</span>
+            <select id="onnxCameraSelect" disabled>
+              <option value="">Connect to list cameras</option>
+            </select>
+          </label>
+        </div>
         <p class="onnx-file-name" id="onnxModelName">Choose a local .onnx file</p>
 
         <div class="onnx-mode-group" role="group" aria-label="Camera drawing mode">
           <button class="button quiet" id="onnxCaptureModeBtn" type="button" aria-pressed="true">Capture frame</button>
           <button class="button quiet" id="onnxLiveModeBtn" type="button" aria-pressed="false">Draw live</button>
         </div>
-        <p class="onnx-mode-help" id="onnxModeHelp">Capture a stable frame, then draw regions and choose Predict all.</p>
-
-        <label class="onnx-field" for="onnxCameraSelect">
-          <span>Camera</span>
-          <select id="onnxCameraSelect" disabled>
-            <option value="">Connect to list cameras</option>
-          </select>
-        </label>
+        <p class="onnx-mode-help" id="onnxModeHelp">Capture mode · Predict all manually.</p>
 
         <div class="onnx-camera-stage" id="onnxCameraStage" data-mode="empty">
           <video id="onnxCameraVideo" muted playsinline hidden></video>
@@ -57,11 +65,11 @@
             hidden
           ></canvas>
           <p class="onnx-stage-empty" id="onnxStageEmpty">
-            Connect a camera, then capture a frame.
+            Connect a camera to begin.
           </p>
         </div>
 
-        <div class="onnx-action-row">
+        <div class="onnx-action-row onnx-camera-actions">
           <button class="button primary" id="onnxConnectCameraBtn" type="button">Connect camera</button>
           <button class="button quiet" id="onnxDisconnectBtn" type="button" disabled>Disconnect</button>
           <button class="button quiet" id="onnxCaptureBtn" type="button" disabled>Capture frame</button>
@@ -72,9 +80,7 @@
           <button class="button primary" id="onnxPredictBtn" type="button" disabled>Predict all</button>
         </div>
 
-        <p class="onnx-status" id="onnxCameraStatus" role="status" aria-live="polite">
-          Load a model and connect a camera to begin.
-        </p>
+        <p class="onnx-status" id="onnxCameraStatus" role="status" aria-live="polite"></p>
         <ol class="onnx-results" id="onnxResults" aria-label="Classification results"></ol>
       </section>
     </main>

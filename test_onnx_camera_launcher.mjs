@@ -33,7 +33,7 @@ test('opens one named, subpath-safe popup with clamped features', () => {
   assert.match(calls[0][2], /width=1100/);
   assert.match(calls[0][2], /height=800/);
   assert.match(calls[0][2], /resizable=yes/);
-  assert.equal(view.status.textContent, 'AI camera window opened.');
+  assert.equal(view.status.textContent, '');
 });
 
 test('focuses an open child and reopens after it closes', () => {

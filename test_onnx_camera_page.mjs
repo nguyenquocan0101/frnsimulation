@@ -25,6 +25,9 @@ test('dedicated page owns the full labelled camera workflow', () => {
     assert.match(windowPage, new RegExp(`id="${id}"`));
   }
   assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs"/);
+  assert.match(windowPage, /FPTU TECH<span>X<\/span> CAMP/);
+  assert.doesNotMatch(windowPage, /Load a model and connect a camera to begin/);
+  assert.doesNotMatch(windowPage, /Model and frames stay on this device/);
   assert.match(windowPage, /role="status"[^>]*aria-live="polite"/);
   assert.match(windowPage, /tabindex="0"/);
   assert.doesNotMatch(windowPage, /app\.js|three(?:\.module)?|firebase/i);

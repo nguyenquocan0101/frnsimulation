@@ -64,7 +64,8 @@ export function createOnnxCameraLauncher({
   function openOrFocus() {
     if (destroyed) return null;
     if (!safeClosed(childWindow)) {
-      announce(safeFocus(childWindow) ? 'AI camera window focused.' : 'AI camera window is open.');
+      safeFocus(childWindow);
+      announce('');
       return childWindow;
     }
 
@@ -81,13 +82,14 @@ export function createOnnxCameraLauncher({
       announce('The camera window was blocked. Allow pop-ups for this site, then try again.', 'error');
       return null;
     }
-    announce(safeFocus(childWindow) ? 'AI camera window opened.' : 'AI camera window opened; focus it from your browser tabs.');
+    safeFocus(childWindow);
+    announce('');
     return childWindow;
   }
 
   const onClick = () => openOrFocus();
   button.addEventListener('click', onClick);
-  announce('Open the AI camera in a separate window.');
+  announce('');
 
   function destroy() {
     if (destroyed) return;
