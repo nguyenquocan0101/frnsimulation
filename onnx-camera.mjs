@@ -470,8 +470,10 @@ export function createOnnxCameraController({ root, deps = {} }) {
     const rect = computeDisplayRect(contentRect, mediaWidth && mediaHeight ? mediaWidth / mediaHeight : 0);
     const inside = event.clientX >= rect.left && event.clientX <= rect.left + rect.width
       && event.clientY >= rect.top && event.clientY <= rect.top + rect.height;
-    const stageInside = event.clientX >= contentRect.left && event.clientX <= contentRect.left + contentRect.width
-      && event.clientY >= contentRect.top && event.clientY <= contentRect.top + contentRect.height;
+    const stageRight = Number(stageRect.right) || stageRect.left + stageRect.width;
+    const stageBottom = Number(stageRect.bottom) || stageRect.top + stageRect.height;
+    const stageInside = event.clientX >= stageRect.left && event.clientX <= stageRight
+      && event.clientY >= stageRect.top && event.clientY <= stageBottom;
     return {
       x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
       y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
