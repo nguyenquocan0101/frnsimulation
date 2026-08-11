@@ -133,6 +133,13 @@ export function createOnnxCameraController({ root, deps = {} }) {
     predictionToken: 0,
   };
   const workCanvas = documentRef.createElement('canvas');
+  const handledPointerEvents = new WeakSet();
+
+  function claimPointerEvent(event) {
+    if (handledPointerEvents.has(event)) return false;
+    handledPointerEvents.add(event);
+    return true;
+  }
 
   function setStatus(message, type = '') {
     nodes.status.textContent = message;
@@ -728,7 +735,8 @@ export function createOnnxCameraController({ root, deps = {} }) {
     setStatus('Boxes cleared. Draw 1–7 new boxes on this frame.');
   });
   nodes.predict.addEventListener('click', predictAll);
-  nodes.overlay.addEventListener('pointerdown', (event) => {
+  const handlePointerDown = (event) => {
+    if (!claimPointerEvent(event)) return;
     const liveReady = state.mode === 'live' && state.stream && nodes.video.readyState >= 2 && nodes.video.videoWidth;
     const captureReady = state.mode === 'capture' && state.frameReady;
     if ((!liveReady && !captureReady) || state.busy || state.boxes.length >= MAX_BOXES) return;
@@ -737,17 +745,30 @@ export function createOnnxCameraController({ root, deps = {} }) {
     state.pointerId = event.pointerId;
     state.pointerStart = point;
     state.draft = { x1: point.x, y1: point.y, x2: point.x, y2: point.y };
-    nodes.overlay.setPointerCapture(event.pointerId);
-  });
-  nodes.overlay.addEventListener('pointermove', (event) => {
+    (event.currentTarget?.setPointerCapture ? event.currentTarget : nodes.overlay).setPointerCapture(event.pointerId);
+  };
+  const handlePointerMove = (event) => {
+    if (!claimPointerEvent(event)) return;
     if (state.pointerId !== event.pointerId || !state.pointerStart) return;
     const point = pointerPosition(event);
     state.draft = clampNormalizedBox({ x1: state.pointerStart.x, y1: state.pointerStart.y, x2: point.x, y2: point.y });
     drawOverlay();
-  });
-  nodes.overlay.addEventListener('pointerup', finishBox);
-  nodes.overlay.addEventListener('pointercancel', cancelDraft);
-  nodes.overlay.addEventListener('lostpointercapture', cancelDraft);
+  };
+  const handlePointerUp = (event) => {
+    if (!claimPointerEvent(event)) return;
+    finishBox(event);
+  };
+  const handlePointerCancel = (event) => {
+    if (!claimPointerEvent(event)) return;
+    cancelDraft(event);
+  };
+  for (const surface of [nodes.overlay, nodes.stage]) {
+    surface.addEventListener('pointerdown', handlePointerDown);
+    surface.addEventListener('pointermove', handlePointerMove);
+    surface.addEventListener('pointerup', handlePointerUp);
+    surface.addEventListener('pointercancel', handlePointerCancel);
+    surface.addEventListener('lostpointercapture', handlePointerCancel);
+  }
   nodes.overlay.addEventListener('keydown', (event) => {
     if (state.busy) return;
     if ((event.key === 'Backspace' || event.key === 'Delete') && state.boxes.length) nodes.undo.click();
