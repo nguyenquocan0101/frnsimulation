@@ -452,9 +452,15 @@ export function createOnnxCameraController({ root, deps = {} }) {
 
   function pointerPosition(event) {
     const stageRect = nodes.stage.getBoundingClientRect();
+    const contentRect = {
+      left: stageRect.left + (Number(nodes.stage.clientLeft) || 0),
+      top: stageRect.top + (Number(nodes.stage.clientTop) || 0),
+      width: Number(nodes.stage.clientWidth) || stageRect.width,
+      height: Number(nodes.stage.clientHeight) || stageRect.height,
+    };
     const mediaWidth = state.mode === 'live' ? nodes.video.videoWidth : nodes.frame.width;
     const mediaHeight = state.mode === 'live' ? nodes.video.videoHeight : nodes.frame.height;
-    const rect = computeDisplayRect(stageRect, mediaWidth && mediaHeight ? mediaWidth / mediaHeight : 0);
+    const rect = computeDisplayRect(contentRect, mediaWidth && mediaHeight ? mediaWidth / mediaHeight : 0);
     const inside = event.clientX >= rect.left && event.clientX <= rect.left + rect.width
       && event.clientY >= rect.top && event.clientY <= rect.top + rect.height;
     return {
@@ -473,7 +479,13 @@ export function createOnnxCameraController({ root, deps = {} }) {
     const mediaWidth = state.mode === 'live' ? nodes.video.videoWidth : nodes.frame.width;
     const mediaHeight = state.mode === 'live' ? nodes.video.videoHeight : nodes.frame.height;
     const stageRect = nodes.stage.getBoundingClientRect();
-    const displayRect = computeDisplayRect(stageRect, mediaWidth && mediaHeight ? mediaWidth / mediaHeight : 0);
+    const contentRect = {
+      left: stageRect.left + (Number(nodes.stage.clientLeft) || 0),
+      top: stageRect.top + (Number(nodes.stage.clientTop) || 0),
+      width: Number(nodes.stage.clientWidth) || stageRect.width,
+      height: Number(nodes.stage.clientHeight) || stageRect.height,
+    };
+    const displayRect = computeDisplayRect(contentRect, mediaWidth && mediaHeight ? mediaWidth / mediaHeight : 0);
     const scale = nodes.overlay.width / (displayRect.width || nodes.overlay.width);
     context.font = `700 ${Math.max(11, 11 * scale)}px Consolas, monospace`;
     context.textBaseline = 'top';
