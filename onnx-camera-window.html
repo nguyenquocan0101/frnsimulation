@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Camera · TechCamp IDE</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./onnx-camera-window.css" />
+  </head>
+  <body class="onnx-camera-window-body">
+    <main class="onnx-camera-window-shell" aria-labelledby="onnxWindowTitle">
+      <div class="onnx-window-intro">
+        <p class="eyebrow">TECHCAMP AI WORKSHOP</p>
+        <h1 id="onnxWindowTitle">AI camera</h1>
+        <p>Load a local YOLO26-cls model, capture a frame, or draw directly on live camera video.</p>
+      </div>
+
+      <section
+        class="panel onnx-camera-card onnx-camera-window-card"
+        id="onnxCameraCard"
+        aria-labelledby="onnxCameraTitle"
+      >
+        <div class="onnx-camera-heading">
+          <div>
+            <h2 id="onnxCameraTitle">Classification camera</h2>
+            <span class="onnx-status-chip" id="onnxProviderStatus">MODEL OFF</span>
+          </div>
+          <span class="onnx-local-note">Model and frames stay on this device.</span>
+        </div>
+
+        <label class="onnx-field" for="onnxModelInput">
+          <span>YOLO26-cls model (.onnx)</span>
+          <input id="onnxModelInput" type="file" accept=".onnx,application/octet-stream" />
+        </label>
+        <p class="onnx-file-name" id="onnxModelName">Choose a local .onnx file</p>
+
+        <div class="onnx-mode-group" role="group" aria-label="Camera drawing mode">
+          <button class="button quiet" id="onnxCaptureModeBtn" type="button" aria-pressed="true">Capture frame</button>
+          <button class="button quiet" id="onnxLiveModeBtn" type="button" aria-pressed="false">Draw live</button>
+        </div>
+        <p class="onnx-mode-help" id="onnxModeHelp">Capture a stable frame, then draw regions and choose Predict all.</p>
+
+        <label class="onnx-field" for="onnxCameraSelect">
+          <span>Camera</span>
+          <select id="onnxCameraSelect" disabled>
+            <option value="">Connect to list cameras</option>
+          </select>
+        </label>
+
+        <div class="onnx-camera-stage" id="onnxCameraStage" data-mode="empty">
+          <video id="onnxCameraVideo" muted playsinline hidden></video>
+          <canvas id="onnxFrameCanvas" hidden></canvas>
+          <canvas
+            id="onnxOverlayCanvas"
+            aria-label="Draw classification boxes on the selected frame. Press Enter to add a preset box in Capture frame mode."
+            tabindex="0"
+            hidden
+          ></canvas>
+          <p class="onnx-stage-empty" id="onnxStageEmpty">
+            Connect a camera, then capture a frame.
+          </p>
+        </div>
+
+        <div class="onnx-action-row">
+          <button class="button primary" id="onnxConnectCameraBtn" type="button">Connect camera</button>
+          <button class="button quiet" id="onnxDisconnectBtn" type="button" disabled>Disconnect</button>
+          <button class="button quiet" id="onnxCaptureBtn" type="button" disabled>Capture frame</button>
+        </div>
+        <div class="onnx-action-row onnx-region-actions">
+          <button class="button quiet" id="onnxUndoBtn" type="button" disabled>Undo box</button>
+          <button class="button quiet" id="onnxClearBtn" type="button" disabled>Clear boxes</button>
+          <button class="button primary" id="onnxPredictBtn" type="button" disabled>Predict all</button>
+        </div>
+
+        <p class="onnx-status" id="onnxCameraStatus" role="status" aria-live="polite">
+          Load a model and connect a camera to begin.
+        </p>
+        <ol class="onnx-results" id="onnxResults" aria-label="Classification results"></ol>
+      </section>
+    </main>
+    <script type="module" src="./onnx-camera-window.mjs"></script>
+  </body>
+</html>

@@ -539,6 +539,83 @@
       "evidence": "Phase 04: focused suite 26/26; both local route forms return 200, WebP returns image/webp, and browser smoke passes at 1440/768/320px without overflow.",
       "notes": "Không sử dụng Firebase, API, simulator, iframe, canvas hoặc account state.",
       "priority": "P2"
+    },
+    {
+      "id": "dedicated-page-shell",
+      "title": "Dedicated Page Shell and Bootstrap",
+      "user_visible_behavior": "",
+      "verification_command": "",
+      "status": "passing",
+      "evidence": "Phase 1: standalone page IDs, theme bootstrap, controller reuse, syntax and core tests pass.",
+      "notes": ""
+    },
+    {
+      "id": "launcher-open-or-focus",
+      "title": "Simulation Launcher and Open-or-Focus Lifecycle",
+      "user_visible_behavior": "",
+      "verification_command": "",
+      "status": "passing",
+      "evidence": "Phase 2: named popup launcher, relative URL, clamped features, focus/reopen, blocked-popup status, and bfcache guard smoke pass.",
+      "notes": ""
+    },
+    {
+      "id": "regression-and-smoke",
+      "title": "Regression, Lifecycle, and Workshop Smoke",
+      "user_visible_behavior": "",
+      "verification_command": "",
+      "status": "passing",
+      "evidence": "Phase 3: focused camera/window suite 21/21 and syntax checks pass; full baseline has 3 pre-existing embed/guide failures and no camera/window failures.",
+      "notes": ""
+    },
+    {
+      "id": "live-camera-mode-selection",
+      "title": "Chọn Capture frame hoặc Draw live",
+      "user_visible_behavior": "so that tôi có thể dùng luồng manual ổn định hoặc demo live nhanh hơn.",
+      "verification_command": "Capture frame là mode mặc định/manual và control Draw live có thể điều khiển bằng bàn phím, đổi trạng thái rõ ràng.",
+      "status": "passing",
+      "evidence": "Focused ONNX camera/window suite (core, launcher, page, window, live-draw): 35 passed, 0 failed; node --check syntax checks pass; fake-DOM mode toggle/reset coverage included.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "live-camera-box-snapshot",
+      "title": "Vẽ box trực tiếp trên camera đang chạy",
+      "user_visible_behavior": "so that tôi có thể phân loại vật thể mà không cần Capture frame thủ công.",
+      "verification_command": "Trong Draw live, video vẫn hiển thị, box hợp lệ tối thiểu 12 px được nhận và frame hiện tại được snapshot tại pointer release.",
+      "status": "passing",
+      "evidence": "Focused ONNX camera/window suite (core, launcher, page, window, live-draw): 35 passed, 0 failed; fake-DOM live snapshot, displayRect, readyState, atomic drawImage and cancel paths covered.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "live-camera-auto-predict-all",
+      "title": "Tự Predict lại tất cả box live",
+      "user_visible_behavior": "so that kết quả luôn phản ánh toàn bộ selection hiện tại.",
+      "verification_command": "Sau mỗi box live hợp lệ từ 1 đến 7, đúng một lượt inference tuần tự chạy trên toàn bộ box hiện có và hiển thị kết quả cho từng box.",
+      "status": "passing",
+      "evidence": "Focused ONNX camera/window suite (core, launcher, page, window, live-draw): 35 passed, 0 failed; DI helper verifies cumulative 1/3/7 sequential calls plus fake-DOM auto-Predict, busy and retry guards.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "live-camera-manual-capture-regression",
+      "title": "Giữ Capture frame và Predict thủ công",
+      "user_visible_behavior": "so that tôi vẫn có thể chọn vùng ổn định khi vật thể hoặc camera đang chuyển động.",
+      "verification_command": "Capture frame/Retake vẫn đóng băng ảnh, không auto Predict, và Predict all chỉ chạy sau click trong capture mode.",
+      "status": "passing",
+      "evidence": "Focused ONNX camera/window suite (core, launcher, page, window, live-draw): 35 passed, 0 failed; fake-DOM capture-mode regression confirms no auto trigger before manual Predict.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "live-camera-source-reset",
+      "title": "Xóa selection khi đổi nguồn ảnh",
+      "user_visible_behavior": "so that kết quả không bao giờ tham chiếu tới frame không rõ nguồn.",
+      "verification_command": "Đổi mode, Retake/Capture, đổi camera hoặc Disconnect đều xóa box và result, đồng thời thông báo mode mới mà không rò stream.",
+      "status": "passing",
+      "evidence": "Focused ONNX camera/window suite (core, launcher, page, window, live-draw): 35 passed, 0 failed; source token guards, mode reset, no-model retention and manual retry are covered by fake-DOM/static contracts.",
+      "notes": "",
+      "priority": "P1"
     }
   ]
 }

@@ -358,6 +358,24 @@ async function initNormalServices() {
   return normalServicesPromise;
 }
 
+let onnxCameraLauncher = null;
+async function initOnnxCameraLauncher() {
+  if (isEmbedMode || onnxCameraLauncher || !$('onnxCameraLauncherBtn')) return;
+  const { createOnnxCameraLauncher } = await import('./onnx-camera-launcher.mjs');
+  onnxCameraLauncher = createOnnxCameraLauncher({
+    button: $('onnxCameraLauncherBtn'),
+    status: $('onnxCameraLauncherStatus'),
+    windowRef: window,
+    documentRef: document,
+  });
+}
+
+window.addEventListener('pagehide', (event) => {
+  if (event.persisted) return;
+  onnxCameraLauncher?.destroy();
+  onnxCameraLauncher = null;
+});
+
 const state = {
   jointsDeg: [...DEFAULT_HOME_JOINTS],
   targetDeg: [...DEFAULT_HOME_JOINTS],
@@ -4308,6 +4326,7 @@ function bindUI() {
     initWorkspaceTabs();
     initResizableWorkspace();
     initNormalServices().catch((error) => log(`Normal IDE services error: ${error.message}`));
+    initOnnxCameraLauncher().catch((error) => log(`AI camera launcher error: ${error.message}`));
   }
   renderHomePoint();
   renderJointControls();

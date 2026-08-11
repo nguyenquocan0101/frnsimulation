@@ -1,0 +1,21 @@
+.onnx-camera-window-body{min-width:320px;min-height:100vh;background:var(--bg);color:var(--ink)}
+.onnx-camera-window-shell{width:min(1120px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(20px,4vw,48px)}
+.onnx-window-intro{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:18px}
+.onnx-window-intro h1{margin:5px 0 0;font-size:clamp(28px,4vw,44px);letter-spacing:-.05em;line-height:1}
+.onnx-window-intro p:last-child{max-width:46ch;margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+.onnx-camera-window-card{height:auto;min-height:0;overflow:visible;padding:clamp(16px,2.4vw,28px)}
+.onnx-camera-window-card .onnx-camera-heading{align-items:center}
+.onnx-camera-window-card .onnx-camera-heading h2{margin:2px 0 5px;font-size:20px;letter-spacing:-.03em}
+.onnx-mode-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);width:max-content;max-width:100%}
+.onnx-mode-group .button{min-width:132px}
+.onnx-mode-group .button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
+.onnx-mode-help{margin:7px 0 0;color:var(--muted);font:10px/1.45 "Consolas",monospace}
+.onnx-local-note{color:var(--muted);font:10px/1.4 "Consolas",monospace;text-align:right}
+.onnx-camera-window-card .onnx-camera-stage{min-height:min(58vh,560px);aspect-ratio:16/9}
+.onnx-camera-window-card .onnx-action-row{max-width:720px}
+.onnx-camera-window-card .onnx-region-actions{max-width:720px;grid-template-columns:1fr 1fr 1.4fr}
+.onnx-camera-window-card .onnx-region-actions #onnxPredictBtn{grid-column:auto}
+.onnx-camera-window-card .onnx-status{max-width:720px}
+.onnx-camera-window-card .onnx-results{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));max-width:960px}
+@media(max-width:680px){.onnx-window-intro{display:block}.onnx-window-intro p:last-child{margin-top:10px}.onnx-camera-window-card .onnx-camera-heading{display:block}.onnx-local-note{display:block;margin-top:8px;text-align:left}.onnx-camera-window-card .onnx-camera-stage{min-height:240px}.onnx-camera-window-card .onnx-action-row,.onnx-camera-window-card .onnx-region-actions{max-width:none}.onnx-camera-window-card .onnx-region-actions{grid-template-columns:1fr 1fr}.onnx-camera-window-card .onnx-region-actions #onnxPredictBtn{grid-column:1/-1}.onnx-mode-group{width:100%}.onnx-mode-group .button{flex:1;min-width:0}}
+@media(prefers-reduced-motion:reduce){.onnx-camera-window-card *{transition-duration:.01ms!important}}

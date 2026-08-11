@@ -261,6 +261,24 @@ if __name__ == "__main__":
           <div class="simulation-header">
             <h2 id="viewport-title">Simulation</h2>
             <div class="simulation-actions" id="robotProfileControl">
+              <button
+                class="button quiet onnx-camera-launcher"
+                id="onnxCameraLauncherBtn"
+                type="button"
+                aria-label="Open AI camera in a separate window"
+                title="Open AI camera"
+                data-embed-hidden="onnx-camera"
+              >
+                <span class="onnx-camera-launcher-icon" aria-hidden="true">⌾</span>
+                <span>AI camera</span>
+              </button>
+              <span
+                class="onnx-camera-launcher-status"
+                id="onnxCameraLauncherStatus"
+                role="status"
+                aria-live="polite"
+                data-embed-hidden="onnx-camera"
+              ></span>
               <label class="robot-profile-label" for="robotProfileSelect"
                 >Robot</label
               >
