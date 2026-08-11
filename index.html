@@ -261,7 +261,8 @@ if __name__ == "__main__":
               ></span>
             </div>
           </div>
-          <div class="viewport-wrap" id="viewportWrap">
+          <div class="simulation-workspace">
+            <div class="viewport-wrap" id="viewportWrap">
             <div
               id="viewport"
               data-embed-viewport
@@ -286,6 +287,71 @@ if __name__ == "__main__":
               id="blockStateStrip"
               aria-label="Colored block positions P1 through P7"
             ></div>
+            </div>
+            <aside
+              class="panel onnx-camera-card"
+              id="onnxCameraCard"
+              aria-labelledby="onnxCameraTitle"
+              data-embed-hidden="onnx-camera"
+            >
+              <div class="onnx-camera-heading">
+                <div>
+                  <h3 id="onnxCameraTitle">AI camera</h3>
+                  <span class="onnx-status-chip" id="onnxProviderStatus">MODEL OFF</span>
+                </div>
+                <button class="button primary" id="onnxConnectCameraBtn" type="button">
+                  Connect camera
+                </button>
+              </div>
+
+              <label class="onnx-field" for="onnxModelInput">
+                <span>YOLO26-cls model</span>
+                <input id="onnxModelInput" type="file" accept=".onnx,application/octet-stream" />
+              </label>
+              <p class="onnx-file-name" id="onnxModelName">Choose a local .onnx file</p>
+
+              <label class="onnx-field" for="onnxCameraSelect">
+                <span>Camera</span>
+                <select id="onnxCameraSelect" disabled>
+                  <option value="">Connect to list cameras</option>
+                </select>
+              </label>
+
+              <div class="onnx-camera-stage" id="onnxCameraStage" data-mode="empty">
+                <video id="onnxCameraVideo" muted playsinline hidden></video>
+                <canvas id="onnxFrameCanvas" hidden></canvas>
+                <canvas
+                  id="onnxOverlayCanvas"
+                  aria-label="Draw classification boxes on the captured frame. Press Enter to add a preset box."
+                  tabindex="0"
+                  hidden
+                ></canvas>
+                <p class="onnx-stage-empty" id="onnxStageEmpty">
+                  Connect a camera, then capture a frame.
+                </p>
+              </div>
+
+              <div class="onnx-action-row">
+                <button class="button quiet" id="onnxDisconnectBtn" type="button" disabled>
+                  Disconnect
+                </button>
+                <button class="button quiet" id="onnxCaptureBtn" type="button" disabled>
+                  Capture frame
+                </button>
+              </div>
+              <div class="onnx-action-row onnx-region-actions">
+                <button class="button quiet" id="onnxUndoBtn" type="button" disabled>Undo box</button>
+                <button class="button quiet" id="onnxClearBtn" type="button" disabled>Clear boxes</button>
+                <button class="button primary" id="onnxPredictBtn" type="button" disabled>
+                  Predict all
+                </button>
+              </div>
+
+              <p class="onnx-status" id="onnxCameraStatus" role="status" aria-live="polite">
+                Load a model and connect a camera to begin.
+              </p>
+              <ol class="onnx-results" id="onnxResults" aria-label="Classification results"></ol>
+            </aside>
           </div>
           <div class="toolbar primary-tools">
             <button class="button primary" id="enableBtn">Enable</button

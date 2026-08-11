@@ -358,6 +358,15 @@ async function initNormalServices() {
   return normalServicesPromise;
 }
 
+let onnxCameraController = null;
+async function initOnnxCamera() {
+  if (isEmbedMode || onnxCameraController || !$('onnxCameraCard')) return;
+  const { createOnnxCameraController } = await import('./onnx-camera.mjs');
+  onnxCameraController = createOnnxCameraController({
+    root: $('onnxCameraCard'),
+  });
+}
+
 const state = {
   jointsDeg: [...DEFAULT_HOME_JOINTS],
   targetDeg: [...DEFAULT_HOME_JOINTS],
@@ -4308,6 +4317,7 @@ function bindUI() {
     initWorkspaceTabs();
     initResizableWorkspace();
     initNormalServices().catch((error) => log(`Normal IDE services error: ${error.message}`));
+    initOnnxCamera().catch((error) => log(`AI camera error: ${error.message}`));
   }
   renderHomePoint();
   renderJointControls();
