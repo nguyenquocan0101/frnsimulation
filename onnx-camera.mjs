@@ -383,6 +383,8 @@ export function createOnnxCameraController({ root, deps = {} }) {
       nodes.stage.style.aspectRatio = `${nodes.video.videoWidth} / ${nodes.video.videoHeight}`;
       if (nodes.stage.style.setProperty) nodes.stage.style.setProperty('--camera-aspect', String(cameraAspect));
       else nodes.stage.style['--camera-aspect'] = String(cameraAspect);
+      if (root.style?.setProperty) root.style.setProperty('--camera-aspect', String(cameraAspect));
+      else if (root.style) root.style['--camera-aspect'] = String(cameraAspect);
       nodes.overlay.width = nodes.video.videoWidth;
       nodes.overlay.height = nodes.video.videoHeight;
       clearRegions({ clearFrame: true, invalidate: true });
