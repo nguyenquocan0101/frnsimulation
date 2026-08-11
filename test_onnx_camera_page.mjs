@@ -26,6 +26,7 @@ test('dedicated page owns the full labelled camera workflow', () => {
   }
   assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs"/);
   assert.match(windowPage, /FPTU TECH<span>X<\/span> CAMP/);
+  assert.match(windowPage, /fonts\.googleapis\.com\/css2\?family=Paytone\+One/);
   assert.doesNotMatch(windowPage, /Load a model and connect a camera to begin/);
   assert.doesNotMatch(windowPage, /Model and frames stay on this device/);
   assert.match(windowPage, /role="status"[^>]*aria-live="polite"/);
