@@ -43,17 +43,17 @@ The five classroom blocks use the workshop sticker set in
 
 ## Orange start/end marker
 
-The regular classroom reset layout is:
+The main IDE reset and competition Run layout is:
 
 - P1: orange marker
-- P2: car (block labelled P7)
+- P2: dog
 - P3: chicken
-- P4: dog
-- P5: chair
-- P6: house
+- P4: chair
+- P5: house
+- P6: car
 - P7: empty marker destination/buffer
 
-The competition Run button uses its own deterministic input (P1 marker, P2 dog, P3 chicken, P4 chair, P5 house, P6 car, P7 empty) before the marker opening. Students may sort the five blocks freely. The orange marker is draggable/grippable like a classroom start/end marker; the regular simulator does not enforce a route or decide whether the lesson is complete. The marker is not included in `get_positions()` or object-class counts. While it occupies a slot, another block cannot be dropped into that occupied slot.
+Using the same deterministic input before and after pressing Run prevents the five sortable blocks from jumping to different slots while the marker moves from P1 to P7. The embedded guide demo retains its teaching layout (P2 car, P3 chicken, P4 dog, P5 chair, P6 house). Students may sort the five blocks freely. The orange marker is draggable/grippable like a classroom start/end marker; the regular simulator does not enforce a route or decide whether the lesson is complete. The marker is not included in `get_positions()` or object-class counts. While it occupies a slot, another block cannot be dropped into that occupied slot.
 
 ## Live monitor
 

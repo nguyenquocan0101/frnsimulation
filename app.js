@@ -1706,13 +1706,15 @@ function renderBlockBoard() {
 }
 
 function resetBlocks(silent = false) {
-  state.blocks = SORTABLE_BLOCK_NAMES.map((name, index) => ({
-    name,
-    position: SAMPLE_BLOCK_POSITIONS[name],
-    color: BLOCK_META[name]?.color ?? BLOCK_COLORS[index],
-    objectClass: objectClassForBlock(name),
-    carried: false,
-  }));
+  state.blocks = isEmbedMode
+    ? SORTABLE_BLOCK_NAMES.map((name, index) => ({
+        name,
+        position: SAMPLE_BLOCK_POSITIONS[name],
+        color: BLOCK_META[name]?.color ?? BLOCK_COLORS[index],
+        objectClass: objectClassForBlock(name),
+        carried: false,
+      }))
+    : createCompetitionBlocks();
   state.checkpointToken = resetCheckpointToken();
   techcampSim.position = null;
   techcampSim.low = false;
@@ -1721,8 +1723,13 @@ function resetBlocks(silent = false) {
   techcampSim.carriedToken = false;
   renderBlockBoard();
   updateBlockVisuals();
-  if (!silent)
-    log("Scene reset -> P1 marker · P2 car · P3 chicken · P4 dog · P5 chair · P6 house · P7 empty");
+  if (!silent) {
+    log(
+      isEmbedMode
+        ? "Scene reset -> P1 marker · P2 car · P3 chicken · P4 dog · P5 chair · P6 house · P7 empty"
+        : "Scene reset -> P1 marker · P2 dog · P3 chicken · P4 chair · P5 house · P6 car · P7 empty",
+    );
+  }
 }
 
 async function loadCalibratedPoints(profileId = state.robotProfileId) {
@@ -2767,15 +2774,19 @@ function getRobotVisualDiagnostics() {
   });
 }
 
-function resetCompetitionFixture(silent = true) {
-  if (state.competitionSession?.imageUrl) URL.revokeObjectURL(state.competitionSession.imageUrl);
-  state.blocks = COMPETITION_BLOCK_SETUP.map((entry) => ({
+function createCompetitionBlocks() {
+  return COMPETITION_BLOCK_SETUP.map((entry) => ({
     name: entry.name,
     position: entry.position,
     color: entry.color,
     objectClass: OBJECT_CLASSES.find((item) => item.id === entry.objectClass) || null,
     carried: false,
   }));
+}
+
+function resetCompetitionFixture(silent = true) {
+  if (state.competitionSession?.imageUrl) URL.revokeObjectURL(state.competitionSession.imageUrl);
+  state.blocks = createCompetitionBlocks();
   // Keep the marker at P1 when Run starts. It only moves when the student's
   // Python program grips and releases it; the simulator never moves it for
   // them before replaying their code.
