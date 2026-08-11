@@ -106,6 +106,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     predict: byId(root, 'onnxPredictBtn'),
     status: byId(root, 'onnxCameraStatus'),
     results: byId(root, 'onnxResults'),
+    overlayResults: byId(root, 'onnxOverlayResults'),
   };
   const state = {
     busy: '',
@@ -143,6 +144,11 @@ export function createOnnxCameraController({ root, deps = {} }) {
     nodes.provider.textContent = label;
     if (type) nodes.provider.dataset.state = type;
     else delete nodes.provider.dataset.state;
+  }
+
+  function clearResultViews() {
+    nodes.results.replaceChildren();
+    nodes.overlayResults?.replaceChildren();
   }
 
   function updateControls() {
@@ -200,7 +206,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     state.sourceToken += 1;
     state.predictionToken += 1;
     state.results = [];
-    nodes.results.replaceChildren();
+    clearResultViews();
     drawOverlay();
     if (!validateOnnxFilename(file.name)) {
       setBusy('model');
@@ -292,7 +298,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
       state.frameReady = false;
       state.captured = false;
     }
-    nodes.results.replaceChildren();
+    clearResultViews();
     drawOverlay();
     updateControls();
   }
@@ -519,7 +525,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
       }
       state.boxes.push(box);
       state.results = [];
-      nodes.results.replaceChildren();
+      clearResultViews();
       drawOverlay();
       updateControls();
       if (state.mode === 'live') {
@@ -539,16 +545,22 @@ export function createOnnxCameraController({ root, deps = {} }) {
   }
 
   function renderResults() {
-    nodes.results.replaceChildren();
+    clearResultViews();
     state.results.forEach((result, index) => {
-      const item = documentRef.createElement('li');
-      item.className = 'onnx-result';
-      const title = documentRef.createElement('strong');
-      title.textContent = `Box ${index + 1} · ${result[0].label}`;
-      const details = documentRef.createElement('span');
-      details.textContent = result.map((entry) => `${entry.label} ${(entry.confidence * 100).toFixed(1)}%`).join(' · ');
-      item.append(title, details);
-      nodes.results.append(item);
+      const title = `Box ${index + 1} · ${result[0].label}`;
+      const details = result.map((entry) => `${entry.label} ${(entry.confidence * 100).toFixed(1)}%`).join(' · ');
+      const makeItem = (className) => {
+        const item = documentRef.createElement('li');
+        item.className = className;
+        const titleNode = documentRef.createElement('strong');
+        titleNode.textContent = title;
+        const detailsNode = documentRef.createElement('span');
+        detailsNode.textContent = details;
+        item.append(titleNode, detailsNode);
+        return item;
+      };
+      nodes.results.append(makeItem('onnx-result'));
+      nodes.overlayResults?.append(makeItem('onnx-result onnx-overlay-result'));
     });
     drawOverlay();
   }
@@ -693,7 +705,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     state.boxes.pop();
     state.results = [];
     state.predictionToken += 1;
-    nodes.results.replaceChildren();
+    clearResultViews();
     drawOverlay();
     updateControls();
     setStatus(state.boxes.length ? `${state.boxes.length}/${MAX_BOXES} boxes ready.` : 'Draw at least one box before predicting.');
@@ -734,7 +746,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
       const row = Math.floor(index / 3);
       state.boxes.push({ x1: 0.05 + column * 0.31, y1: 0.05 + row * 0.31, x2: 0.31 + column * 0.31, y2: 0.31 + row * 0.31 });
       state.results = [];
-      nodes.results.replaceChildren();
+      clearResultViews();
       drawOverlay();
       updateControls();
       setStatus(`${state.boxes.length}/${MAX_BOXES} boxes ready. Press Enter to add another preset box or predict all.`);

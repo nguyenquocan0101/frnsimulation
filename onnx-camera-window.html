@@ -10,13 +10,15 @@
   <body class="onnx-camera-window-body">
     <main class="onnx-camera-window-shell" aria-labelledby="onnxWindowTitle">
       <header class="onnx-window-header">
-        <div class="header-brand onnx-brand-lockup" aria-label="FPTU TechX Camp">
+        <div
+          class="header-brand onnx-brand-lockup"
+          aria-label="FPTU TechX Camp"
+        >
           <div class="techx-logo">FPTU TECH<span>X</span> CAMP</div>
           <span>FAIRINO SIMULATION</span>
         </div>
         <div class="onnx-window-title">
-          <span class="onnx-window-kicker">LOCAL AI CAMERA</span>
-          <h1 id="onnxWindowTitle">AI camera</h1>
+          <h1 id="onnxWindowTitle">Camera</h1>
         </div>
       </header>
 
@@ -30,14 +32,20 @@
         <div class="onnx-camera-heading">
           <div>
             <h2 id="onnxCameraTitle">Camera workspace</h2>
-            <span class="onnx-status-chip" id="onnxProviderStatus">MODEL OFF</span>
+            <span class="onnx-status-chip" id="onnxProviderStatus"
+              >MODEL OFF</span
+            >
           </div>
         </div>
 
         <div class="onnx-source-grid">
           <label class="onnx-field" for="onnxModelInput">
             <span>YOLO26-cls model (.onnx)</span>
-            <input id="onnxModelInput" type="file" accept=".onnx,application/octet-stream" />
+            <input
+              id="onnxModelInput"
+              type="file"
+              accept=".onnx,application/octet-stream"
+            />
           </label>
 
           <label class="onnx-field" for="onnxCameraSelect">
@@ -47,11 +55,31 @@
             </select>
           </label>
         </div>
-        <p class="onnx-file-name" id="onnxModelName">Choose a local .onnx file</p>
+        <p class="onnx-file-name" id="onnxModelName">
+          Choose a local .onnx file
+        </p>
 
-        <div class="onnx-mode-group" role="group" aria-label="Camera drawing mode">
-          <button class="button quiet" id="onnxCaptureModeBtn" type="button" aria-pressed="true">Capture frame</button>
-          <button class="button quiet" id="onnxLiveModeBtn" type="button" aria-pressed="false">Draw live</button>
+        <div
+          class="onnx-mode-group"
+          role="group"
+          aria-label="Camera drawing mode"
+        >
+          <button
+            class="button quiet"
+            id="onnxCaptureModeBtn"
+            type="button"
+            aria-pressed="true"
+          >
+            Capture frame
+          </button>
+          <button
+            class="button quiet"
+            id="onnxLiveModeBtn"
+            type="button"
+            aria-pressed="false"
+          >
+            Draw live
+          </button>
         </div>
         <div class="onnx-camera-stage" id="onnxCameraStage" data-mode="empty">
           <video id="onnxCameraVideo" muted playsinline hidden></video>
@@ -62,32 +90,89 @@
             tabindex="0"
             hidden
           ></canvas>
+          <ol class="onnx-camera-results-overlay" id="onnxOverlayResults" aria-label="Classification results on camera" aria-hidden="true"></ol>
           <p class="onnx-stage-empty" id="onnxStageEmpty">
             Connect a camera to begin.
           </p>
         </div>
 
         <div class="onnx-control-groups">
-          <section class="onnx-control-group" aria-labelledby="onnxCameraControlsTitle">
+          <section
+            class="onnx-control-group"
+            aria-labelledby="onnxCameraControlsTitle"
+          >
             <h3 id="onnxCameraControlsTitle">Camera</h3>
             <div class="onnx-action-row onnx-camera-actions">
-              <button class="button primary" id="onnxConnectCameraBtn" type="button">Connect camera</button>
-              <button class="button quiet" id="onnxDisconnectBtn" type="button" disabled>Disconnect</button>
-              <button class="button quiet" id="onnxCaptureBtn" type="button" disabled>Capture frame</button>
+              <button
+                class="button primary"
+                id="onnxConnectCameraBtn"
+                type="button"
+              >
+                Connect camera
+              </button>
+              <button
+                class="button quiet"
+                id="onnxDisconnectBtn"
+                type="button"
+                disabled
+              >
+                Disconnect
+              </button>
+              <button
+                class="button quiet"
+                id="onnxCaptureBtn"
+                type="button"
+                disabled
+              >
+                Capture frame
+              </button>
             </div>
           </section>
-          <section class="onnx-control-group" aria-labelledby="onnxBoxControlsTitle">
+          <section
+            class="onnx-control-group"
+            aria-labelledby="onnxBoxControlsTitle"
+          >
             <h3 id="onnxBoxControlsTitle">Boxes</h3>
             <div class="onnx-action-row onnx-region-actions">
-              <button class="button quiet" id="onnxUndoBtn" type="button" disabled>Undo box</button>
-              <button class="button quiet" id="onnxClearBtn" type="button" disabled>Clear boxes</button>
-              <button class="button primary" id="onnxPredictBtn" type="button" disabled>Predict all</button>
+              <button
+                class="button quiet"
+                id="onnxUndoBtn"
+                type="button"
+                disabled
+              >
+                Undo box
+              </button>
+              <button
+                class="button quiet"
+                id="onnxClearBtn"
+                type="button"
+                disabled
+              >
+                Clear boxes
+              </button>
+              <button
+                class="button primary"
+                id="onnxPredictBtn"
+                type="button"
+                disabled
+              >
+                Predict all
+              </button>
             </div>
           </section>
         </div>
 
-        <p class="onnx-status" id="onnxCameraStatus" role="status" aria-live="polite"></p>
-        <ol class="onnx-results" id="onnxResults" aria-label="Classification results"></ol>
+        <p
+          class="onnx-status"
+          id="onnxCameraStatus"
+          role="status"
+          aria-live="polite"
+        ></p>
+        <ol
+          class="onnx-results"
+          id="onnxResults"
+          aria-label="Classification results"
+        ></ol>
       </section>
     </main>
     <script type="module" src="./onnx-camera-window.mjs"></script>

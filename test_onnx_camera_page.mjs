@@ -21,7 +21,7 @@ test('Simulation has an accessible launcher and no inline ONNX card', () => {
 });
 
 test('dedicated page owns the full labelled camera workflow', () => {
-  for (const id of ['onnxCameraCard', 'onnxModelInput', 'onnxConnectCameraBtn', 'onnxCameraSelect', 'onnxDisconnectBtn', 'onnxCaptureBtn', 'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults']) {
+  for (const id of ['onnxCameraCard', 'onnxModelInput', 'onnxConnectCameraBtn', 'onnxCameraSelect', 'onnxDisconnectBtn', 'onnxCaptureBtn', 'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults', 'onnxOverlayResults']) {
     assert.match(windowPage, new RegExp(`id="${id}"`));
   }
   assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs"/);
@@ -29,6 +29,7 @@ test('dedicated page owns the full labelled camera workflow', () => {
   assert.doesNotMatch(windowPage, /Load a model and connect a camera to begin/);
   assert.doesNotMatch(windowPage, /Model and frames stay on this device/);
   assert.match(windowPage, /role="status"[^>]*aria-live="polite"/);
+  assert.match(windowStyles, /onnx-camera-results-overlay/);
   assert.match(windowPage, /tabindex="0"/);
   assert.doesNotMatch(windowPage, /app\.js|three(?:\.module)?|firebase/i);
 });

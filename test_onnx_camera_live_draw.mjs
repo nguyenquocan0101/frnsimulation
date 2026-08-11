@@ -166,7 +166,7 @@ function makeFixture({ delayedRun = false } = {}) {
     'onnxConnectCameraBtn', 'onnxDisconnectBtn', 'onnxModelInput', 'onnxModelName', 'onnxProviderStatus',
     'onnxCameraSelect', 'onnxCameraStage', 'onnxCaptureModeBtn', 'onnxLiveModeBtn',
     'onnxCameraVideo', 'onnxFrameCanvas', 'onnxOverlayCanvas', 'onnxStageEmpty', 'onnxCaptureBtn',
-    'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults',
+    'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults', 'onnxOverlayResults',
   ];
   const elements = new Map();
   const root = new FakeElement(fixture, 'root');
@@ -228,6 +228,7 @@ test('fake controller snapshots a live release and auto-predicts all current box
   assert.equal(run.fixture.videoSnapshotCalls, 2, 'manual capture plus first live snapshot');
   assert.equal(run.session.runCalls, 1);
   assert.equal(run.elements.get('onnxResults').children.length, 1);
+  assert.equal(run.elements.get('onnxOverlayResults').children.length, 1);
   for (let index = 2; index <= 7; index += 1) {
     const startX = 20 + index * 18;
     const startY = 20 + index * 8;
@@ -238,6 +239,7 @@ test('fake controller snapshots a live release and auto-predicts all current box
   assert.equal(run.fixture.videoSnapshotCalls, 8, 'one manual capture plus seven live snapshots');
   assert.equal(run.session.runCalls, 28, 'releases rerun the full current selection');
   assert.equal(run.elements.get('onnxResults').children.length, 7);
+  assert.equal(run.elements.get('onnxOverlayResults').children.length, 7);
   await run.controller.destroy();
 });
 
