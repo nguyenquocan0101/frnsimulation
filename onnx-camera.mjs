@@ -470,11 +470,14 @@ export function createOnnxCameraController({ root, deps = {} }) {
     const rect = computeDisplayRect(contentRect, mediaWidth && mediaHeight ? mediaWidth / mediaHeight : 0);
     const inside = event.clientX >= rect.left && event.clientX <= rect.left + rect.width
       && event.clientY >= rect.top && event.clientY <= rect.top + rect.height;
+    const stageInside = event.clientX >= contentRect.left && event.clientX <= contentRect.left + contentRect.width
+      && event.clientY >= contentRect.top && event.clientY <= contentRect.top + contentRect.height;
     return {
       x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
       y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
       rect,
       inside,
+      stageInside,
     };
   }
 
@@ -741,7 +744,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     const captureReady = state.mode === 'capture' && state.frameReady;
     if ((!liveReady && !captureReady) || state.busy || state.boxes.length >= MAX_BOXES) return;
     const point = pointerPosition(event);
-    if (!point.inside) return;
+    if (!point.stageInside) return;
     state.pointerId = event.pointerId;
     state.pointerStart = point;
     state.draft = { x1: point.x, y1: point.y, x2: point.x, y2: point.y };

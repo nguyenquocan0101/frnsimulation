@@ -294,9 +294,10 @@ test('fake controller ignores a second live gesture while inference is busy', as
 test('stage surface accepts a box gesture beneath the result overlay', async () => {
   const run = await bootFixture();
   await run.elements.get('onnxCaptureBtn').emit('click');
+  run.fixture.stageRect = { left: 0, top: 0, width: 800, height: 450 };
   const stage = run.elements.get('onnxCameraStage');
-  await stage.emit('pointerdown', { pointerId: 91, clientX: 24, clientY: 24 });
-  await stage.emit('pointerup', { pointerId: 91, clientX: 220, clientY: 220 });
+  await stage.emit('pointerdown', { pointerId: 91, clientX: 0, clientY: 0 });
+  await stage.emit('pointerup', { pointerId: 91, clientX: 800, clientY: 450 });
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(run.session.runCalls, 0, 'capture mode remains manual');
   await run.elements.get('onnxPredictBtn').emit('click');
