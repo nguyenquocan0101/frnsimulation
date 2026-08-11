@@ -47,13 +47,27 @@
     </script>
   </head>
   <body>
-    <main class="maintenance-screen" id="maintenanceScreen" aria-labelledby="maintenanceTitle">
+    <main
+      class="maintenance-screen"
+      id="maintenanceScreen"
+      aria-labelledby="maintenanceTitle"
+    >
       <section class="maintenance-card">
         <div class="maintenance-mark" aria-hidden="true">🤖</div>
         <h1 id="maintenanceTitle">Hệ thống đang tạm thời đóng cửa</h1>
-        <p><strong>Sau <span>00:00 tối nay</span>, hệ thống Simulation FR5 sẽ tạm thời đóng cửa để bảo trì và chuẩn bị cho buổi học cũng như cuộc thi ngày mai. 🤖💤</strong></p>
-        <p>Mình thật sự rất vui khi thấy mọi người sử dụng, trải nghiệm và dành thời gian “vọc” một sản phẩm do chính team làm ra. ❤️</p>
-        <p class="maintenance-note">Hẹn gặp mọi người vào ngày mai và chúc các bạn ngủ ngoannnn ! 🤖🔥</p>
+        <p>
+          <strong
+            >Sau <span>00:00 tối nay</span>, hệ thống Simulation FR5 sẽ tạm thời
+            đóng cửa để bảo trì và chuẩn bị cho buổi học ngày mai. 🤖💤</strong
+          >
+        </p>
+        <p>
+          Mình thật sự rất vui khi thấy mọi người sử dụng, trải nghiệm và dành
+          thời gian “vọc” một sản phẩm do chính team làm ra. ❤️
+        </p>
+        <p class="maintenance-note">
+          Hẹn gặp mọi người vào ngày mai và chúc các bạn ngủ ngoannnn ! 🤖🔥
+        </p>
         <a class="maintenance-retry" href="./">Thử tải lại trang</a>
       </section>
     </main>
@@ -62,7 +76,7 @@
       <div class="ide-layout" id="ideLayout">
         <main id="main-content" class="code-column" data-embed-hidden="editor">
           <header class="column-header">
-              <div class="header-brand" data-embed-hidden="navigation">
+            <div class="header-brand" data-embed-hidden="navigation">
               <div
                 class="techx-logo"
                 id="teacherPortalShortcut"
@@ -157,7 +171,7 @@
                     Submit
                   </button>
                   <button class="button primary editor-run-button" id="runBtn">
-                <span class="button-symbol">▶</span> Run program
+                    <span class="button-symbol">▶</span> Run program
                   </button>
                 </div>
               </div>
@@ -269,7 +283,9 @@ if __name__ == "__main__":
                 title="Open AI camera"
                 data-embed-hidden="onnx-camera"
               >
-                <span class="onnx-camera-launcher-icon" aria-hidden="true">⌾</span>
+                <span class="onnx-camera-launcher-icon" aria-hidden="true"
+                  >⌾</span
+                >
                 <span>AI camera</span>
               </button>
               <span
@@ -282,7 +298,11 @@ if __name__ == "__main__":
               <label class="robot-profile-label" for="robotProfileSelect"
                 >Robot</label
               >
-              <select id="robotProfileSelect" class="robot-profile-select" data-embed-profile>
+              <select
+                id="robotProfileSelect"
+                class="robot-profile-select"
+                data-embed-profile
+              >
                 <option value="fr3">FAIRINO FR3</option>
                 <option value="fr5" selected>FAIRINO FR5</option>
               </select>
@@ -315,8 +335,7 @@ if __name__ == "__main__":
               aria-label="FAIRINO FR5 3D model interactive with mouse or touch"
             ></div>
             <div class="loading-card" id="loadingCard">
-              <span class="loader"></span
-              ><span>Loading 3D model…</span>
+              <span class="loader"></span><span>Loading 3D model…</span>
             </div>
             <button
               class="viewport-home-button"
@@ -377,8 +396,7 @@ if __name__ == "__main__":
                 hidden
               >
                 <label for="cameraZoomRange"
-                  >Zoom
-                  <output id="cameraZoomOutput">200%</output></label
+                  >Zoom <output id="cameraZoomOutput">200%</output></label
                 >
                 <input
                   id="cameraZoomRange"
@@ -418,10 +436,18 @@ if __name__ == "__main__":
               <span>Distance: <b id="competitionDistance">0 slots</b></span>
             </div>
             <div class="competition-result-actions">
-              <button class="button quiet" id="competitionImageDownloadBtn" data-embed-hidden="firebase" type="button" disabled>
+              <button
+                class="button quiet"
+                id="competitionImageDownloadBtn"
+                data-embed-hidden="firebase"
+                type="button"
+                disabled
+              >
                 Download result image
               </button>
-              <a class="button quiet" href="./teacher.html">Open teacher board</a>
+              <a class="button quiet" href="./teacher.html"
+                >Open teacher board</a
+              >
             </div>
             <img id="competitionResultImage" alt="Run result snapshot" hidden />
           </section>
@@ -490,7 +516,8 @@ if __name__ == "__main__":
           />
         </label>
         <p class="upload-preview">
-          File name: <strong id="uploadFilenamePreview">TechX_GroupName.py</strong>
+          File name:
+          <strong id="uploadFilenamePreview">TechX_GroupName.py</strong>
         </p>
         <p
           class="upload-status"
