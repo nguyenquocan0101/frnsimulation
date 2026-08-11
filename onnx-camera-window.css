@@ -1,20 +1,21 @@
-.onnx-camera-window-body{min-width:320px;min-height:100vh;background:var(--bg);color:var(--ink)}
-.onnx-camera-window-shell{width:min(1180px,100%);margin:0 auto;padding:clamp(18px,3vw,38px)}
-.onnx-window-header{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:4px 2px 18px}
+.onnx-camera-window-body{min-width:320px;height:100vh;min-height:100vh;overflow:hidden;background:var(--bg);color:var(--ink)}
+.onnx-camera-window-shell{display:flex;flex-direction:column;width:min(1180px,100%);height:100%;box-sizing:border-box;margin:0 auto;padding:clamp(12px,2vw,24px)}
+.onnx-window-header{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:0 2px 10px}
 .onnx-brand-lockup{display:grid;gap:2px}
 .onnx-window-title{text-align:right}.onnx-window-kicker{color:var(--accent-2);font:700 10px/1 "Consolas",monospace;letter-spacing:.12em}.onnx-window-title h1{margin:5px 0 0;font-size:clamp(24px,3vw,34px);letter-spacing:-.045em;line-height:1}
-.onnx-window-rule{height:1px;margin-bottom:18px;background:var(--line)}
-.onnx-camera-window-card{height:auto;min-height:0;overflow:visible;padding:clamp(16px,2.3vw,26px)}
-.onnx-camera-window-card .onnx-camera-heading{align-items:center}.onnx-camera-window-card .onnx-camera-heading h2{margin:0 0 5px;font-size:18px;letter-spacing:-.03em}
-.onnx-source-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(240px,.8fr);gap:12px;margin-top:12px}
-.onnx-mode-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;padding:4px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);width:max-content;max-width:100%}.onnx-mode-group .button{min-width:128px}.onnx-mode-group .button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
-.onnx-camera-window-card .onnx-camera-stage{min-height:min(58vh,600px);aspect-ratio:16/9;margin-top:14px;border-radius:11px}
-.onnx-control-groups{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px;margin-top:16px}
-.onnx-control-group{min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
-.onnx-control-group h3{margin:0 0 8px;color:var(--muted);font:700 10px/1 "Consolas",monospace;letter-spacing:.12em;text-transform:uppercase}
+.onnx-window-rule{height:1px;margin-bottom:10px;background:var(--line)}
+.onnx-camera-window-card{display:flex;flex:1;flex-direction:column;min-height:0;overflow:hidden;padding:clamp(12px,1.8vw,20px)}
+.onnx-camera-window-card .onnx-camera-heading{align-items:center}.onnx-camera-window-card .onnx-camera-heading h2{margin:0 0 4px;font-size:16px;letter-spacing:-.03em}
+.onnx-source-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(240px,.8fr);gap:10px;margin-top:8px}
+.onnx-mode-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding:3px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);width:max-content;max-width:100%}.onnx-mode-group .button{min-width:128px}.onnx-mode-group .button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
+.onnx-camera-window-card .onnx-camera-stage{flex:1;min-height:140px;aspect-ratio:auto;margin-top:10px;border-radius:11px}
+.onnx-control-groups{display:grid;flex:0 0 auto;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:10px;margin-top:10px}
+.onnx-control-group{min-width:0;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.onnx-control-group h3{margin:0 0 6px;color:var(--muted);font:700 10px/1 "Consolas",monospace;letter-spacing:.12em;text-transform:uppercase}
 .onnx-camera-window-card .onnx-action-row{max-width:none;margin-top:0}.onnx-camera-actions,.onnx-region-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.onnx-camera-window-card .onnx-region-actions #onnxPredictBtn{grid-column:auto}
-.onnx-camera-window-card .onnx-status{max-width:none;min-height:20px;margin-top:12px}.onnx-camera-window-card .onnx-results{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));max-width:none}
-.onnx-camera-window-card .button{min-height:40px;border-radius:8px}
-@media(max-width:680px){.onnx-window-header{align-items:flex-start;flex-direction:column;gap:14px}.onnx-window-title{text-align:left}.onnx-source-grid{grid-template-columns:1fr}.onnx-camera-window-card .onnx-camera-stage{min-height:240px}.onnx-control-groups{grid-template-columns:1fr}.onnx-mode-group{width:100%}.onnx-mode-group .button{flex:1;min-width:0}}
+.onnx-camera-window-card .onnx-status{max-width:none;min-height:16px;margin-top:8px}.onnx-camera-window-card .onnx-results{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));max-width:none;max-height:96px;overflow:auto}
+.onnx-camera-window-card .button{min-height:38px;border-radius:8px}
+@media(max-height:760px) and (min-width:681px){.onnx-camera-window-shell{padding:8px 16px}.onnx-window-header{gap:12px;padding-bottom:5px}.onnx-brand-lockup .techx-logo{font-size:24px;letter-spacing:2px}.onnx-window-title h1{font-size:26px}.onnx-window-rule{margin-bottom:5px}.onnx-camera-window-card{padding:8px}.onnx-camera-window-card .onnx-camera-stage{min-height:64px}.onnx-source-grid{margin-top:5px}.onnx-mode-group{margin-top:5px}.onnx-control-groups{margin-top:5px}.onnx-control-group{padding:5px}.onnx-control-group h3{margin-bottom:3px}.onnx-camera-window-card .button{min-height:32px;padding-block:5px}}
+@media(max-width:680px){.onnx-camera-window-body{height:auto;min-height:100vh;overflow:auto}.onnx-camera-window-shell{height:auto}.onnx-window-header{align-items:flex-start;flex-direction:column;gap:14px}.onnx-window-title{text-align:left}.onnx-source-grid{grid-template-columns:1fr}.onnx-camera-window-card{display:block;overflow:visible}.onnx-camera-window-card .onnx-camera-stage{min-height:240px;aspect-ratio:16/9}.onnx-control-groups{grid-template-columns:1fr}.onnx-mode-group{width:100%}.onnx-mode-group .button{flex:1;min-width:0}}
 @media(max-width:420px){.onnx-camera-window-shell{padding:14px 10px}.onnx-camera-window-card{padding:13px}.onnx-camera-window-card .onnx-action-row{gap:6px}.onnx-camera-window-card .button{padding-inline:8px;font-size:11px}.onnx-camera-window-card .techx-logo{font-size:22px;letter-spacing:1.5px}}
 @media(prefers-reduced-motion:reduce){.onnx-camera-window-card *{transition-duration:.01ms!important}}
