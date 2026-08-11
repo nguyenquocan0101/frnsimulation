@@ -15,7 +15,25 @@
     />
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./robot-profile.css" />
-    <script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.min.js"></script>
+    <link rel="stylesheet" href="./maintenance.css" />
+    <script src="./maintenance-config.js"></script>
+    <script>
+      const maintenanceEnabled = window.FR5_MAINTENANCE_MODE === true;
+      document.documentElement.dataset.maintenance = maintenanceEnabled
+        ? "true"
+        : "false";
+      window.__fr5OcctReady = Promise.resolve();
+      if (!maintenanceEnabled) {
+        window.__fr5OcctReady = new Promise((resolve) => {
+          const script = document.createElement("script");
+          script.src =
+            "https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.min.js";
+          script.onload = resolve;
+          script.onerror = resolve;
+          document.head.append(script);
+        });
+      }
+    </script>
     <script type="importmap">
       {
         "imports": {
@@ -29,6 +47,16 @@
     </script>
   </head>
   <body>
+    <main class="maintenance-screen" id="maintenanceScreen" aria-labelledby="maintenanceTitle">
+      <section class="maintenance-card">
+        <div class="maintenance-mark" aria-hidden="true">🤖</div>
+        <h1 id="maintenanceTitle">Hệ thống đang tạm thời đóng cửa</h1>
+        <p><strong>Sau <span>00:00 tối nay</span>, hệ thống Simulation FR5 sẽ tạm thời đóng cửa để bảo trì và chuẩn bị cho buổi học cũng như cuộc thi ngày mai. 🤖💤</strong></p>
+        <p>Mình thật sự rất vui khi thấy mọi người sử dụng, trải nghiệm và dành thời gian “vọc” một sản phẩm do chính team làm ra. ❤️</p>
+        <p class="maintenance-note">Hẹn gặp mọi người vào ngày mai và chúc các bạn ngủ ngoannnn ! 🤖🔥</p>
+        <a class="maintenance-retry" href="./">Thử tải lại trang</a>
+      </section>
+    </main>
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="app-shell">
       <div class="ide-layout" id="ideLayout">
@@ -462,6 +490,11 @@ if __name__ == "__main__":
         </div>
       </form>
     </dialog>
-    <script type="module" src="./app.js"></script>
+    <script type="module">
+      if (window.FR5_MAINTENANCE_MODE !== true) {
+        await window.__fr5OcctReady;
+        await import("./app.js");
+      }
+    </script>
   </body>
 </html>

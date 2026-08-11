@@ -1,0 +1,12 @@
+.maintenance-screen{display:none;min-height:100dvh;place-items:center;padding:clamp(20px,6vw,88px);background:radial-gradient(circle at 76% 0%,#19304c 0,#08101b 52%);color:var(--ink);text-align:center}
+html[data-maintenance="true"] .maintenance-screen{display:grid}
+html[data-maintenance="true"] .app-shell,html[data-maintenance="true"] .skip-link{display:none}
+.maintenance-card{width:min(760px,100%);padding:clamp(26px,5vw,58px);border:1px solid var(--line);border-radius:20px;background:color-mix(in srgb,var(--surface) 95%,transparent);box-shadow:var(--shadow)}
+.maintenance-mark{display:inline-grid;place-items:center;width:58px;height:58px;margin-bottom:20px;border:1px solid color-mix(in srgb,var(--accent) 65%,var(--line));border-radius:17px;background:var(--surface-2);font-size:29px;box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 10%,transparent)}
+.maintenance-card h1{margin:0;color:var(--ink);font-size:clamp(24px,4vw,42px);line-height:1.12;letter-spacing:-.035em}
+.maintenance-card p{max-width:620px;margin:18px auto 0;color:var(--muted);font-size:clamp(14px,1.8vw,17px);line-height:1.7}
+.maintenance-card .maintenance-note{margin-top:24px;color:var(--ink);font-weight:600}
+.maintenance-retry{display:inline-flex;align-items:center;justify-content:center;min-height:42px;margin-top:28px;border:1px solid var(--accent);border-radius:9px;background:var(--accent);color:#10231f;padding:9px 16px;font-weight:750;text-decoration:none;transition:transform .16s ease,filter .16s ease}
+.maintenance-retry:hover,.maintenance-retry:focus-visible{filter:brightness(1.08);transform:translateY(-1px)}
+.maintenance-retry:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+@media(max-width:480px){.maintenance-screen{padding:16px}.maintenance-card{border-radius:15px;padding:28px 20px}.maintenance-card p{font-size:14px}}
