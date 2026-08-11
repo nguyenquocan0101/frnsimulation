@@ -1,4 +1,4 @@
-import { createOnnxCameraController } from './onnx-camera.mjs';
+import { createOnnxCameraController } from './onnx-camera.mjs?v=20260812-full-stage';
 
 const VALID_THEMES = new Set(['light', 'dark']);
 

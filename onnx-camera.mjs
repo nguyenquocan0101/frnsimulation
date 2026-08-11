@@ -465,9 +465,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
       width: Number(nodes.stage.clientWidth) || stageRect.width,
       height: Number(nodes.stage.clientHeight) || stageRect.height,
     };
-    const mediaWidth = state.mode === 'live' ? nodes.video.videoWidth : nodes.frame.width;
-    const mediaHeight = state.mode === 'live' ? nodes.video.videoHeight : nodes.frame.height;
-    const rect = computeDisplayRect(contentRect, mediaWidth && mediaHeight ? mediaWidth / mediaHeight : 0);
+    const rect = contentRect;
     const inside = event.clientX >= rect.left && event.clientX <= rect.left + rect.width
       && event.clientY >= rect.top && event.clientY <= rect.top + rect.height;
     const stageRight = Number(stageRect.right) || stageRect.left + stageRect.width;
@@ -488,8 +486,6 @@ export function createOnnxCameraController({ root, deps = {} }) {
     context.clearRect(0, 0, nodes.overlay.width, nodes.overlay.height);
     if (!state.frameReady && state.mode !== 'live') return;
     const boxes = state.draft ? [...state.boxes, state.draft] : state.boxes;
-    const mediaWidth = state.mode === 'live' ? nodes.video.videoWidth : nodes.frame.width;
-    const mediaHeight = state.mode === 'live' ? nodes.video.videoHeight : nodes.frame.height;
     const stageRect = nodes.stage.getBoundingClientRect();
     const contentRect = {
       left: stageRect.left + (Number(nodes.stage.clientLeft) || 0),
@@ -497,7 +493,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
       width: Number(nodes.stage.clientWidth) || stageRect.width,
       height: Number(nodes.stage.clientHeight) || stageRect.height,
     };
-    const displayRect = computeDisplayRect(contentRect, mediaWidth && mediaHeight ? mediaWidth / mediaHeight : 0);
+    const displayRect = contentRect;
     const scale = nodes.overlay.width / (displayRect.width || nodes.overlay.width);
     context.font = `700 ${Math.max(11, 11 * scale)}px Consolas, monospace`;
     context.textBaseline = 'top';

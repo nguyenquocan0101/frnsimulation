@@ -1,5 +1,5 @@
 .onnx-camera-window-body{min-width:320px;height:100vh;min-height:100vh;overflow:hidden;background:var(--bg);color:var(--ink)}
-.onnx-camera-window-shell{display:flex;flex-direction:column;width:min(1180px,100%);height:100%;box-sizing:border-box;margin:0 auto;padding:clamp(12px,2vw,24px)}
+.onnx-camera-window-shell{display:flex;flex-direction:column;width:100%;height:100%;box-sizing:border-box;margin:0;padding:clamp(12px,2vw,24px)}
 .onnx-window-header{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:0 2px 10px}
 .onnx-window-title{text-align:right}.onnx-window-kicker{color:var(--accent-2);font:700 10px/1 "Consolas",monospace;letter-spacing:.12em}.onnx-window-title h1{margin:5px 0 0;font-size:clamp(24px,3vw,34px);letter-spacing:-.045em;line-height:1}
 .onnx-window-rule{height:1px;margin-bottom:10px;background:var(--line)}
@@ -8,6 +8,7 @@
 .onnx-source-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(240px,.8fr);gap:10px;margin-top:8px}
 .onnx-mode-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding:3px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);width:max-content;max-width:100%}.onnx-mode-group .button{min-width:128px}.onnx-mode-group .button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
 .onnx-camera-window-card .onnx-camera-stage{flex:1;min-height:140px;aspect-ratio:auto;margin-top:10px;border-radius:11px}
+.onnx-camera-window-card .onnx-camera-stage video,.onnx-camera-window-card .onnx-camera-stage canvas{object-fit:fill}
 .onnx-camera-results-overlay{position:absolute;z-index:3;top:10px;left:10px;display:grid;justify-items:start;gap:6px;width:max-content;max-width:calc(100% - 20px);max-height:calc(100% - 20px);margin:0;padding:0;overflow:auto;list-style:none;pointer-events:none!important}
 .onnx-camera-results-overlay:empty{display:none}.onnx-camera-results-overlay .onnx-overlay-result{width:fit-content;max-width:100%;box-sizing:border-box;border:0;background:rgba(13,24,35,.6);box-shadow:0 5px 14px rgba(0,0,0,.18);color:#fff;padding:6px 8px}.onnx-camera-results-overlay .onnx-overlay-result strong{color:#fff;font-size:11px}.onnx-camera-results-overlay .onnx-overlay-result span{color:#f7d3b8;font-size:10px}
 .onnx-camera-window-card>.onnx-results{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;white-space:nowrap;clip-path:inset(50%);border:0}
