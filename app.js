@@ -33,6 +33,12 @@ import {
   validateEmbedEvent,
   validateParentMessage,
 } from "./guide-embed-protocol.mjs";
+import {
+  appendConsoleLogText,
+  createAiCameraLogLifecycle,
+  createAiCameraLogReceiver,
+  renderAiCameraLog,
+} from "./ai-camera-log.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -359,6 +365,19 @@ async function initNormalServices() {
 }
 
 let onnxCameraLauncher = null;
+let aiCameraLogLifecycle = null;
+function initAiCameraLog() {
+  if (aiCameraLogLifecycle) return;
+  aiCameraLogLifecycle = createAiCameraLogLifecycle({
+    windowRef: window,
+    isEmbedMode,
+    createReceiver: () => createAiCameraLogReceiver({
+      windowRef: window,
+      onRender: (payload) => renderAiCameraLog($("console"), payload),
+    }),
+  });
+}
+
 async function initOnnxCameraLauncher() {
   if (isEmbedMode || onnxCameraLauncher || !$('onnxCameraLauncherBtn')) return;
   const { createOnnxCameraLauncher } = await import('./onnx-camera-launcher.mjs');
@@ -2010,8 +2029,7 @@ function animateTrajectory(waypoints, duration) {
 
 function log(message) {
   if (!logElement) logElement = $("console");
-  logElement.textContent += `${new Date().toLocaleTimeString()}  ${message}\n`;
-  logElement.scrollTop = logElement.scrollHeight;
+  appendConsoleLogText(logElement, `${new Date().toLocaleTimeString()}  ${message}\n`);
 }
 
 function setStatus(text, kind = "") {
@@ -4325,6 +4343,7 @@ function bindUI() {
     initCodeEditor();
     initWorkspaceTabs();
     initResizableWorkspace();
+    initAiCameraLog();
     initNormalServices().catch((error) => log(`Normal IDE services error: ${error.message}`));
     initOnnxCameraLauncher().catch((error) => log(`AI camera launcher error: ${error.message}`));
   }

@@ -70,3 +70,32 @@ test("normal / keeps the production IDE surface and does not become embed-only",
   assert.match(app, /(?:normal|!isEmbedMode)[^\n]{0,120}(?:runProgram|upload|competition|teacher)/i);
   assert.doesNotMatch(app, /if\s*\(isEmbedMode\)\s*return\s*;\s*\/\/\s*normal/i);
 });
+
+test("AI Camera lifecycle performs zero receiver construction and zero listener registration in guide embed", async () => {
+  const { createAiCameraLogLifecycle } = await import('./ai-camera-log.mjs');
+  const listeners = new Map();
+  const windowRef = {
+    addEventListener(type, listener) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(listener);
+    },
+    removeEventListener(type, listener) { listeners.get(type)?.delete(listener); },
+  };
+  let receiverConstructions = 0;
+  let channelConstructions = 0;
+  windowRef.BroadcastChannel = class { constructor() { channelConstructions += 1; } };
+  const lifecycle = createAiCameraLogLifecycle({
+    windowRef,
+    isEmbedMode: true,
+    createReceiver() {
+      receiverConstructions += 1;
+      return { destroy() {} };
+    },
+  });
+
+  assert.equal(receiverConstructions, 0);
+  assert.equal(channelConstructions, 0);
+  assert.equal(listeners.get('pagehide')?.size ?? 0, 0);
+  assert.equal(listeners.get('pageshow')?.size ?? 0, 0);
+  lifecycle.destroy();
+});

@@ -616,6 +616,36 @@
       "evidence": "Focused ONNX camera/window suite (core, launcher, page, window, live-draw): 35 passed, 0 failed; source token guards, mode reset, no-model retention and manual retry are covered by fake-DOM/static contracts.",
       "notes": "",
       "priority": "P1"
+    },
+    {
+      "id": "ide-ai-camera-latest-output",
+      "title": "Hiển thị kết quả AI Camera mới nhất trong IDE Output",
+      "user_visible_behavior": "so that người dùng workshop có thể theo dõi demo từ một màn hình.",
+      "verification_command": "IDE Output có đúng một block AI Camera chứa summary mới nhất và kết quả của 1–7 box.",
+      "status": "passing",
+      "evidence": "Final verification: focused 51/51; expanded full suite 230 total, 226 passed, 0 failed, 4 expected Firebase emulator skips; browser smoke had no errors. Exactly one latest white AI block rendered in the existing IDE Output console.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "ide-ai-camera-throttled-refresh",
+      "title": "Giới hạn nhịp cập nhật AI Camera trong IDE",
+      "user_visible_behavior": "so that Output console vẫn dễ đọc khi Camera inference chạy liên tục.",
+      "verification_command": "Camera vẫn inference mỗi 2 giây và IDE render nhiều nhất một kết quả buffered mỗi 3 giây.",
+      "status": "passing",
+      "evidence": "Final verification: focused 51/51; expanded full suite 230 total, 226 passed, 0 failed, 4 expected Firebase emulator skips; browser smoke had no errors. Latest-wins IDE cadence is verified at 0/3/6/9 seconds while Camera inference remains every 2 seconds.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "ide-ai-camera-retain-last-result",
+      "title": "Giữ kết quả AI cuối khi đóng Camera",
+      "user_visible_behavior": "so that người dùng vẫn tham chiếu được kết quả vừa dự đoán.",
+      "verification_command": "Đóng Camera không phát disconnect, blank hoặc clear; tối đa một kết quả thành công đã vào buffer IDE được render sau khi đóng rồi được giữ làm block cuối.",
+      "status": "passing",
+      "evidence": "Final verification: focused 51/51; expanded full suite 230 total, 226 passed, 0 failed, 4 expected Firebase emulator skips; browser smoke had no errors. Buffered-close retention, three bfcache cycles, final teardown, embed isolation, and cache-token consistency are verified.",
+      "notes": "",
+      "priority": "P2"
     }
   ]
 }

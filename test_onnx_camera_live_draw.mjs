@@ -158,7 +158,7 @@ class FakeDocument {
   }
 }
 
-function makeFixture({ delayedRun = false } = {}) {
+function makeFixture({ delayedRun = false, deferredRelease = false, runError = null, predictionPublisher = null } = {}) {
   const fixture = {
     stageRect: { left: 0, top: 0, width: 640, height: 480 },
     videoSnapshotCalls: 0,
@@ -192,12 +192,19 @@ function makeFixture({ delayedRun = false } = {}) {
   const windowRef = { addEventListener(type, handler) { fixture.handlers[type] = handler; }, removeEventListener() {} };
   let releaseRun;
   const runGate = delayedRun ? new Promise((resolve) => { releaseRun = resolve; }) : null;
+  let releaseSession;
+  const releaseGate = deferredRelease ? new Promise((resolve) => { releaseSession = resolve; }) : null;
   const session = {
     inputNames: ['images'], outputNames: ['output0'],
     inputMetadata: [{ dimensions: [1, 3, 4, 4] }], outputMetadata: [{ dimensions: [1, 2] }],
     runCalls: 0,
-    async run() { this.runCalls += 1; if (runGate) await runGate; return { output0: { data: [0.9, 0.1] } }; },
-    async release() { this.released = true; },
+    async run() {
+      this.runCalls += 1;
+      if (runGate) await runGate;
+      if (runError) throw runError;
+      return { output0: { data: [0.9, 0.1] } };
+    },
+    async release() { if (releaseGate) await releaseGate; this.released = true; },
   };
   class Tensor { constructor(type, data, dims) { this.type = type; this.data = data; this.dims = dims; } }
   const ort = { Tensor, InferenceSession: { async create() { return session; } } };
@@ -212,8 +219,9 @@ function makeFixture({ delayedRun = false } = {}) {
       return fixture.intervalId;
     },
     clearInterval() { fixture.intervalActive = false; },
+    ...(predictionPublisher ? { predictionPublisher } : {}),
   };
-  return { fixture, root, elements, session, deps, releaseRun, file: { name: 'demo.onnx', async arrayBuffer() { return new ArrayBuffer(0); } } };
+  return { fixture, root, elements, session, deps, releaseRun, releaseSession, file: { name: 'demo.onnx', async arrayBuffer() { return new ArrayBuffer(0); } } };
 }
 
 async function bootFixture(options) {
@@ -232,6 +240,22 @@ async function runLiveTick(run) {
   assert.equal(run.fixture.intervalMs, 2000, 'live prediction timer runs every two seconds');
   run.fixture.intervalCallback();
   await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function makePublisherSpy() {
+  return {
+    payloads: [],
+    destroyCalls: 0,
+    publish(payload) { this.payloads.push(payload); },
+    destroy() { this.destroyCalls += 1; },
+  };
+}
+
+async function drawCapturedBox(run, pointerId = 301) {
+  await run.elements.get('onnxCaptureBtn').emit('click');
+  const overlay = run.elements.get('onnxOverlayCanvas');
+  await overlay.emit('pointerdown', { pointerId, clientX: 24, clientY: 24 });
+  await overlay.emit('pointerup', { pointerId, clientX: 220, clientY: 220 });
 }
 
 test('fake controller snapshots a live release and auto-predicts all current boxes', async () => {
@@ -337,4 +361,68 @@ test('stage surface accepts a box gesture beneath the result overlay', async () 
   assert.equal(run.session.runCalls, 1);
   assert.equal(run.elements.get('onnxResults').children.length, 1);
   await run.controller.destroy();
+});
+
+test('controller publishes exactly once after each successful manual and live prediction', async () => {
+  const manualPublisher = makePublisherSpy();
+  const manual = await bootFixture({ predictionPublisher: manualPublisher });
+  await drawCapturedBox(manual);
+  await manual.elements.get('onnxPredictBtn').emit('click');
+  assert.equal(manualPublisher.payloads.length, 1, 'manual success publishes once');
+  assert.match(manualPublisher.payloads[0].summary, /^Predicted 1 box in \d+ ms\./);
+  assert.equal(manualPublisher.payloads[0].lines.length, 1);
+  assert.match(manualPublisher.payloads[0].lines[0], /^Box 1 · /);
+  await manual.controller.destroy();
+
+  const livePublisher = makePublisherSpy();
+  const live = await bootFixture({ predictionPublisher: livePublisher });
+  await live.elements.get('onnxLiveModeBtn').emit('click');
+  const overlay = live.elements.get('onnxOverlayCanvas');
+  await overlay.emit('pointerdown', { pointerId: 302, clientX: 24, clientY: 24 });
+  await overlay.emit('pointerup', { pointerId: 302, clientX: 220, clientY: 220 });
+  assert.equal(livePublisher.payloads.length, 0, 'drawing alone does not publish');
+  await runLiveTick(live);
+  assert.equal(livePublisher.payloads.length, 1, 'live success publishes once per completed tick');
+  assert.equal(livePublisher.payloads[0].lines.length, 1);
+  await live.controller.destroy();
+});
+
+test('controller does not publish failed or stale prediction results', async () => {
+  const failedPublisher = makePublisherSpy();
+  const failed = await bootFixture({
+    predictionPublisher: failedPublisher,
+    runError: new Error('synthetic inference failure'),
+  });
+  await drawCapturedBox(failed, 303);
+  await failed.elements.get('onnxPredictBtn').emit('click');
+  assert.equal(failedPublisher.payloads.length, 0, 'failed inference publishes nothing');
+  assert.match(failed.elements.get('onnxCameraStatus').textContent, /Prediction failed/);
+  await failed.controller.destroy();
+
+  const stalePublisher = makePublisherSpy();
+  const stale = await bootFixture({ predictionPublisher: stalePublisher, delayedRun: true });
+  await drawCapturedBox(stale, 304);
+  const pendingPrediction = stale.elements.get('onnxPredictBtn').emit('click');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(stale.session.runCalls, 1, 'prediction reached the deferred inference');
+  await stale.elements.get('onnxDisconnectBtn').emit('click');
+  stale.releaseRun();
+  await pendingPrediction;
+  assert.equal(stalePublisher.payloads.length, 0, 'source-invalidated result publishes nothing');
+  await stale.controller.destroy();
+});
+
+test('controller closes publisher synchronously before deferred session release', async () => {
+  const publisher = makePublisherSpy();
+  const run = await bootFixture({ predictionPublisher: publisher, deferredRelease: true });
+
+  const pendingDestroy = run.controller.destroy();
+  assert.equal(publisher.destroyCalls, 1, 'publisher closes before the first teardown await settles');
+  assert.equal(run.session.released, undefined, 'session release is still deferred');
+
+  run.releaseSession();
+  await pendingDestroy;
+  await run.controller.destroy();
+  assert.equal(publisher.destroyCalls, 1, 'destroy remains idempotent');
+  assert.equal(run.session.released, true);
 });

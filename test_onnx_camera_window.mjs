@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { createOnnxCameraWindowBootstrap } from './onnx-camera-window.mjs';
+
+const windowHtml = fs.readFileSync(new URL('./onnx-camera-window.html', import.meta.url), 'utf8');
+const windowModule = fs.readFileSync(new URL('./onnx-camera-window.mjs', import.meta.url), 'utf8');
 
 function fixture(controllerFactory, { storageBlocked = false } = {}) {
   const listeners = new Map();
@@ -53,4 +57,13 @@ test('falls back to the light theme when localStorage access is blocked', async 
   assert.equal(view.documentRef.documentElement.dataset.theme, 'light');
   assert.doesNotMatch(view.status.textContent, /could not start/);
   view.bootstrap.destroy();
+});
+
+test('camera window bootstrap and controller imports share one new cache token', () => {
+  const htmlToken = windowHtml.match(/<script\s+type=["']module["']\s+src=["']\.\/onnx-camera-window\.mjs\?v=([^&"'#\s]+)(?:[^"']*)["'][^>]*>/)?.[1];
+  const controllerToken = windowModule.match(/^\s*import\b[^;]*\bfrom\s+["']\.\/onnx-camera\.mjs\?v=([^&"'#\s]+)(?:[^"']*)["'];?/m)?.[1];
+  assert.ok(htmlToken, 'HTML bootstrap import has an explicit cache token');
+  assert.ok(controllerToken, 'window-to-controller import has an explicit cache token');
+  assert.equal(htmlToken, controllerToken, 'both import edges use the exact same token');
+  assert.notEqual(htmlToken, '20260812-timed-log', 'Phase 3 changes the previous deployment token');
 });

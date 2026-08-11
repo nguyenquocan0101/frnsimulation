@@ -136,3 +136,6 @@ html[data-embed-mode="guide"] .loading-card{z-index:4}
 
 /* Opens the full-size classifier outside the simulator document. */
 .onnx-camera-launcher{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:7px 10px;white-space:nowrap}.onnx-camera-launcher-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.8}.onnx-camera-launcher:focus-visible{outline:2px solid var(--focus);outline-offset:2px}.onnx-camera-launcher-status{min-width:0;color:var(--muted);font:10px/1.3 "Consolas",monospace}.onnx-camera-launcher-status[data-state="error"]{color:var(--danger)}.onnx-camera-launcher-status:empty{display:none}html[data-embed-mode="guide"] .onnx-camera-launcher,html[data-embed-mode="guide"] .onnx-camera-launcher-status{display:none!important}
+
+/* Latest AI Camera prediction mirrored into the existing IDE Output console. */
+.ai-camera-log-block{display:block;margin-top:8px;border:1px solid #465563;border-radius:7px;background:#111922;color:#fff;padding:7px 9px;overflow-wrap:anywhere;white-space:pre-wrap}

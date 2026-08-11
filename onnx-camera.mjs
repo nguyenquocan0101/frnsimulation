@@ -9,6 +9,7 @@ import {
   topClassifications,
   validateOnnxFilename,
 } from './onnx-camera-core.mjs';
+import { createAiCameraLogPublisher } from './ai-camera-log.mjs';
 
 const ORT_VERSION = '1.22.0';
 const ORT_DIST = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;
@@ -87,6 +88,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
   const nextFrameRef = deps.nextFrame ?? nextFrame;
   const setIntervalRef = deps.setInterval ?? windowRef.setInterval?.bind(windowRef) ?? setInterval;
   const clearIntervalRef = deps.clearInterval ?? windowRef.clearInterval?.bind(windowRef) ?? clearInterval;
+  const predictionPublisher = deps.predictionPublisher ?? createAiCameraLogPublisher({ windowRef });
 
   const nodes = {
     connect: byId(root, 'onnxConnectCameraBtn'),
@@ -735,7 +737,16 @@ export function createOnnxCameraController({ root, deps = {} }) {
       state.results = nextResults;
       renderResults();
       const elapsed = Math.round(performanceRef.now() - started);
-      setStatus(`Predicted ${boxes.length} ${boxes.length === 1 ? 'box' : 'boxes'} in ${elapsed} ms. Boxes are ready to run again.`, 'success');
+      const summary = `Predicted ${boxes.length} ${boxes.length === 1 ? 'box' : 'boxes'} in ${elapsed} ms. Boxes are ready to run again.`;
+      setStatus(summary, 'success');
+      predictionPublisher.publish({
+        summary,
+        lines: nextResults.map((result, index) => {
+          const title = `Box ${index + 1} · ${result[0].label}`;
+          const details = result.map((entry) => `${entry.label} ${(entry.confidence * 100).toFixed(1)}%`).join(' · ');
+          return `${title} — ${details}`;
+        }),
+      });
     } catch (error) {
       if (!state.destroyed && state.predictionToken === runToken && state.sourceToken === sourceToken) {
         setStatus(`Prediction failed. Your frame and boxes were kept. ${error.message}`, 'error');
@@ -754,6 +765,11 @@ export function createOnnxCameraController({ root, deps = {} }) {
     state.predictionToken += 1;
     stopLivePredictLoop();
     stopStream();
+    try {
+      predictionPublisher.destroy();
+    } catch {
+      // An injected transport must not block resource cleanup.
+    }
     await releaseSession();
     windowRef.removeEventListener('pagehide', destroy);
   }
