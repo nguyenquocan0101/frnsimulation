@@ -24,8 +24,8 @@ test('dedicated page owns the full labelled camera workflow', () => {
   for (const id of ['onnxCameraCard', 'onnxModelInput', 'onnxConnectCameraBtn', 'onnxCameraSelect', 'onnxDisconnectBtn', 'onnxCaptureBtn', 'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults', 'onnxOverlayResults']) {
     assert.match(windowPage, new RegExp(`id="${id}"`));
   }
-  assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs\?v=20260812-tools-layout"/);
-  assert.match(windowPage, /href="\.\/onnx-camera-window\.css\?v=20260812-tools-layout"/);
+  assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs\?v=20260812-log-layout"/);
+  assert.match(windowPage, /href="\.\/onnx-camera-window\.css\?v=20260812-log-layout"/);
   assert.match(windowPage, /FPTU TECH<span>X<\/span> CAMP/);
   assert.match(windowPage, /fonts\.googleapis\.com\/css2\?family=Paytone\+One/);
   assert.doesNotMatch(windowPage, /Load a model and connect a camera to begin/);
@@ -54,6 +54,8 @@ test('standalone and launcher styling keeps the IDE language and responsive wind
   assert.match(windowStyles, /\.onnx-camera-window-shell\{[^}]*width:100%/);
   assert.match(windowStyles, /\.onnx-camera-window-card\{[^}]*grid-template-columns:/);
   assert.match(windowStyles, /onnx-camera-stage video[^}]*object-fit:contain/);
+  assert.match(windowStyles, /\.onnx-camera-log\{[^}]*min-height:104px/);
+  assert.match(windowStyles, /\.onnx-camera-log>\.onnx-results\{[^}]*clip-path:inset\(50%\)/);
   assert.match(windowStyles, /@media\(max-width:900px\)/);
   assert.match(windowStyles, /var\(--bg\)/);
 });
