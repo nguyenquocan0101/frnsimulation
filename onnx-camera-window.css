@@ -1,19 +1,20 @@
 .onnx-camera-window-body{min-width:320px;min-height:100vh;background:var(--bg);color:var(--ink)}
 .onnx-camera-window-shell{width:min(1180px,100%);margin:0 auto;padding:clamp(18px,3vw,38px)}
 .onnx-window-header{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:4px 2px 18px}
-.onnx-brand-lockup{display:grid;gap:5px}.onnx-brand-lockup>span{color:var(--muted);font:700 9px/1 "Consolas",monospace;letter-spacing:.16em}
-.onnx-techx-logo{color:#202518;font-family:"Paytone One",sans-serif;font-size:clamp(22px,3vw,30px);font-weight:700;letter-spacing:2px;line-height:1.1;white-space:nowrap}.onnx-techx-logo span{color:#ff8c00}html[data-theme="dark"] .onnx-techx-logo{color:#fff5e6}
+.onnx-brand-lockup{display:grid;gap:2px}
 .onnx-window-title{text-align:right}.onnx-window-kicker{color:var(--accent-2);font:700 10px/1 "Consolas",monospace;letter-spacing:.12em}.onnx-window-title h1{margin:5px 0 0;font-size:clamp(24px,3vw,34px);letter-spacing:-.045em;line-height:1}
 .onnx-window-rule{height:1px;margin-bottom:18px;background:var(--line)}
 .onnx-camera-window-card{height:auto;min-height:0;overflow:visible;padding:clamp(16px,2.3vw,26px)}
 .onnx-camera-window-card .onnx-camera-heading{align-items:center}.onnx-camera-window-card .onnx-camera-heading h2{margin:0 0 5px;font-size:18px;letter-spacing:-.03em}
 .onnx-source-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(240px,.8fr);gap:12px;margin-top:12px}
 .onnx-mode-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;padding:4px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);width:max-content;max-width:100%}.onnx-mode-group .button{min-width:128px}.onnx-mode-group .button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
-.onnx-mode-help{margin:7px 0 0;color:var(--muted);font:10px/1.4 "Consolas",monospace}
 .onnx-camera-window-card .onnx-camera-stage{min-height:min(58vh,600px);aspect-ratio:16/9;margin-top:14px;border-radius:11px}
-.onnx-camera-window-card .onnx-action-row{max-width:none}.onnx-camera-actions{display:grid;grid-template-columns:1.35fr 1fr 1.1fr}.onnx-camera-window-card .onnx-region-actions{grid-template-columns:1fr 1fr 1.35fr}.onnx-camera-window-card .onnx-region-actions #onnxPredictBtn{grid-column:auto}
+.onnx-control-groups{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px;margin-top:16px}
+.onnx-control-group{min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.onnx-control-group h3{margin:0 0 8px;color:var(--muted);font:700 10px/1 "Consolas",monospace;letter-spacing:.12em;text-transform:uppercase}
+.onnx-camera-window-card .onnx-action-row{max-width:none;margin-top:0}.onnx-camera-actions,.onnx-region-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.onnx-camera-window-card .onnx-region-actions #onnxPredictBtn{grid-column:auto}
 .onnx-camera-window-card .onnx-status{max-width:none;min-height:20px;margin-top:12px}.onnx-camera-window-card .onnx-results{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));max-width:none}
-.onnx-camera-window-card .button{min-height:40px;border-radius:8px}.onnx-camera-window-card .button.primary{box-shadow:0 5px 14px color-mix(in srgb,var(--accent) 18%,transparent)}
-@media(max-width:680px){.onnx-window-header{align-items:flex-start;flex-direction:column;gap:14px}.onnx-window-title{text-align:left}.onnx-source-grid{grid-template-columns:1fr}.onnx-camera-window-card .onnx-camera-stage{min-height:240px}.onnx-camera-actions,.onnx-camera-window-card .onnx-region-actions{grid-template-columns:1fr 1fr}.onnx-camera-actions #onnxConnectCameraBtn,.onnx-camera-window-card .onnx-region-actions #onnxPredictBtn{grid-column:1/-1}.onnx-mode-group{width:100%}.onnx-mode-group .button{flex:1;min-width:0}}
-@media(max-width:420px){.onnx-camera-window-shell{padding:14px 10px}.onnx-techx-logo{font-size:21px;letter-spacing:1.3px}.onnx-camera-window-card{padding:13px}.onnx-camera-window-card .onnx-action-row{gap:6px}.onnx-camera-window-card .button{padding-inline:8px;font-size:11px}}
+.onnx-camera-window-card .button{min-height:40px;border-radius:8px}
+@media(max-width:680px){.onnx-window-header{align-items:flex-start;flex-direction:column;gap:14px}.onnx-window-title{text-align:left}.onnx-source-grid{grid-template-columns:1fr}.onnx-camera-window-card .onnx-camera-stage{min-height:240px}.onnx-control-groups{grid-template-columns:1fr}.onnx-mode-group{width:100%}.onnx-mode-group .button{flex:1;min-width:0}}
+@media(max-width:420px){.onnx-camera-window-shell{padding:14px 10px}.onnx-camera-window-card{padding:13px}.onnx-camera-window-card .onnx-action-row{gap:6px}.onnx-camera-window-card .button{padding-inline:8px;font-size:11px}.onnx-camera-window-card .techx-logo{font-size:22px;letter-spacing:1.5px}}
 @media(prefers-reduced-motion:reduce){.onnx-camera-window-card *{transition-duration:.01ms!important}}

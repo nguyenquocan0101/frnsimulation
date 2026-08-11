@@ -10,8 +10,8 @@
   <body class="onnx-camera-window-body">
     <main class="onnx-camera-window-shell" aria-labelledby="onnxWindowTitle">
       <header class="onnx-window-header">
-        <div class="onnx-brand-lockup" aria-label="FPTU TechX Camp">
-          <div class="onnx-techx-logo">FPTU TECH<span>X</span> CAMP</div>
+        <div class="header-brand onnx-brand-lockup" aria-label="FPTU TechX Camp">
+          <div class="techx-logo">FPTU TECH<span>X</span> CAMP</div>
           <span>FAIRINO SIMULATION</span>
         </div>
         <div class="onnx-window-title">
@@ -53,8 +53,6 @@
           <button class="button quiet" id="onnxCaptureModeBtn" type="button" aria-pressed="true">Capture frame</button>
           <button class="button quiet" id="onnxLiveModeBtn" type="button" aria-pressed="false">Draw live</button>
         </div>
-        <p class="onnx-mode-help" id="onnxModeHelp">Capture mode · Predict all manually.</p>
-
         <div class="onnx-camera-stage" id="onnxCameraStage" data-mode="empty">
           <video id="onnxCameraVideo" muted playsinline hidden></video>
           <canvas id="onnxFrameCanvas" hidden></canvas>
@@ -69,15 +67,23 @@
           </p>
         </div>
 
-        <div class="onnx-action-row onnx-camera-actions">
-          <button class="button primary" id="onnxConnectCameraBtn" type="button">Connect camera</button>
-          <button class="button quiet" id="onnxDisconnectBtn" type="button" disabled>Disconnect</button>
-          <button class="button quiet" id="onnxCaptureBtn" type="button" disabled>Capture frame</button>
-        </div>
-        <div class="onnx-action-row onnx-region-actions">
-          <button class="button quiet" id="onnxUndoBtn" type="button" disabled>Undo box</button>
-          <button class="button quiet" id="onnxClearBtn" type="button" disabled>Clear boxes</button>
-          <button class="button primary" id="onnxPredictBtn" type="button" disabled>Predict all</button>
+        <div class="onnx-control-groups">
+          <section class="onnx-control-group" aria-labelledby="onnxCameraControlsTitle">
+            <h3 id="onnxCameraControlsTitle">Camera</h3>
+            <div class="onnx-action-row onnx-camera-actions">
+              <button class="button primary" id="onnxConnectCameraBtn" type="button">Connect camera</button>
+              <button class="button quiet" id="onnxDisconnectBtn" type="button" disabled>Disconnect</button>
+              <button class="button quiet" id="onnxCaptureBtn" type="button" disabled>Capture frame</button>
+            </div>
+          </section>
+          <section class="onnx-control-group" aria-labelledby="onnxBoxControlsTitle">
+            <h3 id="onnxBoxControlsTitle">Boxes</h3>
+            <div class="onnx-action-row onnx-region-actions">
+              <button class="button quiet" id="onnxUndoBtn" type="button" disabled>Undo box</button>
+              <button class="button quiet" id="onnxClearBtn" type="button" disabled>Clear boxes</button>
+              <button class="button primary" id="onnxPredictBtn" type="button" disabled>Predict all</button>
+            </div>
+          </section>
         </div>
 
         <p class="onnx-status" id="onnxCameraStatus" role="status" aria-live="polite"></p>

@@ -164,7 +164,7 @@ function makeFixture({ delayedRun = false } = {}) {
   };
   const ids = [
     'onnxConnectCameraBtn', 'onnxDisconnectBtn', 'onnxModelInput', 'onnxModelName', 'onnxProviderStatus',
-    'onnxCameraSelect', 'onnxCameraStage', 'onnxCaptureModeBtn', 'onnxLiveModeBtn', 'onnxModeHelp',
+    'onnxCameraSelect', 'onnxCameraStage', 'onnxCaptureModeBtn', 'onnxLiveModeBtn',
     'onnxCameraVideo', 'onnxFrameCanvas', 'onnxOverlayCanvas', 'onnxStageEmpty', 'onnxCaptureBtn',
     'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults',
   ];

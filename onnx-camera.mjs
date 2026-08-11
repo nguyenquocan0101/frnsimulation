@@ -96,7 +96,6 @@ export function createOnnxCameraController({ root, deps = {} }) {
     stage: byId(root, 'onnxCameraStage'),
     captureMode: byId(root, 'onnxCaptureModeBtn'),
     liveMode: byId(root, 'onnxLiveModeBtn'),
-    modeHelp: byId(root, 'onnxModeHelp'),
     video: byId(root, 'onnxCameraVideo'),
     frame: byId(root, 'onnxFrameCanvas'),
     overlay: byId(root, 'onnxOverlayCanvas'),
@@ -159,9 +158,6 @@ export function createOnnxCameraController({ root, deps = {} }) {
     nodes.liveMode.disabled = busy || state.destroyed;
     nodes.captureMode.setAttribute('aria-pressed', String(state.mode === 'capture'));
     nodes.liveMode.setAttribute('aria-pressed', String(state.mode === 'live'));
-    nodes.modeHelp.textContent = state.mode === 'live'
-      ? 'Live draw · each completed box predicts all boxes.'
-      : 'Capture frame · Predict all manually.';
     nodes.overlay.setAttribute('aria-disabled', String(busy || state.mode === 'live' && (!hasStream || nodes.video.readyState < 2)));
     nodes.overlay.setAttribute('aria-label', state.mode === 'live'
       ? 'Draw classification boxes on the running camera. Each completed box is snapshotted and predicted.'
