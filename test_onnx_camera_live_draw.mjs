@@ -62,7 +62,9 @@ test('live snapshot requires a ready video and handles drawImage errors', () => 
 
 test('live overlay remains responsive at narrow widths', () => {
   assert.match(styles, /onnx-mode-group/);
-  assert.match(styles, /@media\(max-width:680px\)[\s\S]*onnx-mode-group/);
+  assert.match(styles, /@media\(max-width:600px\)[\s\S]*onnx-mode-group/);
+  assert.match(styles, /aspect-ratio:var\(--camera-aspect\)/);
+  assert.match(source, /setProperty\('--camera-aspect'/);
 });
 
 test('dependency-injected sequential predictor processes every current box once', async () => {
@@ -215,6 +217,8 @@ async function bootFixture(options) {
 test('fake controller snapshots a live release and auto-predicts all current boxes', async () => {
   const run = await bootFixture();
   const overlay = run.elements.get('onnxOverlayCanvas');
+  assert.equal(overlay.width, 640, 'overlay width matches the connected camera before drawing');
+  assert.equal(overlay.height, 480, 'overlay height matches the connected camera before drawing');
   await run.elements.get('onnxCaptureBtn').emit('click');
   await overlay.emit('pointerdown', { pointerId: 90, clientX: 24, clientY: 24 });
   await overlay.emit('pointerup', { pointerId: 90, clientX: 220, clientY: 220 });

@@ -379,7 +379,12 @@ export function createOnnxCameraController({ root, deps = {} }) {
         return;
       }
       await nodes.video.play();
+      const cameraAspect = nodes.video.videoWidth / nodes.video.videoHeight;
       nodes.stage.style.aspectRatio = `${nodes.video.videoWidth} / ${nodes.video.videoHeight}`;
+      if (nodes.stage.style.setProperty) nodes.stage.style.setProperty('--camera-aspect', String(cameraAspect));
+      else nodes.stage.style['--camera-aspect'] = String(cameraAspect);
+      nodes.overlay.width = nodes.video.videoWidth;
+      nodes.overlay.height = nodes.video.videoHeight;
       clearRegions({ clearFrame: true, invalidate: true });
       updateStage();
       await populateCameras();

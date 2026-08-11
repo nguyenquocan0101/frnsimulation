@@ -11,7 +11,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
-    <link rel="stylesheet" href="./onnx-camera-window.css?v=20260812-full-stage" />
+    <link rel="stylesheet" href="./onnx-camera-window.css?v=20260812-tools-layout" />
   </head>
   <body class="onnx-camera-window-body">
     <main class="onnx-camera-window-shell" aria-labelledby="onnxWindowTitle">
@@ -34,152 +34,130 @@
         id="onnxCameraCard"
         aria-labelledby="onnxCameraTitle"
       >
-        <div class="onnx-camera-heading">
-          <div>
-            <h2 id="onnxCameraTitle">Camera workspace</h2>
-            <span class="onnx-status-chip" id="onnxProviderStatus"
-              >MODEL OFF</span
-            >
+        <aside class="onnx-camera-tools" aria-label="Camera tools">
+          <div class="onnx-camera-heading">
+            <div>
+              <h2 id="onnxCameraTitle">Camera workspace</h2>
+              <span class="onnx-status-chip" id="onnxProviderStatus"
+                >MODEL OFF</span
+              >
+            </div>
           </div>
-        </div>
 
-        <div class="onnx-source-grid">
-          <label class="onnx-field" for="onnxModelInput">
-            <span>YOLO26-cls model (.onnx)</span>
-            <input
-              id="onnxModelInput"
-              type="file"
-              accept=".onnx,application/octet-stream"
-            />
-          </label>
+          <div class="onnx-source-grid">
+            <label class="onnx-field" for="onnxModelInput">
+              <span>YOLO26-cls model (.onnx)</span>
+              <input
+                id="onnxModelInput"
+                type="file"
+                accept=".onnx,application/octet-stream"
+              />
+            </label>
 
-          <label class="onnx-field" for="onnxCameraSelect">
-            <span>Camera</span>
-            <select id="onnxCameraSelect" disabled>
-              <option value="">Connect to list cameras</option>
-            </select>
-          </label>
-        </div>
-        <p class="onnx-file-name" id="onnxModelName">
-          Choose a local .onnx file
-        </p>
-
-        <div
-          class="onnx-mode-group"
-          role="group"
-          aria-label="Camera drawing mode"
-        >
-          <button
-            class="button quiet"
-            id="onnxCaptureModeBtn"
-            type="button"
-            aria-pressed="true"
-          >
-            Capture frame
-          </button>
-          <button
-            class="button quiet"
-            id="onnxLiveModeBtn"
-            type="button"
-            aria-pressed="false"
-          >
-            Draw live
-          </button>
-        </div>
-        <div class="onnx-camera-stage" id="onnxCameraStage" data-mode="empty">
-          <video id="onnxCameraVideo" muted playsinline hidden></video>
-          <canvas id="onnxFrameCanvas" hidden></canvas>
-          <canvas
-            id="onnxOverlayCanvas"
-            aria-label="Draw classification boxes on the selected frame. Press Enter to add a preset box in Capture frame mode."
-            tabindex="0"
-            hidden
-          ></canvas>
-          <ol class="onnx-camera-results-overlay" id="onnxOverlayResults" aria-label="Classification results on camera" aria-hidden="true"></ol>
-          <p class="onnx-stage-empty" id="onnxStageEmpty">
-            Connect a camera to begin.
+            <label class="onnx-field" for="onnxCameraSelect">
+              <span>Camera</span>
+              <select id="onnxCameraSelect" disabled>
+                <option value="">Connect to list cameras</option>
+              </select>
+            </label>
+          </div>
+          <p class="onnx-file-name" id="onnxModelName">
+            Choose a local .onnx file
           </p>
-        </div>
 
-        <div class="onnx-control-groups">
-          <section
-            class="onnx-control-group"
-            aria-labelledby="onnxCameraControlsTitle"
+          <div
+            class="onnx-mode-group"
+            role="group"
+            aria-label="Camera drawing mode"
           >
-            <h3 id="onnxCameraControlsTitle">Camera</h3>
-            <div class="onnx-action-row onnx-camera-actions">
-              <button
-                class="button primary"
-                id="onnxConnectCameraBtn"
-                type="button"
-              >
-                Connect camera
-              </button>
-              <button
-                class="button quiet"
-                id="onnxDisconnectBtn"
-                type="button"
-                disabled
-              >
-                Disconnect
-              </button>
-              <button
-                class="button quiet"
-                id="onnxCaptureBtn"
-                type="button"
-                disabled
-              >
-                Capture frame
-              </button>
-            </div>
-          </section>
-          <section
-            class="onnx-control-group"
-            aria-labelledby="onnxBoxControlsTitle"
-          >
-            <h3 id="onnxBoxControlsTitle">Boxes</h3>
-            <div class="onnx-action-row onnx-region-actions">
-              <button
-                class="button quiet"
-                id="onnxUndoBtn"
-                type="button"
-                disabled
-              >
-                Undo box
-              </button>
-              <button
-                class="button quiet"
-                id="onnxClearBtn"
-                type="button"
-                disabled
-              >
-                Clear boxes
-              </button>
-              <button
-                class="button primary"
-                id="onnxPredictBtn"
-                type="button"
-                disabled
-              >
-                Predict all
-              </button>
-            </div>
+            <button
+              class="button quiet"
+              id="onnxCaptureModeBtn"
+              type="button"
+              aria-pressed="true"
+            >
+              Capture frame
+            </button>
+            <button
+              class="button quiet"
+              id="onnxLiveModeBtn"
+              type="button"
+              aria-pressed="false"
+            >
+              Draw live
+            </button>
+          </div>
+
+          <div class="onnx-control-groups">
+            <section
+              class="onnx-control-group"
+              aria-labelledby="onnxCameraControlsTitle"
+            >
+              <h3 id="onnxCameraControlsTitle">Camera</h3>
+              <div class="onnx-action-row onnx-camera-actions">
+                <button class="button primary" id="onnxConnectCameraBtn" type="button">
+                  Connect camera
+                </button>
+                <button class="button quiet" id="onnxDisconnectBtn" type="button" disabled>
+                  Disconnect
+                </button>
+                <button class="button quiet" id="onnxCaptureBtn" type="button" disabled>
+                  Capture frame
+                </button>
+              </div>
+            </section>
+            <section
+              class="onnx-control-group"
+              aria-labelledby="onnxBoxControlsTitle"
+            >
+              <h3 id="onnxBoxControlsTitle">Boxes</h3>
+              <div class="onnx-action-row onnx-region-actions">
+                <button class="button quiet" id="onnxUndoBtn" type="button" disabled>
+                  Undo box
+                </button>
+                <button class="button quiet" id="onnxClearBtn" type="button" disabled>
+                  Clear boxes
+                </button>
+                <button class="button primary" id="onnxPredictBtn" type="button" disabled>
+                  Predict all
+                </button>
+              </div>
+            </section>
+          </div>
+        </aside>
+
+        <div class="onnx-camera-main">
+          <div class="onnx-camera-stage" id="onnxCameraStage" data-mode="empty">
+            <video id="onnxCameraVideo" muted playsinline hidden></video>
+            <canvas id="onnxFrameCanvas" hidden></canvas>
+            <canvas
+              id="onnxOverlayCanvas"
+              aria-label="Draw classification boxes on the selected frame. Press Enter to add a preset box in Capture frame mode."
+              tabindex="0"
+              hidden
+            ></canvas>
+            <ol class="onnx-camera-results-overlay" id="onnxOverlayResults" aria-label="Classification results on camera" aria-hidden="true"></ol>
+            <p class="onnx-stage-empty" id="onnxStageEmpty">
+              Connect a camera to begin.
+            </p>
+          </div>
+
+          <section class="onnx-camera-log" aria-label="Prediction log">
+            <p
+              class="onnx-status"
+              id="onnxCameraStatus"
+              role="status"
+              aria-live="polite"
+            ></p>
+            <ol
+              class="onnx-results"
+              id="onnxResults"
+              aria-label="Classification results"
+            ></ol>
           </section>
         </div>
-
-        <p
-          class="onnx-status"
-          id="onnxCameraStatus"
-          role="status"
-          aria-live="polite"
-        ></p>
-        <ol
-          class="onnx-results"
-          id="onnxResults"
-          aria-label="Classification results"
-        ></ol>
       </section>
     </main>
-    <script type="module" src="./onnx-camera-window.mjs?v=20260812-full-stage"></script>
+    <script type="module" src="./onnx-camera-window.mjs?v=20260812-tools-layout"></script>
   </body>
 </html>
