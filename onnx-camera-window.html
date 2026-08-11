@@ -12,7 +12,7 @@
       <div class="onnx-window-intro">
         <p class="eyebrow">TECHCAMP AI WORKSHOP</p>
         <h1 id="onnxWindowTitle">AI camera</h1>
-        <p>Load a local YOLO26-cls model, capture a frame, and classify up to seven selected regions.</p>
+        <p>Load a local YOLO26-cls model, capture a frame, or draw directly on live camera video.</p>
       </div>
 
       <section
@@ -34,6 +34,12 @@
         </label>
         <p class="onnx-file-name" id="onnxModelName">Choose a local .onnx file</p>
 
+        <div class="onnx-mode-group" role="group" aria-label="Camera drawing mode">
+          <button class="button quiet" id="onnxCaptureModeBtn" type="button" aria-pressed="true">Capture frame</button>
+          <button class="button quiet" id="onnxLiveModeBtn" type="button" aria-pressed="false">Draw live</button>
+        </div>
+        <p class="onnx-mode-help" id="onnxModeHelp">Capture a stable frame, then draw regions and choose Predict all.</p>
+
         <label class="onnx-field" for="onnxCameraSelect">
           <span>Camera</span>
           <select id="onnxCameraSelect" disabled>
@@ -46,7 +52,7 @@
           <canvas id="onnxFrameCanvas" hidden></canvas>
           <canvas
             id="onnxOverlayCanvas"
-            aria-label="Draw classification boxes on the captured frame. Press Enter to add a preset box."
+            aria-label="Draw classification boxes on the selected frame. Press Enter to add a preset box in Capture frame mode."
             tabindex="0"
             hidden
           ></canvas>

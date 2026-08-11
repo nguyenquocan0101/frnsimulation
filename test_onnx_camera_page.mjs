@@ -62,7 +62,7 @@ test('camera lifecycle remains button-triggered and owned by the child page', ()
 
 test('manual regions remain capped at seven and sequentially preserve results', () => {
   assert.match(controller, /const MAX_BOXES = 7/);
-  assert.match(controller, /for \(const box of state\.boxes\) nextResults\.push\(await inferBox\(box\)\)/);
+  assert.match(controller, /predictBoxesSequentially\(\s*boxes/);
   assert.match(controller, /state\.results = nextResults/);
   assert.match(controller, /Prediction failed\. Your frame and boxes were kept/);
   assert.match(controller, /event\.key === 'Enter'/);
