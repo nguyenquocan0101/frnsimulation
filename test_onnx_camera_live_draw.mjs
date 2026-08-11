@@ -39,10 +39,11 @@ test('displayRect maps a wide video with vertical letterbox bars', () => {
   });
 });
 
-test('live path snapshots video and guards against continuous inference', () => {
+test('live path snapshots video and uses a guarded two-second prediction loop', () => {
   assert.match(source, /drawImage\(nodes\.video/);
   assert.match(source, /mode\s*===\s*'live'/);
-  assert.doesNotMatch(source, /setInterval\(/);
+  assert.match(source, /setIntervalRef\([\s\S]*2000\)/);
+  assert.match(source, /clearIntervalRef/);
   assert.doesNotMatch(source, /requestVideoFrameCallback/);
 });
 
@@ -161,6 +162,10 @@ function makeFixture({ delayedRun = false } = {}) {
   const fixture = {
     stageRect: { left: 0, top: 0, width: 640, height: 480 },
     videoSnapshotCalls: 0,
+    intervalActive: false,
+    intervalCallback: null,
+    intervalMs: 0,
+    intervalId: 0,
     replaced: new Map(),
     handlers: {},
   };
@@ -199,6 +204,14 @@ function makeFixture({ delayedRun = false } = {}) {
   const deps = {
     document: new FakeDocument(fixture), navigator: navigatorRef, window: windowRef,
     performance: { now: () => 10 }, loadRuntime: async () => ort,
+    setInterval(callback, ms) {
+      fixture.intervalActive = true;
+      fixture.intervalCallback = callback;
+      fixture.intervalMs = ms;
+      fixture.intervalId += 1;
+      return fixture.intervalId;
+    },
+    clearInterval() { fixture.intervalActive = false; },
   };
   return { fixture, root, elements, session, deps, releaseRun, file: { name: 'demo.onnx', async arrayBuffer() { return new ArrayBuffer(0); } } };
 }
@@ -212,6 +225,13 @@ async function bootFixture(options) {
   await fixture.elements.get('onnxModelInput').emit('change');
   await fixture.elements.get('onnxConnectCameraBtn').emit('click');
   return { ...fixture, controller };
+}
+
+async function runLiveTick(run) {
+  assert.equal(run.fixture.intervalActive, true, 'live prediction timer is active');
+  assert.equal(run.fixture.intervalMs, 2000, 'live prediction timer runs every two seconds');
+  run.fixture.intervalCallback();
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 test('fake controller snapshots a live release and auto-predicts all current boxes', async () => {
@@ -230,20 +250,27 @@ test('fake controller snapshots a live release and auto-predicts all current box
   await overlay.emit('pointerup', { pointerId: 1, clientX: 220, clientY: 220 });
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(run.fixture.videoSnapshotCalls, 2, 'manual capture plus first live snapshot');
+  assert.equal(run.session.runCalls, 0, 'live prediction waits for the two-second timer');
+  await runLiveTick(run);
   assert.equal(run.session.runCalls, 1);
   assert.equal(run.elements.get('onnxResults').children.length, 1);
-  assert.equal(run.elements.get('onnxOverlayResults').children.length, 1);
+  assert.equal(run.elements.get('onnxOverlayResults').children.length, 0, 'camera overlay has no result log');
   for (let index = 2; index <= 7; index += 1) {
     const startX = 20 + index * 18;
     const startY = 20 + index * 8;
+    const timerBeforeDrag = run.fixture.intervalId;
     await overlay.emit('pointerdown', { pointerId: index, clientX: startX, clientY: startY });
+    assert.equal(run.fixture.intervalActive, false, 'timer pauses while a box is being drawn');
     await overlay.emit('pointerup', { pointerId: index, clientX: startX + 150, clientY: startY + 120 });
     await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(run.fixture.intervalActive, true, 'timer restarts after the box is released');
+    assert.ok(run.fixture.intervalId > timerBeforeDrag, 'released box receives a fresh two-second cadence');
+    await runLiveTick(run);
   }
-  assert.equal(run.fixture.videoSnapshotCalls, 8, 'one manual capture plus seven live snapshots');
-  assert.equal(run.session.runCalls, 28, 'releases rerun the full current selection');
+  assert.equal(run.fixture.videoSnapshotCalls, 15, 'manual capture, seven box snapshots, and seven timer snapshots');
+  assert.equal(run.session.runCalls, 28, 'each timer tick reruns the full current selection');
   assert.equal(run.elements.get('onnxResults').children.length, 7);
-  assert.equal(run.elements.get('onnxOverlayResults').children.length, 7);
+  assert.equal(run.elements.get('onnxOverlayResults').children.length, 0);
   await run.controller.destroy();
 });
 
@@ -286,9 +313,10 @@ test('fake controller ignores a second live gesture while inference is busy', as
   await overlay.emit('pointerdown', { pointerId: 4, clientX: 24, clientY: 24 });
   await overlay.emit('pointerup', { pointerId: 4, clientX: 220, clientY: 220 });
   await new Promise((resolve) => setTimeout(resolve, 0));
+  await runLiveTick(run);
   await overlay.emit('pointerdown', { pointerId: 5, clientX: 30, clientY: 30 });
   await overlay.emit('pointerup', { pointerId: 5, clientX: 240, clientY: 240 });
-  assert.equal(run.fixture.videoSnapshotCalls, 1);
+  assert.equal(run.fixture.videoSnapshotCalls, 2);
   assert.equal(run.session.runCalls, 1);
   run.releaseRun?.();
   await new Promise((resolve) => setTimeout(resolve, 0));

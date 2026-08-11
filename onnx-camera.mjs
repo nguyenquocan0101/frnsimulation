@@ -85,6 +85,8 @@ export function createOnnxCameraController({ root, deps = {} }) {
   const performanceRef = deps.performance ?? performance;
   const runtimeLoader = deps.loadRuntime ?? loadRuntime;
   const nextFrameRef = deps.nextFrame ?? nextFrame;
+  const setIntervalRef = deps.setInterval ?? windowRef.setInterval?.bind(windowRef) ?? setInterval;
+  const clearIntervalRef = deps.clearInterval ?? windowRef.clearInterval?.bind(windowRef) ?? clearInterval;
 
   const nodes = {
     connect: byId(root, 'onnxConnectCameraBtn'),
@@ -131,6 +133,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     cameraToken: 0,
     sourceToken: 0,
     predictionToken: 0,
+    livePredictTimer: null,
   };
   const workCanvas = documentRef.createElement('canvas');
   const handledPointerEvents = new WeakSet();
@@ -173,17 +176,51 @@ export function createOnnxCameraController({ root, deps = {} }) {
     nodes.liveMode.setAttribute('aria-pressed', String(state.mode === 'live'));
     nodes.overlay.setAttribute('aria-disabled', String(busy || state.mode === 'live' && (!hasStream || nodes.video.readyState < 2)));
     nodes.overlay.setAttribute('aria-label', state.mode === 'live'
-      ? 'Draw classification boxes on the running camera. Each completed box is snapshotted and predicted.'
+      ? 'Draw classification boxes on the running camera. All boxes update every 2 seconds.'
       : 'Draw classification boxes on the captured frame. Press Enter to add a preset box.');
     nodes.undo.disabled = busy || !state.frameReady || state.boxes.length === 0;
     nodes.clear.disabled = busy || !state.frameReady || state.boxes.length === 0;
     nodes.predict.disabled = busy || !state.session || !state.frameReady || state.boxes.length === 0;
     root.setAttribute('aria-busy', String(busy));
+    syncLivePredictLoop();
   }
 
   function setBusy(kind = '') {
     state.busy = kind;
     updateControls();
+  }
+
+  function stopLivePredictLoop() {
+    if (state.livePredictTimer === null) return;
+    clearIntervalRef(state.livePredictTimer);
+    state.livePredictTimer = null;
+  }
+
+  function canRunLivePredictLoop() {
+    return !state.destroyed
+      && !state.busy
+      && state.mode === 'live'
+      && Boolean(state.stream)
+      && Boolean(state.session)
+      && state.boxes.length > 0
+      && state.pointerId === null
+      && !state.draft
+      && nodes.video.readyState >= 2
+      && Boolean(nodes.video.videoWidth);
+  }
+
+  function syncLivePredictLoop() {
+    if (!canRunLivePredictLoop()) {
+      stopLivePredictLoop();
+      return;
+    }
+    if (state.livePredictTimer !== null) return;
+    state.livePredictTimer = setIntervalRef(() => {
+      if (!canRunLivePredictLoop()) return;
+      if (!snapshotVideoFrame({ clearSelection: false })) return;
+      state.sourceToken += 1;
+      void predictAll({ trigger: 'live', sourceToken: state.sourceToken });
+    }, 2000);
   }
 
   async function releaseSession() {
@@ -332,7 +369,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     updateStage();
     if (announce) {
       setStatus(mode === 'live'
-        ? (state.stream ? 'Draw live enabled. Each box snapshots the current frame and predicts all boxes.' : 'Draw live selected. Connect a camera to begin.')
+        ? (state.stream ? 'Draw live enabled. Draw boxes once; Auto Predict updates all boxes every 2 seconds.' : 'Draw live selected. Connect a camera to begin.')
         : 'Capture frame selected. Capture a frame, draw boxes, then choose Predict all.');
     }
     return true;
@@ -530,6 +567,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     state.draft = null;
     state.pointerStart = null;
     drawOverlay();
+    updateControls();
   }
 
   function finishBox(event) {
@@ -557,7 +595,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
       updateControls();
       if (state.mode === 'live') {
         if (state.session) {
-          void predictAll({ trigger: 'live', sourceToken: state.sourceToken });
+          setStatus(`${state.boxes.length}/${MAX_BOXES} boxes ready. Auto Predict updates all boxes every 2 seconds.`);
         } else {
           setStatus(`${state.boxes.length}/${MAX_BOXES} box${state.boxes.length === 1 ? '' : 'es'} kept. Load a compatible .onnx model, then choose Predict all.`, 'error');
         }
@@ -587,7 +625,6 @@ export function createOnnxCameraController({ root, deps = {} }) {
         return item;
       };
       nodes.results.append(makeItem('onnx-result'));
-      nodes.overlayResults?.append(makeItem('onnx-result onnx-overlay-result'));
     });
     drawOverlay();
   }
@@ -715,6 +752,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     state.cameraToken += 1;
     state.sourceToken += 1;
     state.predictionToken += 1;
+    stopLivePredictLoop();
     stopStream();
     await releaseSession();
     windowRef.removeEventListener('pagehide', destroy);
@@ -750,6 +788,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     if ((!liveReady && !captureReady) || state.busy || state.boxes.length >= MAX_BOXES) return;
     const point = pointerPosition(event);
     if (!point.stageInside) return;
+    stopLivePredictLoop();
     state.pointerId = event.pointerId;
     state.pointerStart = point;
     state.draft = { x1: point.x, y1: point.y, x2: point.x, y2: point.y };

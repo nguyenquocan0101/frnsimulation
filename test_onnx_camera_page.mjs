@@ -24,8 +24,8 @@ test('dedicated page owns the full labelled camera workflow', () => {
   for (const id of ['onnxCameraCard', 'onnxModelInput', 'onnxConnectCameraBtn', 'onnxCameraSelect', 'onnxDisconnectBtn', 'onnxCaptureBtn', 'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults', 'onnxOverlayResults']) {
     assert.match(windowPage, new RegExp(`id="${id}"`));
   }
-  assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs\?v=20260812-equal-log"/);
-  assert.match(windowPage, /href="\.\/onnx-camera-window\.css\?v=20260812-equal-log"/);
+  assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs\?v=20260812-timed-log"/);
+  assert.match(windowPage, /href="\.\/onnx-camera-window\.css\?v=20260812-timed-log"/);
   assert.match(windowPage, /FPTU TECH<span>X<\/span> CAMP/);
   assert.match(windowPage, /fonts\.googleapis\.com\/css2\?family=Paytone\+One/);
   assert.doesNotMatch(windowPage, /Load a model and connect a camera to begin/);
@@ -56,12 +56,13 @@ test('standalone and launcher styling keeps the IDE language and responsive wind
   assert.match(windowStyles, /onnx-camera-stage video[^}]*object-fit:contain/);
   assert.match(windowStyles, /\.onnx-camera-log\{[^}]*min-height:104px/);
   assert.match(windowStyles, /\.onnx-camera-log\{[^}]*width:min\(100%,calc\(\(100vh - 300px\)\*var\(--camera-aspect\)\)\)/);
-  assert.match(windowStyles, /\.onnx-camera-log>\.onnx-results\{[^}]*clip-path:inset\(50%\)/);
+  assert.match(windowStyles, /\.onnx-camera-results-overlay\{display:none!important\}/);
+  assert.match(windowStyles, /\.onnx-camera-log>\.onnx-results\{[^}]*position:static/);
   assert.match(windowStyles, /@media\(max-width:900px\)/);
   assert.match(windowStyles, /var\(--bg\)/);
 });
 
-test('camera lifecycle remains button-triggered and owned by the child page', () => {
+test('camera lifecycle stays child-owned with a guarded live prediction timer', () => {
   assert.match(controller, /getUserMedia/);
   assert.match(controller, /enumerateDevices/);
   assert.match(controller, /getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
@@ -69,7 +70,9 @@ test('camera lifecycle remains button-triggered and owned by the child page', ()
   assert.match(controller, /state\.destroyed \|\| token !== state\.cameraToken/);
   assert.match(controller, /addEventListener\('pagehide', destroy/);
   assert.match(controller, /nodes\.predict\.addEventListener\('click', predictAll\)/);
-  assert.doesNotMatch(controller, /setInterval|requestAnimationFrame\([^)]*predict|video.*requestVideoFrameCallback/i);
+  assert.match(controller, /setIntervalRef\([\s\S]*2000\)/);
+  assert.match(controller, /stopLivePredictLoop\(\)/);
+  assert.doesNotMatch(controller, /requestAnimationFrame\([^)]*predict|video.*requestVideoFrameCallback/i);
 });
 
 test('manual regions remain capped at seven and sequentially preserve results', () => {
