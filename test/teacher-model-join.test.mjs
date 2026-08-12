@@ -42,6 +42,9 @@ test("teacher page has a password gate and does not start Firestore polling befo
   const listIndex = html.indexOf("listSubmissions");
   assert.ok(accessIndex >= 0 && listIndex > accessIndex);
   assert.match(html, /requireTeacherSession|unlockTeacher|requestTeacherSession/);
+  const resultsLoader = html.match(/async function loadCompetitionResults\([\s\S]*?\n\s*}\n/)?.[0] ?? "";
+  assert.match(resultsLoader, /requireTeacherSession\(access\)/,
+    "manual results refresh must be gated too");
 });
 
 test("teacher access uses expiring session storage and native download URLs", () => {
