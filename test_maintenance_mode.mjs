@@ -11,6 +11,7 @@ test("lunch maintenance expires automatically at 13:30 Vietnam time", () => {
   assert.match(config, /2026-08-12T13:30:00\+07:00/);
   assert.match(config, /Date\.now\(\)\s*<\s*LUNCH_REOPEN_AT/);
   assert.match(config, /FR5_MAINTENANCE_REOPEN_AT/);
+  assert.match(config, /!isLocalDevelopment\s*&&\s*Date\.now\(\)\s*<\s*LUNCH_REOPEN_AT/);
   assert.match(index, /maintenance-config\.js/);
 });
 

@@ -1,4 +1,4 @@
-import { createOnnxCameraController } from './onnx-camera.mjs?v=20260812-ide-ai-log';
+import { createOnnxCameraController } from './onnx-camera.mjs?v=20260812-image-upload';
 
 const VALID_THEMES = new Set(['light', 'dark']);
 

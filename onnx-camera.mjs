@@ -16,6 +16,10 @@ const ORT_DIST = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/di
 const ORT_MODULE_URL = `${ORT_DIST}ort.webgpu.min.mjs`;
 const MAX_BOXES = 7;
 const MIN_BOX_SIZE = 12;
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 8192;
+const MAX_IMAGE_PIXELS = 32 * 1024 * 1024;
+const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 let runtimePromise = null;
 
 const byId = (root, id) => root.querySelector(`#${id}`);
@@ -42,6 +46,57 @@ export async function predictBoxesSequentially(boxes, inferBox, shouldContinue =
     if (!shouldContinue()) return null;
   }
   return results;
+}
+
+export function validateImageFile(file) {
+  if (!file) return 'Choose a PNG, JPEG, or WebP image.';
+  if (!SUPPORTED_IMAGE_TYPES.has(String(file.type).toLowerCase())) {
+    return 'Image needs to be a PNG, JPEG, or WebP file.';
+  }
+  if (!Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
+    return 'Image size needs to be between 1 byte and 20 MB.';
+  }
+  return '';
+}
+
+export function validateDecodedImageDimensions(width, height) {
+  const imageWidth = Number(width);
+  const imageHeight = Number(height);
+  if (!Number.isSafeInteger(imageWidth) || !Number.isSafeInteger(imageHeight) || imageWidth <= 0 || imageHeight <= 0) {
+    return 'The selected image has invalid dimensions.';
+  }
+  if (imageWidth > MAX_IMAGE_DIMENSION || imageHeight > MAX_IMAGE_DIMENSION || imageWidth * imageHeight > MAX_IMAGE_PIXELS) {
+    return 'Image dimensions are too large. Use an image up to 8192 px per side and 32 megapixels.';
+  }
+  return '';
+}
+
+async function decodeImageFile(file, windowRef) {
+  if (typeof windowRef.createImageBitmap === 'function') {
+    const bitmap = await windowRef.createImageBitmap(file);
+    return {
+      source: bitmap,
+      width: bitmap.width,
+      height: bitmap.height,
+      dispose: () => bitmap.close?.(),
+    };
+  }
+
+  return new Promise((resolve, reject) => {
+    const url = windowRef.URL.createObjectURL(file);
+    const image = new windowRef.Image();
+    image.onload = () => resolve({
+      source: image,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      dispose: () => windowRef.URL.revokeObjectURL(url),
+    });
+    image.onerror = () => {
+      windowRef.URL.revokeObjectURL(url);
+      reject(new Error('The selected image could not be decoded.'));
+    };
+    image.src = url;
+  });
 }
 
 async function loadRuntime() {
@@ -88,6 +143,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
   const nextFrameRef = deps.nextFrame ?? nextFrame;
   const setIntervalRef = deps.setInterval ?? windowRef.setInterval?.bind(windowRef) ?? setInterval;
   const clearIntervalRef = deps.clearInterval ?? windowRef.clearInterval?.bind(windowRef) ?? clearInterval;
+  const decodeImageRef = deps.decodeImageFile ?? ((file) => decodeImageFile(file, windowRef));
   const predictionPublisher = deps.predictionPublisher ?? createAiCameraLogPublisher({ windowRef });
 
   const nodes = {
@@ -95,6 +151,8 @@ export function createOnnxCameraController({ root, deps = {} }) {
     disconnect: byId(root, 'onnxDisconnectBtn'),
     modelInput: byId(root, 'onnxModelInput'),
     modelName: byId(root, 'onnxModelName'),
+    imageInput: byId(root, 'onnxImageInput'),
+    imageName: byId(root, 'onnxImageName'),
     provider: byId(root, 'onnxProviderStatus'),
     cameraSelect: byId(root, 'onnxCameraSelect'),
     stage: byId(root, 'onnxCameraStage'),
@@ -119,6 +177,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     mode: 'capture',
     frameReady: false,
     captured: false,
+    sourceKind: '',
     boxes: [],
     results: [],
     draft: null,
@@ -133,6 +192,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     classNames: [],
     loadToken: 0,
     cameraToken: 0,
+    imageToken: 0,
     sourceToken: 0,
     predictionToken: 0,
     livePredictTimer: null,
@@ -167,6 +227,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     const busy = Boolean(state.busy);
     const hasStream = Boolean(state.stream);
     nodes.modelInput.disabled = busy || state.destroyed;
+    nodes.imageInput.disabled = busy || state.destroyed;
     nodes.connect.disabled = busy || hasStream || state.destroyed;
     nodes.disconnect.disabled = busy || !hasStream;
     nodes.cameraSelect.disabled = busy || !hasStream;
@@ -179,7 +240,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     nodes.overlay.setAttribute('aria-disabled', String(busy || state.mode === 'live' && (!hasStream || nodes.video.readyState < 2)));
     nodes.overlay.setAttribute('aria-label', state.mode === 'live'
       ? 'Draw classification boxes on the running camera. All boxes update every 2 seconds.'
-      : 'Draw classification boxes on the captured frame. Press Enter to add a preset box.');
+      : 'Draw classification boxes on the uploaded image or captured frame. Press Enter to add a preset box.');
     nodes.undo.disabled = busy || !state.frameReady || state.boxes.length === 0;
     nodes.clear.disabled = busy || !state.frameReady || state.boxes.length === 0;
     nodes.predict.disabled = busy || !state.session || !state.frameReady || state.boxes.length === 0;
@@ -343,6 +404,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     if (clearFrame) {
       state.frameReady = false;
       state.captured = false;
+      state.sourceKind = '';
     }
     clearResultViews();
     drawOverlay();
@@ -350,12 +412,17 @@ export function createOnnxCameraController({ root, deps = {} }) {
   }
 
   function updateStage() {
-    nodes.frame.hidden = true;
+    const liveReady = Boolean(state.stream && state.mode === 'live');
+    const frameVisible = Boolean(state.mode === 'capture' && state.frameReady);
     nodes.video.hidden = !(state.stream && (state.mode === 'live' || !state.frameReady));
-    nodes.frame.hidden = !(state.mode === 'capture' && state.frameReady);
-    nodes.overlay.hidden = !(state.stream && (state.mode === 'live' || state.frameReady));
-    nodes.empty.hidden = Boolean(state.stream);
-    nodes.stage.dataset.mode = state.stream ? (state.mode === 'live' ? 'live' : (state.frameReady ? 'captured' : 'capture')) : 'empty';
+    nodes.frame.hidden = !frameVisible;
+    nodes.overlay.hidden = !(liveReady || frameVisible);
+    nodes.empty.hidden = Boolean(state.stream || frameVisible);
+    nodes.stage.dataset.mode = liveReady
+      ? 'live'
+      : frameVisible
+        ? (state.sourceKind === 'image' ? 'image' : 'captured')
+        : (state.stream ? 'capture' : 'empty');
     updateControls();
   }
 
@@ -397,6 +464,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
       return;
     }
     const token = ++state.cameraToken;
+    state.imageToken += 1;
     setBusy('camera');
     setStatus(deviceId ? 'Switching camera…' : 'Requesting camera access…');
     stopStream();
@@ -424,6 +492,8 @@ export function createOnnxCameraController({ root, deps = {} }) {
       else nodes.stage.style['--camera-aspect'] = String(cameraAspect);
       if (root.style?.setProperty) root.style.setProperty('--camera-aspect', String(cameraAspect));
       else if (root.style) root.style['--camera-aspect'] = String(cameraAspect);
+      nodes.imageInput.value = '';
+      nodes.imageName.textContent = 'Or upload an image and draw boxes directly';
       nodes.overlay.width = nodes.video.videoWidth;
       nodes.overlay.height = nodes.video.videoHeight;
       clearRegions({ clearFrame: true, invalidate: true });
@@ -436,7 +506,8 @@ export function createOnnxCameraController({ root, deps = {} }) {
       acquiredStream?.getTracks().forEach((track) => track.stop());
       if (state.destroyed || token !== state.cameraToken) return;
       stopStream();
-      showLiveFrame();
+      if (state.frameReady) updateStage();
+      else showLiveFrame();
       const denied = error?.name === 'NotAllowedError';
       setStatus(
         denied
@@ -484,6 +555,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     nodes.overlay.height = height;
     state.frameReady = true;
     state.captured = true;
+    state.sourceKind = 'camera';
     if (clearSelection) clearRegions({ invalidate: true });
     updateStage();
     return true;
@@ -501,6 +573,68 @@ export function createOnnxCameraController({ root, deps = {} }) {
     updateStage();
     setStatus('Frame captured. Draw 1–7 boxes, then choose Predict all.');
     updateControls();
+  }
+
+  async function loadImage(file) {
+    const token = ++state.imageToken;
+    if (!file) return;
+    const validationError = validateImageFile(file);
+    nodes.imageName.textContent = file.name || 'Selected image';
+    if (validationError) {
+      setStatus(validationError, 'error');
+      nodes.imageInput.value = '';
+      return;
+    }
+
+    state.cameraToken += 1;
+    setBusy('image');
+    setStatus(`Loading ${file.name} locally…`);
+    let decoded = null;
+    try {
+      decoded = await decodeImageRef(file);
+      if (state.destroyed || token !== state.imageToken) return;
+      const width = Number(decoded?.width);
+      const height = Number(decoded?.height);
+      const dimensionsError = validateDecodedImageDimensions(width, height);
+      if (dimensionsError) throw new Error(dimensionsError);
+
+      const nextFrameCanvas = documentRef.createElement('canvas');
+      nextFrameCanvas.id = 'onnxFrameCanvas';
+      nextFrameCanvas.hidden = true;
+      nextFrameCanvas.width = width;
+      nextFrameCanvas.height = height;
+      nextFrameCanvas.getContext('2d').drawImage(decoded.source, 0, 0, width, height);
+      if (state.destroyed || token !== state.imageToken) return;
+
+      stopStream();
+      state.mode = 'capture';
+      clearRegions({ clearFrame: true, invalidate: true });
+      nodes.frame.replaceWith(nextFrameCanvas);
+      nodes.frame = nextFrameCanvas;
+      nodes.overlay.width = width;
+      nodes.overlay.height = height;
+      const imageAspect = width / height;
+      nodes.stage.style.aspectRatio = `${width} / ${height}`;
+      if (nodes.stage.style.setProperty) nodes.stage.style.setProperty('--camera-aspect', String(imageAspect));
+      else nodes.stage.style['--camera-aspect'] = String(imageAspect);
+      if (root.style?.setProperty) root.style.setProperty('--camera-aspect', String(imageAspect));
+      else if (root.style) root.style['--camera-aspect'] = String(imageAspect);
+      state.frameReady = true;
+      state.captured = true;
+      state.sourceKind = 'image';
+      updateStage();
+      setStatus('Image ready. Draw 1–7 boxes, then choose Predict all.', 'success');
+      nodes.overlay.focus?.();
+    } catch (error) {
+      if (!state.destroyed && token === state.imageToken) {
+        updateStage();
+        setStatus(`Could not load this image. ${error.message}`, 'error');
+        nodes.imageInput.value = '';
+      }
+    } finally {
+      decoded?.dispose?.();
+      if (!state.destroyed && token === state.imageToken) setBusy();
+    }
   }
 
   function pointerPosition(event) {
@@ -761,6 +895,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     state.destroyed = true;
     state.loadToken += 1;
     state.cameraToken += 1;
+    state.imageToken += 1;
     state.sourceToken += 1;
     state.predictionToken += 1;
     stopLivePredictLoop();
@@ -775,6 +910,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
   }
 
   nodes.modelInput.addEventListener('change', () => loadModel(nodes.modelInput.files?.[0]));
+  nodes.imageInput.addEventListener('change', () => loadImage(nodes.imageInput.files?.[0]));
   nodes.connect.addEventListener('click', () => connectCamera());
   nodes.disconnect.addEventListener('click', disconnectCamera);
   nodes.cameraSelect.addEventListener('change', () => connectCamera(nodes.cameraSelect.value));

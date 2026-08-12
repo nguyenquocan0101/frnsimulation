@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { computeDisplayRect, predictBoxesSequentially } from './onnx-camera.mjs';
+import {
+  computeDisplayRect,
+  predictBoxesSequentially,
+  validateDecodedImageDimensions,
+  validateImageFile,
+} from './onnx-camera.mjs';
 
 const html = fs.readFileSync(new URL('./onnx-camera-window.html', import.meta.url), 'utf8');
 const source = fs.readFileSync(new URL('./onnx-camera.mjs', import.meta.url), 'utf8');
@@ -12,6 +17,21 @@ test('window exposes Capture frame and Draw live mode controls', () => {
   assert.match(html, /id="onnxLiveModeBtn"/);
   assert.match(html, /aria-pressed="true"/);
   assert.match(html, /Draw live/);
+});
+
+test('image upload validation accepts supported local images within 20 MB', () => {
+  assert.equal(validateImageFile({ type: 'image/png', size: 1 }), '');
+  assert.equal(validateImageFile({ type: 'image/jpeg', size: 20 * 1024 * 1024 }), '');
+  assert.match(validateImageFile({ type: 'image/gif', size: 100 }), /PNG, JPEG, or WebP/);
+  assert.match(validateImageFile({ type: 'image/webp', size: 20 * 1024 * 1024 + 1 }), /20 MB/);
+});
+
+test('decoded image validation prevents oversized canvas allocations', () => {
+  assert.equal(validateDecodedImageDimensions(800, 600), '');
+  assert.equal(validateDecodedImageDimensions(8192, 4096), '');
+  assert.match(validateDecodedImageDimensions(8193, 100), /too large/);
+  assert.match(validateDecodedImageDimensions(8000, 8000), /32 megapixels/);
+  assert.match(validateDecodedImageDimensions(Number.POSITIVE_INFINITY, 100), /invalid dimensions/);
 });
 
 test('controller has explicit live mode and frame readiness state', () => {
@@ -158,7 +178,7 @@ class FakeDocument {
   }
 }
 
-function makeFixture({ delayedRun = false, deferredRelease = false, runError = null, predictionPublisher = null } = {}) {
+function makeFixture({ delayedRun = false, deferredRelease = false, runError = null, predictionPublisher = null, imageDecodeError = null } = {}) {
   const fixture = {
     stageRect: { left: 0, top: 0, width: 640, height: 480 },
     videoSnapshotCalls: 0,
@@ -170,7 +190,7 @@ function makeFixture({ delayedRun = false, deferredRelease = false, runError = n
     handlers: {},
   };
   const ids = [
-    'onnxConnectCameraBtn', 'onnxDisconnectBtn', 'onnxModelInput', 'onnxModelName', 'onnxProviderStatus',
+    'onnxConnectCameraBtn', 'onnxDisconnectBtn', 'onnxModelInput', 'onnxModelName', 'onnxImageInput', 'onnxImageName', 'onnxProviderStatus',
     'onnxCameraSelect', 'onnxCameraStage', 'onnxCaptureModeBtn', 'onnxLiveModeBtn',
     'onnxCameraVideo', 'onnxFrameCanvas', 'onnxOverlayCanvas', 'onnxStageEmpty', 'onnxCaptureBtn',
     'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults', 'onnxOverlayResults',
@@ -219,6 +239,10 @@ function makeFixture({ delayedRun = false, deferredRelease = false, runError = n
       return fixture.intervalId;
     },
     clearInterval() { fixture.intervalActive = false; },
+    async decodeImageFile() {
+      if (imageDecodeError) throw imageDecodeError;
+      return { source: { tagName: 'IMG' }, width: 800, height: 600, dispose() {} };
+    },
     ...(predictionPublisher ? { predictionPublisher } : {}),
   };
   return { fixture, root, elements, session, deps, releaseRun, releaseSession, file: { name: 'demo.onnx', async arrayBuffer() { return new ArrayBuffer(0); } } };
@@ -296,6 +320,68 @@ test('fake controller snapshots a live release and auto-predicts all current box
   assert.equal(run.elements.get('onnxResults').children.length, 7);
   assert.equal(run.elements.get('onnxOverlayResults').children.length, 0);
   await run.controller.destroy();
+});
+
+test('uploaded image becomes a drawable frame and supports prediction without a camera', async () => {
+  const run = makeFixture();
+  const { createOnnxCameraController } = await import('./onnx-camera.mjs');
+  globalThis.requestAnimationFrame ||= (callback) => callback();
+  const controller = createOnnxCameraController({ root: run.root, deps: run.deps });
+  run.elements.get('onnxModelInput').files = [run.file];
+  await run.elements.get('onnxModelInput').emit('change');
+  run.elements.get('onnxImageInput').files = [{ name: 'blocks.png', type: 'image/png', size: 1024 }];
+  await run.elements.get('onnxImageInput').emit('change');
+
+  const overlay = run.elements.get('onnxOverlayCanvas');
+  assert.equal(run.elements.get('onnxCameraStage').dataset.mode, 'image');
+  assert.equal(overlay.hidden, false);
+  assert.equal(overlay.width, 800);
+  assert.equal(overlay.height, 600);
+  assert.match(run.elements.get('onnxCameraStatus').textContent, /Image ready/);
+
+  await overlay.emit('pointerdown', { pointerId: 501, clientX: 24, clientY: 24 });
+  await overlay.emit('pointerup', { pointerId: 501, clientX: 220, clientY: 220 });
+  await run.elements.get('onnxPredictBtn').emit('click');
+  assert.equal(run.session.runCalls, 1);
+  assert.equal(run.elements.get('onnxResults').children.length, 1);
+  assert.equal(run.fixture.videoSnapshotCalls, 0);
+  await controller.destroy();
+});
+
+test('failed image decode preserves the connected camera source', async () => {
+  const run = makeFixture({ imageDecodeError: new Error('synthetic decode failure') });
+  const { createOnnxCameraController } = await import('./onnx-camera.mjs');
+  globalThis.requestAnimationFrame ||= (callback) => callback();
+  const controller = createOnnxCameraController({ root: run.root, deps: run.deps });
+  await run.elements.get('onnxConnectCameraBtn').emit('click');
+  const track = run.elements.get('onnxCameraVideo').srcObject.getTracks()[0];
+  run.elements.get('onnxImageInput').files = [{ name: 'broken.png', type: 'image/png', size: 1024 }];
+  await run.elements.get('onnxImageInput').emit('change');
+
+  assert.equal(track.stopped, undefined, 'camera stays active when replacement image fails');
+  assert.equal(run.elements.get('onnxCameraStage').dataset.mode, 'capture');
+  assert.match(run.elements.get('onnxCameraStatus').textContent, /Could not load this image/);
+  await controller.destroy();
+});
+
+test('failed camera connection preserves an uploaded image', async () => {
+  const run = makeFixture();
+  const { createOnnxCameraController } = await import('./onnx-camera.mjs');
+  globalThis.requestAnimationFrame ||= (callback) => callback();
+  const controller = createOnnxCameraController({ root: run.root, deps: run.deps });
+  run.elements.get('onnxImageInput').files = [{ name: 'blocks.png', type: 'image/png', size: 1024 }];
+  await run.elements.get('onnxImageInput').emit('change');
+  run.deps.navigator.mediaDevices.getUserMedia = async () => {
+    const error = new Error('synthetic camera denial');
+    error.name = 'NotAllowedError';
+    throw error;
+  };
+  await run.elements.get('onnxConnectCameraBtn').emit('click');
+
+  assert.equal(run.elements.get('onnxCameraStage').dataset.mode, 'image');
+  assert.equal(run.elements.get('onnxOverlayCanvas').hidden, false);
+  assert.match(run.elements.get('onnxCameraStatus').textContent, /permission was denied/);
+  await controller.destroy();
 });
 
 test('fake controller preserves a no-model live box for manual retry and keeps capture manual', async () => {

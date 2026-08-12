@@ -24,8 +24,8 @@ test('dedicated page owns the full labelled camera workflow', () => {
   for (const id of ['onnxCameraCard', 'onnxModelInput', 'onnxConnectCameraBtn', 'onnxCameraSelect', 'onnxDisconnectBtn', 'onnxCaptureBtn', 'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults', 'onnxOverlayResults']) {
     assert.match(windowPage, new RegExp(`id="${id}"`));
   }
-  assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs\?v=20260812-ide-ai-log"/);
-  assert.match(windowPage, /href="\.\/onnx-camera-window\.css\?v=20260812-timed-log"/);
+  assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs\?v=20260812-image-upload"/);
+  assert.match(windowPage, /href="\.\/onnx-camera-window\.css\?v=20260812-image-upload"/);
   assert.match(windowPage, /FPTU TECH<span>X<\/span> CAMP/);
   assert.match(windowPage, /fonts\.googleapis\.com\/css2\?family=Paytone\+One/);
   assert.doesNotMatch(windowPage, /Load a model and connect a camera to begin/);

@@ -67,3 +67,9 @@ test('camera window bootstrap and controller imports share one new cache token',
   assert.equal(htmlToken, controllerToken, 'both import edges use the exact same token');
   assert.notEqual(htmlToken, '20260812-timed-log', 'Phase 3 changes the previous deployment token');
 });
+
+test('camera window exposes a local image upload for box drawing', () => {
+  assert.match(windowHtml, /id="onnxImageInput"/);
+  assert.match(windowHtml, /accept="image\/png,image\/jpeg,image\/webp"/);
+  assert.match(windowHtml, /Connect a camera or upload an image to begin/);
+});

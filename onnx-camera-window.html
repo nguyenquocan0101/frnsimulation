@@ -11,7 +11,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
-    <link rel="stylesheet" href="./onnx-camera-window.css?v=20260812-timed-log" />
+    <link rel="stylesheet" href="./onnx-camera-window.css?v=20260812-image-upload" />
   </head>
   <body class="onnx-camera-window-body">
     <main class="onnx-camera-window-shell" aria-labelledby="onnxWindowTitle">
@@ -60,9 +60,21 @@
                 <option value="">Connect to list cameras</option>
               </select>
             </label>
+
+            <label class="onnx-field" for="onnxImageInput">
+              <span>Image (PNG, JPEG, WebP)</span>
+              <input
+                id="onnxImageInput"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+              />
+            </label>
           </div>
           <p class="onnx-file-name" id="onnxModelName">
             Choose a local .onnx file
+          </p>
+          <p class="onnx-file-name" id="onnxImageName">
+            Or upload an image and draw boxes directly
           </p>
 
           <div
@@ -138,7 +150,7 @@
             ></canvas>
             <ol class="onnx-camera-results-overlay" id="onnxOverlayResults" aria-label="Classification results on camera" aria-hidden="true"></ol>
             <p class="onnx-stage-empty" id="onnxStageEmpty">
-              Connect a camera to begin.
+              Connect a camera or upload an image to begin.
             </p>
           </div>
 
@@ -158,6 +170,6 @@
         </div>
       </section>
     </main>
-    <script type="module" src="./onnx-camera-window.mjs?v=20260812-ide-ai-log"></script>
+    <script type="module" src="./onnx-camera-window.mjs?v=20260812-image-upload"></script>
   </body>
 </html>
