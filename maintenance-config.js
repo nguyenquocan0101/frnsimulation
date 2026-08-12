@@ -1,13 +1,5 @@
-// Production switch: set to false and deploy to bring the IDE back everywhere.
-const MAINTENANCE_MODE = false;
+// Temporary lunch break: the IDE unlocks automatically at 13:30 Vietnam time.
+const LUNCH_REOPEN_AT = Date.parse("2026-08-12T13:30:00+07:00");
 
-// Keep local development usable while the public workshop site is paused.
-// Set this to true only when you want to preview the maintenance screen locally.
-const LOCAL_MAINTENANCE_MODE = true;
-const localHost = ["", "localhost", "127.0.0.1", "[::1]"].includes(
-  window.location.hostname,
-);
-
-window.FR5_MAINTENANCE_MODE = localHost
-  ? LOCAL_MAINTENANCE_MODE
-  : MAINTENANCE_MODE;
+window.FR5_MAINTENANCE_REOPEN_AT = LUNCH_REOPEN_AT;
+window.FR5_MAINTENANCE_MODE = Date.now() < LUNCH_REOPEN_AT;

@@ -6,7 +6,10 @@ html[data-maintenance="true"] .app-shell,html[data-maintenance="true"] .skip-lin
 .maintenance-card h1{margin:0;color:var(--ink);font-size:clamp(24px,4vw,42px);line-height:1.12;letter-spacing:-.035em}
 .maintenance-card p{max-width:620px;margin:18px auto 0;color:var(--muted);font-size:clamp(14px,1.8vw,17px);line-height:1.7}
 .maintenance-card .maintenance-note{margin-top:24px;color:var(--ink);font-weight:600}
+.maintenance-countdown{display:grid;gap:6px;width:min(360px,100%);margin:24px auto 0;padding:18px;border:1px solid color-mix(in srgb,var(--accent) 62%,var(--line));border-radius:14px;background:var(--surface-2)}
+.maintenance-countdown span{color:var(--muted);font:700 12px/1.2 Consolas,monospace;letter-spacing:.08em;text-transform:uppercase}
+.maintenance-countdown strong{color:var(--accent-2);font:800 clamp(34px,8vw,58px)/1 Consolas,monospace;font-variant-numeric:tabular-nums;letter-spacing:.04em}
 .maintenance-retry{display:inline-flex;align-items:center;justify-content:center;min-height:42px;margin-top:28px;border:1px solid var(--accent);border-radius:9px;background:var(--accent);color:#10231f;padding:9px 16px;font-weight:750;text-decoration:none;transition:transform .16s ease,filter .16s ease}
 .maintenance-retry:hover,.maintenance-retry:focus-visible{filter:brightness(1.08);transform:translateY(-1px)}
 .maintenance-retry:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
-@media(max-width:480px){.maintenance-screen{padding:16px}.maintenance-card{border-radius:15px;padding:28px 20px}.maintenance-card p{font-size:14px}}
+@media(max-width:480px){.maintenance-screen{padding:16px}.maintenance-card{border-radius:15px;padding:28px 20px}.maintenance-card p{font-size:14px}.maintenance-countdown{padding:16px 10px}}

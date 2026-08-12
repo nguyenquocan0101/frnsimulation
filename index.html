@@ -50,25 +50,33 @@
     <main
       class="maintenance-screen"
       id="maintenanceScreen"
+      lang="vi"
       aria-labelledby="maintenanceTitle"
     >
       <section class="maintenance-card">
         <div class="maintenance-mark" aria-hidden="true">🤖</div>
-        <h1 id="maintenanceTitle">Hệ thống đang tạm thời đóng cửa</h1>
-        <p>
+        <!-- Previous maintenance notice, intentionally retained for reuse.
+        <h1>Hệ thống đang tạm thời đóng cửa</h1>
+        <p><strong>Sau 00:00 tối nay, hệ thống Simulation FR5 sẽ tạm thời đóng cửa để bảo trì và chuẩn bị cho buổi học ngày mai. 🤖💤</strong></p>
+        <p>Mình thật sự rất vui khi thấy mọi người sử dụng, trải nghiệm và dành thời gian “vọc” một sản phẩm do chính team làm ra. ❤️</p>
+        <p>Hẹn gặp mọi người vào ngày mai và chúc các bạn ngủ ngoannnn ! 🤖🔥</p>
+        -->
+        <h1 id="maintenanceTitle">Nghỉ trưa đi mấy đứa</h1>
+        <p><strong>13:30 hệ thống mở lại. Đồng hồ đang đếm ngược:</strong></p>
+        <div class="maintenance-countdown" aria-label="Thời gian còn lại">
+          <span>Còn lại</span>
           <strong
-            >Sau <span>00:00 tối nay</span>, hệ thống Simulation FR5 sẽ tạm thời
-            đóng cửa để bảo trì và chuẩn bị cho buổi học ngày mai. 🤖💤</strong
-          >
-        </p>
-        <p>
-          Mình thật sự rất vui khi thấy mọi người sử dụng, trải nghiệm và dành
-          thời gian “vọc” một sản phẩm do chính team làm ra. ❤️
-        </p>
+            id="maintenanceCountdown"
+            role="timer"
+            aria-label="Thời gian còn lại đến 13 giờ 30"
+          >--:--:--</strong>
+        </div>
         <p class="maintenance-note">
-          Hẹn gặp mọi người vào ngày mai và chúc các bạn ngủ ngoannnn ! 🤖🔥
+          Hệ thống sẽ tự mở lại lúc
+          <time datetime="2026-08-12T13:30:00+07:00">13:30</time>, không cần tải
+          lại trang.
         </p>
-        <a class="maintenance-retry" href="./">Thử tải lại trang</a>
+        <a class="maintenance-retry" href="./">Thử mở lại ngay</a>
       </section>
     </main>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -559,6 +567,7 @@ if __name__ == "__main__":
         </div>
       </form>
     </dialog>
+    <script type="module" src="./maintenance-countdown.mjs"></script>
     <script type="module">
       if (window.FR5_MAINTENANCE_MODE !== true) {
         await window.__fr5OcctReady;
