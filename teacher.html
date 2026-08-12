@@ -136,6 +136,7 @@
     </main>
     <script type="module">
       import { createTeacherAccess, requireTeacherSession } from "./teacher-access.mjs";
+      import { ONNX_API_BASE_URL } from "./onnx-submission-config.mjs";
       import {
         listSubmissions,
         downloadSubmission,
@@ -143,7 +144,7 @@
       import { listCompetitionResults } from "./firebase-competition-client.mjs";
       import { compareCompetitionResults } from "./competition-results.mjs";
       import { initTeacherPortal } from "./teacher-submissions.mjs";
-      const access = createTeacherAccess({});
+      const access = createTeacherAccess({ baseUrl: ONNX_API_BASE_URL });
       const gate = document.getElementById("teacherGate");
       const password = document.getElementById("teacherPassword");
       const unlock = document.getElementById("teacherUnlockBtn");

@@ -37,6 +37,8 @@ test("teacher page has a password gate and does not start Firestore polling befo
   assert.match(html, /id=["']teacherPassword["']/i);
   assert.match(html, /id=["']teacherUnlockBtn["']/i);
   assert.match(html, /teacher-access\.mjs/i);
+  assert.match(html, /onnx-submission-config\.mjs/i);
+  assert.match(html, /createTeacherAccess\(\{\s*baseUrl:\s*ONNX_API_BASE_URL\s*\}\)/);
   assert.doesNotMatch(html, /stemtechx/i);
   const accessIndex = html.indexOf("teacher-access.mjs");
   const listIndex = html.indexOf("listSubmissions");
