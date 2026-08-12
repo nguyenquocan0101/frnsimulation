@@ -154,6 +154,48 @@ class PythonSimRunnerRawTraceTests(unittest.TestCase):
         self.assertTrue(all(isinstance(entry["line"], int) for entry in result["rawTrace"]))
         self.assertTrue(all(isinstance(action["line"], int) for action in result["actions"]))
 
+    def test_prints_are_replay_actions_in_source_order(self):
+        result = execute(program(
+            "with TechCamp() as bot:\n"
+            '    print("before move")\n'
+            '    bot.move_to("P2")\n'
+            '    print("before down")\n'
+            "    bot.move_down()"
+        ))
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(
+            [action["type"] for action in result["actions"]],
+            ["print", "move_to", "print", "move_down"],
+        )
+        self.assertEqual(result["actions"][0]["text"], "before move\n")
+        self.assertEqual(result["actions"][2]["text"], "before down\n")
+        self.assertEqual(result["output"], ["before move\n", "before down\n"])
+        self.assertEqual(
+            [entry["method"] for entry in result["rawTrace"]],
+            ["print", "move_to", "print", "move_down"],
+        )
+
+    def test_print_budget_does_not_consume_robot_command_budget(self):
+        prints = "\n".join('print("debug")' for _ in range(runner.MAX_PRINT_ACTIONS))
+        result = execute(program(
+            prints + "\n"
+            "with TechCamp() as bot:\n"
+            '    bot.move_to("P2")'
+        ))
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["actions"][-1]["type"], "move_to")
+
+    def test_print_budget_is_bounded_independently(self):
+        prints = "\n".join(
+            'print("debug")' for _ in range(runner.MAX_PRINT_ACTIONS + 1)
+        )
+        result = execute(program(prints))
+
+        self.assertFalse(result["ok"], result)
+        self.assertIn("print limit", result["error"]["message"])
+
     def test_second_move_to_without_move_down_is_rejected_at_second_call(self):
         source = program(
             "with TechCamp() as bot:\n"
@@ -522,11 +564,11 @@ class PythonSimRunnerCompatibilityAndSandboxTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertEqual(
             [entry["method"] for entry in result["rawTrace"]],
-            ["capture", "detect"],
+            ["capture", "detect", "print"],
         )
         self.assertEqual(
             [action["type"] for action in result["actions"]],
-            ["capture", "detect"],
+            ["capture", "detect", "print"],
         )
         self.assertIn("'P2': 'cho'", result["output"][0])
 

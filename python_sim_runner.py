@@ -35,6 +35,7 @@ CANONICAL_DETECTIONS = {
     for point in ("P2", "P3", "P4", "P5", "P6")
 }
 MAX_TRACE_ACTIONS = 500
+MAX_PRINT_ACTIONS = 500
 MAX_STUDENT_LINE_EVENTS = 50_000
 MAX_COLLECTION_ITEMS = 10_000
 
@@ -197,7 +198,10 @@ class SimTechCamp:
         self._positions = positions
 
     def _attempt(self, method, *args):
-        if len(self._raw_trace) >= MAX_TRACE_ACTIONS:
+        command_count = sum(
+            entry["method"] != "print" for entry in self._raw_trace
+        )
+        if command_count >= MAX_TRACE_ACTIONS:
             raise ProtocolError(
                 f"Program exceeds the {MAX_TRACE_ACTIONS}-command limit.",
                 _student_line(),
@@ -292,6 +296,8 @@ def validate_protocol_trace(raw_trace):
     for entry in raw_trace:
         method = entry["method"]
         args = entry["args"]
+        if method == "print":
+            continue
         if method in {"capture", "detect", "get_positions", "get_image"}:
             continue
 
@@ -371,10 +377,14 @@ def normalize_replay_actions(raw_trace):
         method = entry["method"]
         if method not in {
             "move_to", "move_down", "move_up", "grip", "release",
-            "capture", "detect",
+            "capture", "detect", "print",
         }:
             continue
         action = {"type": method, "line": entry["line"]}
+        if method == "print":
+            action["text"] = entry["text"]
+            actions.append(action)
+            continue
         action["success"] = entry.get("success", True)
         if method == "move_to":
             action["position"] = normalize_point(entry["args"][0])
@@ -400,9 +410,25 @@ def execute(payload):
     # Scored programs always observe the same post-opening fixture. Browser
     # state from a previous run is deliberately ignored.
     positions = dict(CANONICAL_COMPETITION_OCCUPANCY)
+    print_actions = 0
 
     def classroom_print(*values, sep=" ", end="\n", **_):
-        output.append(sep.join(str(value) for value in values) + end)
+        nonlocal print_actions
+        text = sep.join(str(value) for value in values) + end
+        output.append(text)
+        print_actions += 1
+        if print_actions > MAX_PRINT_ACTIONS:
+            raise ProtocolError(
+                f"Program exceeds the {MAX_PRINT_ACTIONS}-print limit.",
+                _student_line(),
+            )
+        raw_trace.append({
+            "method": "print",
+            "args": [],
+            "text": text,
+            "line": _student_line(),
+            "order": len(raw_trace) + 1,
+        })
 
     def only_techcamp_import(name, *_args, **_kwargs):
         if name != "techcamp_api":

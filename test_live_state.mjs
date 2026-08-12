@@ -70,6 +70,20 @@ test("running a program leaves the orange marker at P1 until student code moves 
   assert.doesNotMatch(app, /!state\.competitionSession\s*&&\s*\n?\s*this\.low/);
 });
 
+test("student print output replays in order with motion actions", () => {
+  const app = readFileSync(new URL("./app.js", import.meta.url), "utf8");
+  const preflightStart = app.indexOf("async function runPythonProgram");
+  const preflightEnd = app.indexOf("function renderCompetitionResult", preflightStart);
+  const preflight = app.slice(preflightStart, preflightEnd);
+  const replayStart = app.indexOf("replay: async");
+  const replayEnd = app.indexOf("capture: async", replayStart);
+  const replay = app.slice(replayStart, replayEnd);
+
+  assert.match(preflight, /some\(\(action\) => action\.type === ["']print["']\)/);
+  assert.match(replay, /action\.type === ["']print["']/);
+  assert.match(replay, /log\(["']print: ["']/);
+});
+
 test("stale detection uses local receipt time", () => {
   assert.equal(isLiveStale(2501, 500), true);
   assert.equal(isLiveStale(2400, 500), false);

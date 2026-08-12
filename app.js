@@ -4138,8 +4138,12 @@ async function runPythonProgram(token) {
       error: { message: "No result from the Python runner. Restart serve.mjs." },
     };
   }
-  for (const text of payload.output || [])
-    log("print: " + String(text).replace(/\n$/, ""));
+  // New runners replay print events in source order with robot actions. Keep
+  // this fallback for responses from an older API deployment.
+  if (!(payload.actions || []).some((action) => action.type === "print")) {
+    for (const text of payload.output || [])
+      log("print: " + String(text).replace(/\n$/, ""));
+  }
   return payload;
 }
 
@@ -4261,7 +4265,9 @@ async function runProgram() {
         for (const action of actions) {
           if (token.cancelled) throw new TechCampError("Competition run cancelled.");
           try {
-            if (action.type === "move_to") await techcampSim.move_to(action.position);
+            if (action.type === "print")
+              log("print: " + String(action.text ?? "").replace(/\n$/, ""));
+            else if (action.type === "move_to") await techcampSim.move_to(action.position);
             else if (action.type === "move_down") await techcampSim.move_down();
             else if (action.type === "move_up") await techcampSim.move_up();
             else if (action.type === "capture") await techcampSim.capture();
