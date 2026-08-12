@@ -27,7 +27,7 @@ test("teacher model join marks API failures distinctly instead of hiding them", 
   const [row] = joinSubmissionModels(
     [{ id: "submission_a", submissionId: "submission_a", groupName: "Nhóm 1" }],
     null,
-    { error: "VPS unavailable" },
+    new Error("VPS unavailable"),
   );
   assert.equal(row.model?.status, "error");
   assert.match(row.model?.message ?? "", /VPS unavailable/);
@@ -60,4 +60,3 @@ test("teacher renderer exposes model state and uses text nodes for metadata", ()
   assert.match(teacherSource, /model\.on(?:nx)?|Download ONNX/i);
   assert.doesNotMatch(teacherSource, /\.innerHTML\s*=/);
 });
-
