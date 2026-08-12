@@ -42,7 +42,11 @@ test("teacher page has a password gate and does not start Firestore polling befo
   const listIndex = html.indexOf("listSubmissions");
   assert.ok(accessIndex >= 0 && listIndex > accessIndex);
   assert.match(html, /requireTeacherSession|unlockTeacher|requestTeacherSession/);
-  const resultsLoader = html.match(/async function loadCompetitionResults\([\s\S]*?\n\s*}\n/)?.[0] ?? "";
+  const resultsStart = html.indexOf("async function loadCompetitionResults");
+  const resultsEnd = html.indexOf("resultRefresh.addEventListener", resultsStart);
+  const resultsLoader = resultsStart >= 0 && resultsEnd > resultsStart
+    ? html.slice(resultsStart, resultsEnd)
+    : "";
   assert.match(resultsLoader, /requireTeacherSession\(access\)/,
     "manual results refresh must be gated too");
 });
