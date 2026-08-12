@@ -7,12 +7,11 @@ const config = fs.readFileSync("maintenance-config.js", "utf8");
 const css = fs.readFileSync("maintenance.css", "utf8");
 const countdown = fs.readFileSync("maintenance-countdown.mjs", "utf8");
 
-test("lunch maintenance expires automatically at 13:30 Vietnam time", () => {
+test("lunch maintenance is disabled and the main IDE opens immediately", () => {
   assert.match(config, /2026-08-12T13:30:00\+07:00/);
-  assert.match(config, /Date\.now\(\)\s*<\s*LUNCH_REOPEN_AT/);
   assert.match(config, /FR5_MAINTENANCE_REOPEN_AT/);
-  assert.match(config, /!isLocalDevelopment\s*&&\s*Date\.now\(\)\s*<\s*LUNCH_REOPEN_AT/);
-  assert.match(index, /maintenance-config\.js/);
+  assert.match(config, /FR5_MAINTENANCE_MODE\s*=\s*false/);
+  assert.match(index, /maintenance-config\.js\?v=20260812-open/);
 });
 
 test("maintenance screen comments out the old notice and shows the lunch message", () => {
