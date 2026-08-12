@@ -646,6 +646,56 @@
       "evidence": "Final verification: focused 51/51; expanded full suite 230 total, 226 passed, 0 failed, 4 expected Firebase emulator skips; browser smoke had no errors. Buffered-close retention, three bfcache cycles, final teardown, embed isolation, and cache-token consistency are verified.",
       "notes": "",
       "priority": "P2"
+    },
+    {
+      "id": "student-paired-onnx-submission",
+      "title": "Nộp model.onnx cùng bài code hiện tại",
+      "user_visible_behavior": "so that giáo viên nhận được một bài nộp đầy đủ gồm code Firebase và model VPS.",
+      "verification_command": "Accepted when one Submit action uses the same submissionId for the Firebase document and VPS model, and success is shown only after both uploads finish.",
+      "status": "passing",
+      "evidence": "Phase 02 focused Node suite: 37 passed; exact submissionId pairing, 8 MiB chunk/resume/retry, recovery Firestore-only retry, UI wiring/progress, abort, and embed isolation.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "teacher-joined-model-review",
+      "title": "Xem và tải ONNX ghép đúng với bài Firebase",
+      "user_visible_behavior": "so that giáo viên có thể kiểm tra trọn bộ bài làm của từng lần nộp.",
+      "verification_command": "Accepted when every teacher row is joined by submissionId and shows model name, size, upload time, and a working download action when present.",
+      "status": "passing",
+      "evidence": "Phase 03 focused Node suite: 5 passed; exact submissionId join, teacher gate, streamed ticket download.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "quick-tunnel-vps-api",
+      "title": "Mở API VPS qua HTTPS không cần mua domain",
+      "user_visible_behavior": "so that backend workshop có thể được triển khai ngay.",
+      "verification_command": "Accepted when the API is reachable over HTTPS through a Cloudflare Quick Tunnel and the web app uses the current tunnel URL.",
+      "status": "passing",
+      "evidence": "Phase 04 VPS smoke: API and Quick Tunnel active; external /healthz 200 and production CORS preflight 200 at the current trycloudflare URL.",
+      "notes": "Quick Tunnel URL is ephemeral; republish the one config line after any tunnel restart.",
+      "priority": "P1"
+    },
+    {
+      "id": "onnx-upload-progress-errors",
+      "title": "Hiển thị tiến độ và lỗi upload model",
+      "user_visible_behavior": "so that học sinh biết model lớn đã tải xong hay gặp lỗi gì.",
+      "verification_command": "Accepted when the UI displays byte progress and distinguishes invalid file, oversized file, network failure, and server failure.",
+      "status": "passing",
+      "evidence": "Phase 02 focused Node suite: 37 passed; typed invalid/oversized/auth/conflict/server/network/abort errors and acknowledged-byte progress.",
+      "notes": "",
+      "priority": "P2"
+    },
+    {
+      "id": "workshop-onnx-out-of-scope-boundaries",
+      "title": "Giữ phạm vi ONNX ở mức workshop tạm thời",
+      "user_visible_behavior": "so that bản triển khai nhanh không bị mở rộng thành hệ thống lưu trữ dài hạn.",
+      "verification_command": "Accepted when stable custom domains, durable authentication, model version management, and automatic tunnel URL discovery remain absent.",
+      "status": "not_started",
+      "evidence": "",
+      "notes": "Out-of-scope guardrail from the spec.",
+      "priority": "P3"
     }
   ]
 }

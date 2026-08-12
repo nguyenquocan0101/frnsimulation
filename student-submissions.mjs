@@ -5,15 +5,21 @@ import {
   isSourceSizeValid,
   validateGroupName,
 } from "./submission-model.mjs";
+import { ONNX_RECOVERY_KEY } from "./onnx-submission-config.mjs";
+import { validateOnnxFile } from "./onnx-submission-client.mjs";
 
-export function createSubmissionController({ getSource, ensureUser, upload, onStatus } = {}) {
+export function createSubmissionController({ getSource, getModelFile, ensureUser, upload, uploadModel, progressNode, storage = globalThis.localStorage, onStatus } = {}) {
   let busy = false;
+  let activeAbortController = null;
 
   const setStatus = (status, message = "") => onStatus?.(status, message);
 
   return {
     get busy() {
       return busy;
+    },
+    abort() {
+      activeAbortController?.abort();
     },
     async submit(groupName) {
       if (busy) return { ok: false, reason: "busy" };
@@ -26,12 +32,28 @@ export function createSubmissionController({ getSource, ensureUser, upload, onSt
         setStatus("error", "Code must be between 1 and 100 KB.");
         return { ok: false, reason: "source" };
       }
+      const modelFile = getModelFile?.();
+      const modelRequired = typeof getModelFile === "function" || typeof uploadModel === "function";
+      if (modelRequired) {
+        try { validateOnnxFile(modelFile); } catch (error) {
+          setStatus("error", error.message);
+          return { ok: false, reason: "model", error };
+        }
+      }
 
       busy = true;
+      activeAbortController = new AbortController();
       setStatus("validating", "Validating submission…");
       try {
         const user = await ensureUser();
-        const identity = createSubmissionIdentity({ uid: user.uid });
+        let recovery = null;
+        try { recovery = JSON.parse(storage?.getItem(ONNX_RECOVERY_KEY) || "null"); } catch {}
+        const fingerprint = modelFile
+          ? `${modelFile.name}:${modelFile.size}:${modelFile.type || ""}:${groupName.toLowerCase()}`
+          : "";
+        const identity = recovery?.modelComplete && recovery.fileFingerprint === fingerprint
+          ? { submissionId: recovery.submissionId }
+          : createSubmissionIdentity({ uid: user.uid });
         const metadata = buildSubmissionMetadata({
           ...identity,
           uid: user.uid,
@@ -39,6 +61,16 @@ export function createSubmissionController({ getSource, ensureUser, upload, onSt
           source,
         });
         setStatus("uploading", `Uploading ${metadata.filename}…`);
+        if (modelRequired && (!recovery?.modelComplete || recovery.fileFingerprint !== fingerprint || recovery.submissionId !== identity.submissionId)) {
+          await uploadModel?.({ user, identity, metadata, file: modelFile, groupKey: metadata.groupKey, groupName, signal: activeAbortController.signal, onProgress: (value) => {
+            if (progressNode) {
+              progressNode.max = modelFile.size;
+              progressNode.value = value;
+            }
+            setStatus("uploading", `Uploading model: ${value.toLocaleString()} / ${modelFile.size.toLocaleString()} bytes…`);
+          } });
+          try { storage?.setItem(ONNX_RECOVERY_KEY, JSON.stringify({ submissionId: identity.submissionId, fileFingerprint: fingerprint, modelComplete: true })); } catch {}
+        }
         await upload({
           user,
           identity,
@@ -47,6 +79,7 @@ export function createSubmissionController({ getSource, ensureUser, upload, onSt
           onMetadata: () => setStatus("saving", "Saving submission to the list…"),
         });
         try { localStorage.setItem("techcamp-last-group", groupName); } catch {}
+        try { storage?.removeItem(ONNX_RECOVERY_KEY); } catch {}
         setStatus("success", `${metadata.filename} submitted at ${new Date().toLocaleTimeString()}.`);
         return { ok: true, metadata };
       } catch (error) {
@@ -57,6 +90,7 @@ export function createSubmissionController({ getSource, ensureUser, upload, onSt
         setStatus("error", error?.message || "Unable to submit the file. Try again.");
         return { ok: false, reason: "network", error };
       } finally {
+        activeAbortController = null;
         busy = false;
       }
     },
@@ -71,6 +105,11 @@ export function initStudentSubmissionUi({
   filenamePreview,
   statusNode,
   submitButton,
+  modelInput,
+  modelPreview,
+  progressNode,
+  getModelFile,
+  uploadModel,
   getSource,
   ensureUser,
   upload,
@@ -86,12 +125,25 @@ export function initStudentSubmissionUi({
       statusNode.textContent = message;
     }
     if (submitButton) submitButton.disabled = ["validating", "uploading", "saving"].includes(status);
+    if (progressNode) {
+      progressNode.hidden = !["uploading", "saving"].includes(status);
+      if (status !== "uploading") progressNode.value = 0;
+    }
   };
   const updatePreview = () => {
     const value = groupInput.value.trim();
     filenamePreview.textContent = validateGroupName(value) ? canonicalFilename(value) : "TechX_TenNhom.py";
   };
-  const controller = createSubmissionController({ getSource, ensureUser, upload, onStatus: renderStatus });
+  const controller = createSubmissionController({
+    getSource,
+    getModelFile: getModelFile || (() => modelInput?.files?.[0] ?? null),
+    ensureUser,
+    upload,
+    uploadModel,
+    progressNode,
+    storage: globalThis.localStorage,
+    onStatus: renderStatus,
+  });
 
   openButton.addEventListener("click", () => {
     form.reset();
@@ -102,6 +154,10 @@ export function initStudentSubmissionUi({
     groupInput.focus();
   });
   groupInput.addEventListener("input", updatePreview);
+  modelInput?.addEventListener("change", () => {
+    const file = modelInput.files?.[0];
+    if (modelPreview) modelPreview.textContent = file ? `${file.name} · ${file.size.toLocaleString()} bytes` : "Choose one model.onnx file (maximum 1 GiB).";
+  });
   form.addEventListener("reset", () => queueMicrotask(updatePreview));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -113,6 +169,7 @@ export function initStudentSubmissionUi({
     if (result.ok) log?.(`Upload complete: ${result.metadata.filename}`);
   });
   form.querySelectorAll("[data-upload-cancel]").forEach((cancelButton) => cancelButton.addEventListener("click", () => {
+    controller.abort();
     if (dialog.open) dialog.close();
     else dialog.hidden = true;
   }));

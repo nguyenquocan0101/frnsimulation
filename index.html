@@ -572,6 +572,12 @@ if __name__ == "__main__":
           File name:
           <strong id="uploadFilenamePreview">TechX_GroupName.py</strong>
         </p>
+        <label class="upload-field" for="onnxModelInput">
+          ONNX model
+          <input id="onnxModelInput" name="onnxModel" type="file" accept=".onnx,application/octet-stream" required />
+        </label>
+        <p class="upload-preview" id="onnxModelPreview">Choose one model.onnx file (maximum 1 GiB).</p>
+        <progress id="onnxUploadProgress" max="1" value="0" hidden aria-label="ONNX upload progress"></progress>
         <p
           class="upload-status"
           id="uploadStatus"

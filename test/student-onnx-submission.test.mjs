@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createSubmissionController } from "../student-submissions.mjs";
+import { createSubmissionController, initStudentSubmissionUi } from "../student-submissions.mjs";
 
 const source = "print('paired')\n";
 
@@ -128,3 +128,58 @@ test("missing, wrong-extension, or empty model is rejected before Firebase sign-
   }
 });
 
+test("submission dialog wiring passes the selected model into the paired controller", async () => {
+  const listeners = new Map();
+  const makeNode = (extra = {}) => ({
+    hidden: false,
+    dataset: {},
+    value: "Nhom1",
+    files: [modelFile()],
+    addEventListener(type, handler) { listeners.set(type, handler); },
+    querySelectorAll() { return []; },
+    focus() {},
+    ...extra,
+  });
+  const form = makeNode({ reset() {}, querySelectorAll() { return []; } });
+  const modelInput = makeNode();
+  const openButton = makeNode();
+  const groupInput = makeNode({ value: "Nhom1" });
+  const dialog = makeNode({ showModal() {}, close() {}, open: true });
+  const calls = [];
+  initStudentSubmissionUi({
+    openButton,
+    dialog,
+    form,
+    groupInput,
+    modelInput,
+    filenamePreview: makeNode(),
+    statusNode: makeNode(),
+    submitButton: makeNode(),
+    getSource: () => source,
+    ensureUser: async () => ({ uid: "anonymous-user" }),
+    uploadModel: async ({ file, identity }) => { calls.push(["model", file.name, identity.submissionId]); },
+    upload: async ({ metadata }) => { calls.push(["firebase", metadata.submissionId]); },
+    available: true,
+  });
+  await listeners.get("submit")?.({ preventDefault() {} });
+  assert.equal(calls[0][0], "model");
+  assert.equal(calls[0][1], "model.onnx");
+  assert.equal(calls[1][0], "firebase");
+  assert.equal(calls[0][2], calls[1][1]);
+});
+
+test("model progress callback updates the supplied progress element", async () => {
+  const progressNode = { hidden: true, max: 0, value: 0 };
+  const controller = createSubmissionController({
+    getSource: () => source,
+    getModelFile: () => modelFile(),
+    ensureUser: async () => ({ uid: "anonymous-user" }),
+    progressNode,
+    uploadModel: async ({ onProgress }) => onProgress(3),
+    upload: async () => {},
+    onStatus: () => {},
+  });
+  assert.equal((await controller.submit("Nhom1")).ok, true);
+  assert.equal(progressNode.max, 4);
+  assert.equal(progressNode.value, 3);
+});

@@ -1,0 +1,21 @@
+[Unit]
+Description=TechCamp ONNX Cloudflare Quick Tunnel
+After=onnx-submissions.service
+Requires=onnx-submissions.service
+
+[Service]
+Type=simple
+User=techcamp-onnx
+Group=techcamp-onnx
+ExecStart=/usr/local/bin/cloudflared tunnel --url http://127.0.0.1:8787 --no-autoupdate
+Restart=always
+RestartSec=5
+TimeoutStartSec=30
+TimeoutStopSec=30
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

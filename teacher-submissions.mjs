@@ -25,6 +25,15 @@ function setVisible(element, visible) {
   element.hidden = !visible;
 }
 
+export function joinSubmissionModels(rows = [], models, error = null) {
+  const modelMap = new Map((Array.isArray(models) ? models : []).map((model) => [model.submissionId, model]));
+  return rows.map((row) => {
+    const id = row.id || row.submissionId;
+    const model = error ? { status: "error", message: error.message || error.error || String(error) } : modelMap.has(id) ? { status: "present", ...modelMap.get(id) } : { status: "missing", message: "Model unavailable" };
+    return { ...row, model };
+  });
+}
+
 export function initTeacherPortal({
   list,
   download,
@@ -38,6 +47,8 @@ export function initTeacherPortal({
   previewCode,
   previewMeta,
   previewCloseButton,
+  listModels,
+  downloadModel,
 } = {}) {
   if (!list || !statusNode || !rowsNode || !filterInput || !refreshButton) return null;
   let rows = [];
@@ -97,6 +108,17 @@ export function initTeacherPortal({
       downloadButton.textContent = "Download .py";
       downloadButton.dataset.action = "download";
       actionsCell.append(previewButton, downloadButton);
+      const modelStatus = document.createElement("span");
+      modelStatus.textContent = row.model?.status === "present" ? `ONNX · ${Number(row.model.size).toLocaleString()} bytes` : row.model?.status === "error" ? `ONNX error: ${row.model.message}` : "ONNX missing";
+      actionsCell.append(modelStatus);
+      if (row.model?.status === "present" && downloadModel) {
+        const modelButton = document.createElement("button");
+        modelButton.type = "button";
+        modelButton.className = "button primary";
+        modelButton.textContent = "Download ONNX";
+        modelButton.addEventListener("click", () => downloadModel(row.id || row.submissionId));
+        actionsCell.append(modelButton);
+      }
       item.append(numberCell, groupCell, filenameCell, timeCell, actionsCell);
       rowsNode.append(item);
       previewButton.addEventListener("click", () => {
@@ -150,7 +172,9 @@ export function initTeacherPortal({
     setState("loading", "Loading submissions…");
     try {
       const nextRows = await list();
-      rows = Array.isArray(nextRows) ? nextRows : [];
+      let modelResult = { models: [] };
+      try { modelResult = listModels ? await listModels() : modelResult; } catch (error) { modelResult = { error }; }
+      rows = joinSubmissionModels(Array.isArray(nextRows) ? nextRows : [], modelResult.models, modelResult.error);
       lastUpdated = new Date();
       setState(rows.length ? "ready" : "empty", rows.length ? `${rows.length} submissions · Updated ${lastUpdated.toLocaleTimeString()}` : "Public workshop · No submissions yet");
       render();

@@ -31,6 +31,12 @@
         </div>
         <a class="button" href="./index.html">Simulator</a>
       </header>
+      <section class="teacher-panel teacher-gate" id="teacherGate" aria-label="Teacher access">
+        <label for="teacherPassword">Teacher password</label>
+        <input id="teacherPassword" type="password" inputmode="numeric" maxlength="6" autocomplete="off" />
+        <button class="button primary" id="teacherUnlockBtn" type="button">Unlock</button>
+        <p id="teacherGateError" role="alert"></p>
+      </section>
       <section class="teacher-panel" aria-label="Submission list">
         <div class="teacher-toolbar">
           <span
@@ -129,6 +135,7 @@
       </section>
     </main>
     <script type="module">
+      import { createTeacherAccess, requireTeacherSession } from "./teacher-access.mjs";
       import {
         listSubmissions,
         downloadSubmission,
@@ -136,9 +143,16 @@
       import { listCompetitionResults } from "./firebase-competition-client.mjs";
       import { compareCompetitionResults } from "./competition-results.mjs";
       import { initTeacherPortal } from "./teacher-submissions.mjs";
-      initTeacherPortal({
+      const access = createTeacherAccess({});
+      const gate = document.getElementById("teacherGate");
+      const password = document.getElementById("teacherPassword");
+      const unlock = document.getElementById("teacherUnlockBtn");
+      const gateError = document.getElementById("teacherGateError");
+      const bootTeacher = () => initTeacherPortal({
         list: listSubmissions,
         download: downloadSubmission,
+        listModels: access.listModels,
+        downloadModel: access.downloadModel,
         statusNode: document.getElementById("teacherPublicStatus"),
         rowsNode: document.getElementById("submissionTableBody"),
         filterInput: document.getElementById("teacherFilter"),
@@ -152,11 +166,21 @@
           "#previewDialog button[value=close]",
         ),
       });
+      async function unlockTeacher() {
+        gateError.textContent = "";
+        try { await access.unlockTeacher(password.value); gate.hidden = true; resultRefresh.disabled = false; bootTeacher(); loadCompetitionResults(); }
+        catch (error) { gateError.textContent = error.message; }
+      }
+      unlock.addEventListener("click", unlockTeacher);
+      password.addEventListener("keydown", (event) => { if (event.key === "Enter") unlockTeacher(); });
+      if (requireTeacherSession(access)) { gate.hidden = true; bootTeacher(); }
 
       const resultBody = document.getElementById("competitionResultsBody");
       const resultError = document.getElementById("competitionResultsError");
       const resultRefresh = document.getElementById("competitionResultsRefreshBtn");
+      resultRefresh.disabled = !requireTeacherSession(access);
       async function loadCompetitionResults() {
+        if (!requireTeacherSession(access)) return;
         resultRefresh.disabled = true;
         resultError.textContent = "";
         try {
@@ -177,8 +201,8 @@
           resultRefresh.disabled = false;
         }
       }
-      resultRefresh.addEventListener("click", loadCompetitionResults);
-      loadCompetitionResults();
+      resultRefresh.addEventListener("click", () => { if (requireTeacherSession(access)) loadCompetitionResults(); });
+      if (requireTeacherSession(access)) loadCompetitionResults();
     </script>
   </body>
 </html>

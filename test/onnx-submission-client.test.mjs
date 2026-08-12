@@ -153,6 +153,7 @@ test("maps auth, conflict, server, network, and abort failures to typed categori
   const cases = [
     ["auth", 401],
     ["conflict", 409],
+    ["oversized", 413],
     ["server", 500],
   ];
   for (const [category, status] of cases) {

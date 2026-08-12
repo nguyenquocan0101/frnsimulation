@@ -23,7 +23,7 @@ test("API systemd unit is loopback-only and least-privilege", () => {
   assert.match(unit, /--host\s+127\.0\.0\.1\s+--port\s+8787/);
   assert.doesNotMatch(unit, /--host\s+0\.0\.0\.0/);
   assert.doesNotMatch(unit, /(^|\s)(80|443)(\s|$)/);
-  assert.match(unit, /^EnvironmentFile=-\/etc\/techcamp-onnx\.env$/m);
+  assert.match(unit, /^EnvironmentFile=\/etc\/techcamp-onnx\.env$/m);
   assert.match(unit, /^ReadWritePaths=\/srv\/techcamp-onnx$/m);
   assert.match(unit, /^Restart=always$/m);
   assert.match(unit, /^NoNewPrivileges=yes$/m);

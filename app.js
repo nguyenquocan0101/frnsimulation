@@ -42,6 +42,7 @@ import {
 import { consoleChannelForMessage } from "./console-routing.mjs";
 import { formatPythonSourceWithSelection } from "./python-format.mjs";
 import { createPythonAutocomplete } from "./python-autocomplete.mjs";
+import { createOnnxSubmissionClient } from "./onnx-submission-client.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -346,6 +347,7 @@ let firebaseAvailable = () => false;
 let uploadSubmission = async () => {
   throw new Error("Firebase upload is unavailable until normal IDE services load.");
 };
+let getFirebaseIdToken = async () => "";
 let saveCompetitionResult = async () => {
   throw new Error("Firebase leaderboard is unavailable until normal IDE services load.");
 };
@@ -360,6 +362,7 @@ async function initNormalServices() {
       ensureAnonymousUser = firebaseClient.ensureAnonymousUser;
       firebaseAvailable = firebaseClient.firebaseAvailable;
       uploadSubmission = firebaseClient.uploadSubmission;
+      getFirebaseIdToken = async () => firebaseClient.getFirebaseServices().auth.currentUser?.getIdToken();
       saveCompetitionResult = competitionClient.saveCompetitionResult;
       return true;
     });
@@ -4422,6 +4425,11 @@ function bindUI() {
         dialog: $("uploadDialog"),
         form: $("uploadForm"),
         groupInput: $("groupNameInput"),
+        modelInput: $("onnxModelInput"),
+        modelPreview: $("onnxModelPreview"),
+        progressNode: $("onnxUploadProgress"),
+        getModelFile: () => $("onnxModelInput")?.files?.[0] ?? null,
+        uploadModel: createOnnxSubmissionClient({ getIdToken: () => getFirebaseIdToken() }).uploadModel,
         filenamePreview: $("uploadFilenamePreview"),
         statusNode: $("uploadStatus"),
         submitButton: $("uploadSubmitBtn"),

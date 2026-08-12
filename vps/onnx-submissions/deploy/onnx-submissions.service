@@ -1,0 +1,33 @@
+[Unit]
+Description=TechCamp ONNX submission API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Endpoint: 127.0.0.1:8787 (loopback only)
+User=techcamp-onnx
+Group=techcamp-onnx
+WorkingDirectory=/opt/techcamp-onnx/current
+EnvironmentFile=/etc/techcamp-onnx.env
+ExecStart=/opt/techcamp-onnx/current/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8787 --no-access-log --timeout-keep-alive 15
+Restart=always
+RestartSec=5
+TimeoutStartSec=30
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ReadWritePaths=/srv/techcamp-onnx
+LimitNOFILE=4096
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=200
+
+[Install]
+WantedBy=multi-user.target
