@@ -3,7 +3,7 @@ const MAINTENANCE_MODE = true;
 
 // Keep local development usable while the public workshop site is paused.
 // Set this to true only when you want to preview the maintenance screen locally.
-const LOCAL_MAINTENANCE_MODE = false;
+const LOCAL_MAINTENANCE_MODE = true;
 const localHost = ["", "localhost", "127.0.0.1", "[::1]"].includes(
   window.location.hostname,
 );
