@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildPredictionArray,
   canAddNormalizedBox,
   clampNormalizedBox,
   computeCoverCrop,
@@ -11,6 +12,15 @@ import {
   topClassifications,
   validateOnnxFilename,
 } from './onnx-camera-core.mjs';
+
+test('builds a fixed P1-P7 array with one-based class values and zero for missing boxes', () => {
+  const results = [
+    [{ index: 0, label: 'car', confidence: 0.9 }],
+    [{ index: 6, label: 'orange', confidence: 0.8 }],
+  ];
+  assert.deepEqual(buildPredictionArray(results), [1, 7, 0, 0, 0, 0, 0]);
+  assert.deepEqual(buildPredictionArray(results, 1), [1]);
+});
 
 const encodeVarint = (value) => {
   const bytes = [];

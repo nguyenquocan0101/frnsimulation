@@ -337,7 +337,7 @@ test('uploaded image creates a full-image box and predicts immediately without a
   assert.equal(overlay.hidden, false);
   assert.equal(overlay.width, 800);
   assert.equal(overlay.height, 600);
-  assert.match(run.elements.get('onnxCameraStatus').textContent, /Predicted 1 box/);
+  assert.match(run.elements.get('onnxCameraStatus').textContent, /^P1-P7: \[1, 0, 0, 0, 0, 0, 0\] · Predicted 1 box/);
   assert.equal(run.session.runCalls, 1);
   assert.equal(run.elements.get('onnxResults').children.length, 1);
   assert.equal(run.elements.get('onnxUndoBtn').disabled, false);
@@ -469,7 +469,7 @@ test('controller publishes exactly once after each successful manual and live pr
   await drawCapturedBox(manual);
   await manual.elements.get('onnxPredictBtn').emit('click');
   assert.equal(manualPublisher.payloads.length, 1, 'manual success publishes once');
-  assert.match(manualPublisher.payloads[0].summary, /^Predicted 1 box in \d+ ms\./);
+  assert.match(manualPublisher.payloads[0].summary, /^P1-P7: \[1, 0, 0, 0, 0, 0, 0\] · Predicted 1 box in \d+ ms\./);
   assert.equal(manualPublisher.payloads[0].lines.length, 1);
   assert.match(manualPublisher.payloads[0].lines[0], /^Box 1 · /);
   await manual.controller.destroy();

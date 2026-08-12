@@ -210,6 +210,13 @@ export function topClassifications(values, names = [], limit = 3) {
     .slice(0, Math.min(limit, probabilities.length));
 }
 
+export function buildPredictionArray(results, size = 7) {
+  return Array.from({ length: size }, (_, positionIndex) => {
+    const classIndex = Number(results?.[positionIndex]?.[0]?.index);
+    return Number.isInteger(classIndex) && classIndex >= 0 ? classIndex + 1 : 0;
+  });
+}
+
 export function clampNormalizedBox(box) {
   const x1 = Math.max(0, Math.min(1, Math.min(box.x1, box.x2)));
   const y1 = Math.max(0, Math.min(1, Math.min(box.y1, box.y2)));

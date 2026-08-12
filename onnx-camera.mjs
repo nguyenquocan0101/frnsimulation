@@ -1,4 +1,5 @@
 import {
+  buildPredictionArray,
   canAddNormalizedBox,
   clampNormalizedBox,
   computeCoverCrop,
@@ -888,10 +889,11 @@ export function createOnnxCameraController({ root, deps = {} }) {
       state.results = nextResults;
       renderResults();
       const elapsed = Math.round(performanceRef.now() - started);
-      const summary = `Predicted ${boxes.length} ${boxes.length === 1 ? 'box' : 'boxes'} in ${elapsed} ms. Boxes are ready to run again.`;
-      setStatus(summary, 'success');
+      const resultSummary = `Predicted ${boxes.length} ${boxes.length === 1 ? 'box' : 'boxes'} in ${elapsed} ms. Boxes are ready to run again.`;
+      const arraySummary = `P1-P7: [${buildPredictionArray(nextResults, MAX_BOXES).join(', ')}]`;
+      setStatus(`${arraySummary} · ${resultSummary}`, 'success');
       predictionPublisher.publish({
-        summary,
+        summary: `${arraySummary} · ${resultSummary}`,
         lines: nextResults.map((result, index) => {
           const title = `Box ${index + 1} · ${result[0].label}`;
           const details = result.map((entry) => `${entry.label} ${(entry.confidence * 100).toFixed(1)}%`).join(' · ');
