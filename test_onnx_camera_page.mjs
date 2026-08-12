@@ -13,6 +13,8 @@ const controller = fs.readFileSync(new URL('./onnx-camera.mjs', import.meta.url)
 test('Simulation has an accessible launcher and no inline ONNX card', () => {
   const simulation = page.slice(page.indexOf('<section class="simulation-column"'), page.indexOf('</section>', page.indexOf('<section class="simulation-column"')));
   assert.match(simulation, /id="onnxCameraLauncherBtn"/);
+  assert.match(simulation, /<a[\s\S]{0,180}id="onnxCameraLauncherBtn"[\s\S]{0,180}href="\.\/onnx-camera-window\.html"/);
+  assert.doesNotMatch(simulation, /id="onnxCameraLauncherBtn"[\s\S]{0,180}target=/);
   assert.match(simulation, /aria-label="Open AI camera in a separate window"/);
   assert.match(simulation, /id="onnxCameraLauncherStatus"[^>]*role="status"/);
   assert.match(simulation, /id="viewportWrap"/);

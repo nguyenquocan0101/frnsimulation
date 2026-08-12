@@ -6,9 +6,10 @@ import {
   ONNX_CAMERA_WINDOW_NAME,
 } from './onnx-camera-launcher.mjs';
 
-function fixture({ open = () => ({ closed: false, focus() {} }), baseURI = 'https://example.test/workshop/' } = {}) {
+function fixture({ open = () => ({ closed: false, focus() {} }), baseURI = 'https://example.test/workshop/', directLink = false } = {}) {
   const listeners = new Map();
   const button = {
+    ...(directLink ? { tagName: 'A', href: `${baseURI}onnx-camera-window.html` } : {}),
     addEventListener(type, handler) { listeners.set(type, handler); },
     removeEventListener(type, handler) { if (listeners.get(type) === handler) listeners.delete(type); },
   };
@@ -27,13 +28,15 @@ test('opens one named, subpath-safe popup with clamped features', () => {
   const calls = [];
   const child = { closed: false, focus() { calls.push('focus'); } };
   const view = fixture({ open: (...args) => { calls.push(args); return child; }, baseURI: 'https://example.test/workshop/' });
-  view.listeners.get('click')();
+  let prevented = false;
+  view.listeners.get('click')({ preventDefault() { prevented = true; } });
   assert.equal(calls[0][0], 'https://example.test/workshop/onnx-camera-window.html');
   assert.equal(calls[0][1], ONNX_CAMERA_WINDOW_NAME);
   assert.match(calls[0][2], /width=1100/);
   assert.match(calls[0][2], /height=800/);
   assert.match(calls[0][2], /resizable=yes/);
   assert.equal(view.status.textContent, '');
+  assert.equal(prevented, true, 'successful scripted popup prevents native navigation');
 });
 
 test('focuses an open child and reopens after it closes', () => {
@@ -53,6 +56,23 @@ test('announces a blocked popup without throwing', () => {
   view.listeners.get('click')();
   assert.match(view.status.textContent, /blocked.*Allow pop-ups/i);
   assert.equal(view.status.dataset.state, 'error');
+});
+
+test('lets a native camera link continue when scripted popup creation returns null', () => {
+  const view = fixture({ open: () => null, directLink: true });
+  let prevented = false;
+  view.listeners.get('click')({ preventDefault() { prevented = true; } });
+  assert.equal(prevented, false, 'native target navigation remains available as the fallback');
+  assert.doesNotMatch(view.status.textContent, /Allow pop-ups/i);
+});
+
+test('leaves modified camera-link clicks to native browser navigation', () => {
+  let openCalls = 0;
+  const view = fixture({ open: () => { openCalls += 1; return { closed: false, focus() {} }; }, directLink: true });
+  let prevented = false;
+  view.listeners.get('click')({ button: 0, ctrlKey: true, preventDefault() { prevented = true; } });
+  assert.equal(openCalls, 0);
+  assert.equal(prevented, false);
 });
 
 test('handles inaccessible references and destroy idempotently', () => {

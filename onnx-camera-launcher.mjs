@@ -61,7 +61,7 @@ export function createOnnxCameraLauncher({
     else delete status.dataset.state;
   }
 
-  function openOrFocus() {
+  function openOrFocus({ allowNativeLinkFallback = false } = {}) {
     if (destroyed) return null;
     if (!safeClosed(childWindow)) {
       safeFocus(childWindow);
@@ -79,6 +79,10 @@ export function createOnnxCameraLauncher({
       childWindow = null;
     }
     if (!childWindow) {
+      if (allowNativeLinkFallback && button.tagName === 'A' && button.href) {
+        announce('');
+        return null;
+      }
       announce('The camera window was blocked. Allow pop-ups for this site, then try again.', 'error');
       return null;
     }
@@ -87,7 +91,18 @@ export function createOnnxCameraLauncher({
     return childWindow;
   }
 
-  const onClick = () => openOrFocus();
+  const onClick = (event) => {
+    if (
+      event
+      && ((Number.isFinite(event.button) && event.button !== 0)
+        || event.metaKey
+        || event.ctrlKey
+        || event.shiftKey
+        || event.altKey)
+    ) return;
+    const opened = openOrFocus({ allowNativeLinkFallback: true });
+    if (opened) event?.preventDefault?.();
+  };
   button.addEventListener('click', onClick);
   announce('');
 
