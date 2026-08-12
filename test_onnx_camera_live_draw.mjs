@@ -322,7 +322,7 @@ test('fake controller snapshots a live release and auto-predicts all current box
   await run.controller.destroy();
 });
 
-test('uploaded image becomes a drawable frame and supports prediction without a camera', async () => {
+test('uploaded image creates a full-image box and predicts immediately without a camera', async () => {
   const run = makeFixture();
   const { createOnnxCameraController } = await import('./onnx-camera.mjs');
   globalThis.requestAnimationFrame ||= (callback) => callback();
@@ -337,14 +337,28 @@ test('uploaded image becomes a drawable frame and supports prediction without a 
   assert.equal(overlay.hidden, false);
   assert.equal(overlay.width, 800);
   assert.equal(overlay.height, 600);
-  assert.match(run.elements.get('onnxCameraStatus').textContent, /Image ready/);
-
-  await overlay.emit('pointerdown', { pointerId: 501, clientX: 24, clientY: 24 });
-  await overlay.emit('pointerup', { pointerId: 501, clientX: 220, clientY: 220 });
-  await run.elements.get('onnxPredictBtn').emit('click');
+  assert.match(run.elements.get('onnxCameraStatus').textContent, /Predicted 1 box/);
   assert.equal(run.session.runCalls, 1);
   assert.equal(run.elements.get('onnxResults').children.length, 1);
+  assert.equal(run.elements.get('onnxUndoBtn').disabled, false);
   assert.equal(run.fixture.videoSnapshotCalls, 0);
+  await controller.destroy();
+});
+
+test('loading a model after an image automatically predicts the retained full-image box', async () => {
+  const run = makeFixture();
+  const { createOnnxCameraController } = await import('./onnx-camera.mjs');
+  globalThis.requestAnimationFrame ||= (callback) => callback();
+  const controller = createOnnxCameraController({ root: run.root, deps: run.deps });
+  run.elements.get('onnxImageInput').files = [{ name: 'blocks.png', type: 'image/png', size: 1024 }];
+  await run.elements.get('onnxImageInput').emit('change');
+  assert.match(run.elements.get('onnxCameraStatus').textContent, /Load a compatible/);
+
+  run.elements.get('onnxModelInput').files = [run.file];
+  await run.elements.get('onnxModelInput').emit('change');
+  assert.equal(run.session.runCalls, 1);
+  assert.equal(run.elements.get('onnxResults').children.length, 1);
+  assert.match(run.elements.get('onnxCameraStatus').textContent, /Predicted 1 box/);
   await controller.destroy();
 });
 

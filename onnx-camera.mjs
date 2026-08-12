@@ -336,6 +336,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     setStatus(`Loading ${file.name} locally…`);
     await nextFrameRef();
     if (token !== state.loadToken || state.destroyed) return;
+    let shouldAutoPredict = false;
     try {
       const buffer = await file.arrayBuffer();
       const metadata = extractOnnxMetadata(buffer);
@@ -369,6 +370,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
       state.provider = provider;
       state.fallbackUsed = usedFallback;
       setProvider(provider.toUpperCase(), 'ready');
+      shouldAutoPredict = state.sourceKind === 'image' && state.frameReady && state.boxes.length > 0;
       const labels = state.classNames.length ? `${state.classNames.length} labels` : 'class index labels';
       setStatus(`${file.name} ready · ${created.contract.width}×${created.contract.height} · ${labels}`, 'success');
     } catch (error) {
@@ -382,6 +384,9 @@ export function createOnnxCameraController({ root, deps = {} }) {
       setStatus(`Could not load this YOLO26-cls model. ${error.message}`, 'error');
     } finally {
       if (token === state.loadToken) setBusy();
+    }
+    if (shouldAutoPredict && token === state.loadToken && !state.destroyed) {
+      await predictAll({ trigger: 'image', sourceToken: state.sourceToken });
     }
   }
 
@@ -590,6 +595,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     setBusy('image');
     setStatus(`Loading ${file.name} locally…`);
     let decoded = null;
+    let shouldAutoPredict = false;
     try {
       decoded = await decodeImageRef(file);
       if (state.destroyed || token !== state.imageToken) return;
@@ -622,8 +628,16 @@ export function createOnnxCameraController({ root, deps = {} }) {
       state.frameReady = true;
       state.captured = true;
       state.sourceKind = 'image';
+      state.boxes = [{ x1: 0, y1: 0, x2: 1, y2: 1 }];
       updateStage();
-      setStatus('Image ready. Draw 1–7 boxes, then choose Predict all.', 'success');
+      drawOverlay();
+      shouldAutoPredict = Boolean(state.session);
+      setStatus(
+        shouldAutoPredict
+          ? 'Image ready. Predicting the full image…'
+          : 'Image ready with a full-image box. Load a compatible .onnx model to predict automatically.',
+        shouldAutoPredict ? '' : 'error',
+      );
       nodes.overlay.focus?.();
     } catch (error) {
       if (!state.destroyed && token === state.imageToken) {
@@ -634,6 +648,9 @@ export function createOnnxCameraController({ root, deps = {} }) {
     } finally {
       decoded?.dispose?.();
       if (!state.destroyed && token === state.imageToken) setBusy();
+    }
+    if (shouldAutoPredict && token === state.imageToken && !state.destroyed) {
+      await predictAll({ trigger: 'image', sourceToken: state.sourceToken });
     }
   }
 

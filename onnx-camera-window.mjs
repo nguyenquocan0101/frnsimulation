@@ -1,4 +1,4 @@
-import { createOnnxCameraController } from './onnx-camera.mjs?v=20260812-image-upload';
+import { createOnnxCameraController } from './onnx-camera.mjs?v=20260812-image-auto-predict';
 
 const VALID_THEMES = new Set(['light', 'dark']);
 
