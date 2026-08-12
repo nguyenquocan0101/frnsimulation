@@ -117,22 +117,6 @@
           </form>
         </dialog>
       </section>
-      <section class="teacher-panel workshop-results-panel" aria-labelledby="workshopResultsTitle">
-        <div class="teacher-toolbar">
-          <div>
-            <p class="eyebrow">WORKSHOP RESULTS</p>
-            <h2 id="workshopResultsTitle">Workshop results</h2>
-          </div>
-          <button class="button primary" id="competitionResultsRefreshBtn" type="button">Refresh</button>
-        </div>
-        <p class="teacher-error" id="competitionResultsError" role="status"></p>
-        <div class="submission-table-wrap">
-          <table class="submission-table" id="competitionResultsTable">
-            <thead><tr><th>No.</th><th>Solution</th><th>Score</th><th>Steps</th><th>Distance (slots)</th></tr></thead>
-            <tbody id="competitionResultsBody"></tbody>
-          </table>
-        </div>
-      </section>
     </main>
     <script type="module">
       import { createTeacherAccess, requireTeacherSession } from "./teacher-access.mjs";
@@ -141,8 +125,6 @@
         listSubmissions,
         downloadSubmission,
       } from "./firebase-public-client.mjs";
-      import { listCompetitionResults } from "./firebase-competition-client.mjs";
-      import { compareCompetitionResults } from "./competition-results.mjs";
       import { initTeacherPortal } from "./teacher-submissions.mjs";
       const access = createTeacherAccess({ baseUrl: ONNX_API_BASE_URL });
       const gate = document.getElementById("teacherGate");
@@ -169,41 +151,13 @@
       });
       async function unlockTeacher() {
         gateError.textContent = "";
-        try { await access.unlockTeacher(password.value); gate.hidden = true; resultRefresh.disabled = false; bootTeacher(); loadCompetitionResults(); }
+        try { await access.unlockTeacher(password.value); gate.hidden = true; bootTeacher(); }
         catch (error) { gateError.textContent = error.message; }
       }
       unlock.addEventListener("click", unlockTeacher);
       password.addEventListener("keydown", (event) => { if (event.key === "Enter") unlockTeacher(); });
       if (requireTeacherSession(access)) { gate.hidden = true; bootTeacher(); }
 
-      const resultBody = document.getElementById("competitionResultsBody");
-      const resultError = document.getElementById("competitionResultsError");
-      const resultRefresh = document.getElementById("competitionResultsRefreshBtn");
-      resultRefresh.disabled = !requireTeacherSession(access);
-      async function loadCompetitionResults() {
-        if (!requireTeacherSession(access)) return;
-        resultRefresh.disabled = true;
-        resultError.textContent = "";
-        try {
-          const rows = (await listCompetitionResults()).sort(compareCompetitionResults);
-          resultBody.replaceChildren();
-          rows.forEach((row, index) => {
-            const tr = document.createElement("tr");
-            [index + 1, row.solutionName, Number(row.score).toFixed(2), row.steps, row.distance].forEach((value) => {
-              const td = document.createElement("td");
-              td.textContent = String(value);
-              tr.append(td);
-            });
-            resultBody.append(tr);
-          });
-        } catch (error) {
-      resultError.textContent = "Unable to load workshop results.";
-        } finally {
-          resultRefresh.disabled = false;
-        }
-      }
-      resultRefresh.addEventListener("click", () => { if (requireTeacherSession(access)) loadCompetitionResults(); });
-      if (requireTeacherSession(access)) loadCompetitionResults();
     </script>
   </body>
 </html>
