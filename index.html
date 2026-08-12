@@ -411,15 +411,38 @@ if __name__ == "__main__":
               </div>
             </div>
           </div>
-          <div class="log-toolbar">
-            <span>Output</span>
-            <button class="button quiet" id="clearLogBtn">Clear log</button>
+          <div class="console-grid" aria-label="Simulator logs">
+            <section class="console-pane" aria-labelledby="ideOutputLabel">
+              <div class="log-toolbar">
+                <span id="ideOutputLabel">IDE output</span>
+                <button class="button quiet" id="clearLogBtn" type="button">
+                  Clear log
+                </button>
+              </div>
+              <pre
+                class="console simulator-log"
+                id="console"
+                aria-live="polite"
+              ></pre>
+            </section>
+            <section class="console-pane" aria-labelledby="robotMotionLabel">
+              <div class="log-toolbar">
+                <span id="robotMotionLabel">Robot motion</span>
+                <button
+                  class="button quiet"
+                  id="clearMotionLogBtn"
+                  type="button"
+                >
+                  Clear log
+                </button>
+              </div>
+              <pre
+                class="console simulator-log"
+                id="motionConsole"
+                aria-live="off"
+              ></pre>
+            </section>
           </div>
-          <pre
-            class="console simulator-log"
-            id="console"
-            aria-live="polite"
-          ></pre>
           <section
             class="competition-result-panel"
             id="competitionResultPanel"

@@ -39,6 +39,7 @@ import {
   createAiCameraLogReceiver,
   renderAiCameraLog,
 } from "./ai-camera-log.mjs";
+import { consoleChannelForMessage } from "./console-routing.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -469,6 +470,7 @@ const gripperVisual = {
   animation: null,
 };
 let logElement;
+let motionLogElement;
 let embedInitReceived = false;
 let embedRunToken = null;
 let embedMessageHandler = null;
@@ -2028,8 +2030,20 @@ function animateTrajectory(waypoints, duration) {
 }
 
 function log(message) {
+  const channel = consoleChannelForMessage(message);
+  if (channel === "motion") {
+    if (!motionLogElement) motionLogElement = $("motionConsole");
+    appendConsoleLogText(
+      motionLogElement,
+      `${new Date().toLocaleTimeString()}  ${message}\n`,
+    );
+    return;
+  }
   if (!logElement) logElement = $("console");
-  appendConsoleLogText(logElement, `${new Date().toLocaleTimeString()}  ${message}\n`);
+  appendConsoleLogText(
+    logElement,
+    `${new Date().toLocaleTimeString()}  ${message}\n`,
+  );
 }
 
 function setStatus(text, kind = "") {
@@ -4473,6 +4487,9 @@ function bindUI() {
   $("liveBtn")?.addEventListener("click", connectLive);
   $("clearLogBtn").addEventListener("click", () => {
     $("console").textContent = "";
+  });
+  $("clearMotionLogBtn").addEventListener("click", () => {
+    $("motionConsole").textContent = "";
   });
   $("safeZoneToggleBtn").addEventListener("click", () => {
     state.safeZone.enabled = !state.safeZone.enabled;
