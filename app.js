@@ -40,6 +40,7 @@ import {
   renderAiCameraLog,
 } from "./ai-camera-log.mjs";
 import { consoleChannelForMessage } from "./console-routing.mjs";
+import { formatPythonSourceWithSelection } from "./python-format.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -587,6 +588,23 @@ function initCodeEditor() {
   };
   const persistSource = () =>
     appStorage.setItem(PROGRAM_STORAGE_KEY, editor.value);
+  const saveAndFormat = () => {
+    const selectionStart = editor.selectionStart;
+    const selectionEnd = editor.selectionEnd;
+    const formatted = formatPythonSourceWithSelection(
+      editor.value,
+      selectionStart,
+      selectionEnd,
+    );
+    editor.value = formatted.source;
+    editor.setSelectionRange(
+      formatted.selectionStart,
+      formatted.selectionEnd,
+    );
+    persistSource();
+    render();
+    log("Code saved and indentation formatted.");
+  };
   editor.addEventListener("input", () => {
     persistSource();
     render();
@@ -597,11 +615,16 @@ function initCodeEditor() {
     lineNumbers.scrollTop = editor.scrollTop;
   });
   editor.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      saveAndFormat();
+      return;
+    }
     if (event.key !== "Tab") return;
     event.preventDefault();
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
-    editor.setRangeText("  ", start, end, "end");
+    editor.setRangeText("    ", start, end, "end");
     persistSource();
     render();
   });
@@ -613,6 +636,7 @@ function initCodeEditor() {
     fontSize = clamp(fontSize + 1, 11, 20);
     applyFontSize();
   });
+  $("saveProgramBtn")?.addEventListener("click", saveAndFormat);
   applyFontSize();
   render();
 }

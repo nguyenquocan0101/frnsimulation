@@ -139,3 +139,6 @@ html[data-embed-mode="guide"] .loading-card{z-index:4}
 
 /* Latest AI Camera prediction mirrored into the existing IDE Output console. */
 .ai-camera-log-block{display:block;margin-top:8px;border:1px solid #465563;border-radius:7px;background:#111922;color:#fff;padding:7px 9px;overflow-wrap:anywhere;white-space:pre-wrap}
+
+/* Save formatting and keyboard indentation both use four-space Python tabs. */
+.code{tab-size:4}.editor-toolbar-actions #saveProgramBtn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;height:34px;box-sizing:border-box;line-height:1}@media(pointer:coarse){.editor-toolbar-actions #saveProgramBtn{min-height:46px;height:46px}}
