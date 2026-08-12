@@ -124,26 +124,26 @@ Never commit VPS credentials, Firebase tokens, SSH passwords, live teacher sessi
 - [x] `phase-01-vps-preflight-and-api-foundation.md`
 - [x] `phase-02-student-paired-submission.md`
 - [x] `phase-03-teacher-gate-and-model-join.md`
-- [x] `phase-04-service-and-quick-tunnel-deployment.md` (local artifacts/tests complete; VPS install pending sudo authorization)
-- `phase-05-end-to-end-verification-and-rollback.md`
+- [x] `phase-04-service-and-quick-tunnel-deployment.md` (deployed and smoke-verified)
+- [ ] `phase-05-end-to-end-verification-and-rollback.md`
 
 ## Session Notes
 <!-- Updated by cook automatically — do not edit manually -->
 
-**Last active:** 2026-08-12 21:20
-**Phase in progress:** phase-04-service-and-quick-tunnel-deployment
-**Status:** Local Phase 04 artifacts/tests/review pass; VPS mutation is blocked because the SSH user requires an interactive sudo password. Public-key SSH itself works. Do not use the previously exposed password.
+**Last active:** 2026-08-12 21:47
+**Phase in progress:** phase-05-end-to-end-verification-and-rollback
+**Status:** Phase 04 deployed and smoke-verified. API and Quick Tunnel are active on the VPS; production config points to the current URL. Temporary sudo access was removed after deployment. Phase 05 E2E/rollback remains pending approval.
 
 ### Decisions made this session
 
 - Use a FastAPI factory with injected token verifier and disk provider so security/storage boundaries are testable without live credentials.
 - Persist chunk offset only after file fsync; startup repairs crash boundaries and runtime cleanup skips uploads whose per-ID lock is busy.
 - Serialize init reservation, bind every upload route to Firebase UID, and enforce 10 active sessions / 5 concurrent writers.
-- VPS preflight completed read-only: Ubuntu 26.04, Python 3.14/venv, systemd, 82 GiB free, loopback-only API port available, and outbound HTTPS works. Deployment remains blocked until `anuni` has passwordless sudo or a root/deploy key is installed.
-- Phase 04 local artifacts: loopback API and unprivileged Quick Tunnel systemd units, non-secret env example, and operator runbook with URL republish/fallback checks.
+- VPS preflight: Ubuntu 26.04, Python 3.14/venv, systemd, 82 GiB free, loopback-only API port, and outbound HTTPS. API service and unprivileged Quick Tunnel are active; cloudflared 2026.7.3 was SHA-256 verified.
+- Phase 04 deployment: current Quick Tunnel URL is `https://obtained-durham-agent-envelope.trycloudflare.com`; external health/CORS/teacher-session smoke passed and Vercel served the updated config after main deployment.
 - Student UI now uploads model chunks before Firestore source, and keeps a compact recovery record for Firestore-only retry. Backend SHA-256 remains the model integrity check.
 - Teacher portal now gates Firestore/competition polling, joins model metadata by exact submissionId, and uses one-time native download tickets with streamed FileResponse.
 
 ### Next immediate action
 
-Next action: grant the SSH key a tightly scoped deployment path (prefer passwordless sudo for the required systemctl/install commands) or install a dedicated deploy key. Then rerun the Phase 04 mutation/preflight gate; do not transmit the old password.
+Next action: after approval, run Phase 05 large-upload/restart/rollback verification. If the tunnel restarts, capture its new URL and republish the single config value before workshop use.
