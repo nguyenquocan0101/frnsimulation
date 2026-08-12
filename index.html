@@ -208,7 +208,13 @@
                   id="codeHighlight"
                   aria-hidden="true"
                 ><code></code></pre>
-                <textarea class="code" id="program" spellcheck="false">
+                <textarea
+                  class="code"
+                  id="program"
+                  spellcheck="false"
+                  aria-autocomplete="list"
+                  aria-controls="pythonAutocomplete"
+                >
 from techcamp_api import TechCamp
 
 
@@ -234,6 +240,13 @@ def main():
 if __name__ == "__main__":
     main()</textarea
                 >
+                <div
+                  class="python-autocomplete"
+                  id="pythonAutocomplete"
+                  role="listbox"
+                  aria-label="Code suggestions"
+                  hidden
+                ></div>
               </div>
             </div>
 

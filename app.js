@@ -41,6 +41,7 @@ import {
 } from "./ai-camera-log.mjs";
 import { consoleChannelForMessage } from "./console-routing.mjs";
 import { formatPythonSourceWithSelection } from "./python-format.mjs";
+import { createPythonAutocomplete } from "./python-autocomplete.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -588,7 +589,16 @@ function initCodeEditor() {
   };
   const persistSource = () =>
     appStorage.setItem(PROGRAM_STORAGE_KEY, editor.value);
+  const autocomplete = createPythonAutocomplete({
+    editor,
+    popup: $("pythonAutocomplete"),
+    onChange: () => {
+      persistSource();
+      render();
+    },
+  });
   const saveAndFormat = () => {
+    autocomplete.close();
     const selectionStart = editor.selectionStart;
     const selectionEnd = editor.selectionEnd;
     const formatted = formatPythonSourceWithSelection(
@@ -620,6 +630,7 @@ function initCodeEditor() {
       saveAndFormat();
       return;
     }
+    if (event.defaultPrevented) return;
     if (event.key !== "Tab") return;
     event.preventDefault();
     const start = editor.selectionStart;
