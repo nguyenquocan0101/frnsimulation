@@ -204,6 +204,11 @@
                   aria-hidden="true"
                 ></pre>
                 <pre
+                  class="code-indent-guides"
+                  id="codeIndentGuides"
+                  aria-hidden="true"
+                ></pre>
+                <pre
                   class="code-highlight"
                   id="codeHighlight"
                   aria-hidden="true"
@@ -215,26 +220,65 @@
                   aria-autocomplete="list"
                   aria-controls="pythonAutocomplete"
                 >
+"""
+SMART TOY FACTORY · SORTING CHALLENGE
+======================================
+
+Write your complete solution in this file.
+
+API
+---
+Use only:
+    from techcamp_api import TechCamp
+
+Inside `with TechCamp() as bot:` you can call:
+    bot.detect()
+    bot.move_to("P1"), ..., bot.move_to("P7"), bot.move_to("HOME")
+    bot.move_down(), bot.move_up()
+    bot.grip(), bot.release()
+
+TASK
+----
+1. Call bot.detect() to read P1..P7. Each value is (class_name, confidence).
+2. P1 contains the orange marker at the beginning. Move it from P1 to P7 first.
+3. P7 is the temporary empty buffer while sorting the five blocks in P2..P6.
+4. Sort the blocks in ascending order using the fixed class values below.
+5. Keep the orange marker at P7 when the program finishes.
+
+CLASS VALUES
+------------
+bear=1, bird=2, cat=3, cow=4, deer=5,
+dog=6, dolphin=7, elephant=8, giraffe=9, horse=10
+
+SAFETY
+------
+For every pick/place: move_to -> move_down -> grip/release -> move_up.
+Never move horizontally while the gripper is down.
+"""
 from techcamp_api import TechCamp
 
 
-def main():
-    # The orange cube is a fixed marker at P7 and is not scored.
-    # Students only need to sort the five blocks below.
-    transfers = [("P2", "P1"), ("P6", "P2"), ("P5", "P6"),
-                 ("P4", "P5"), ("P1", "P4")]
+CLASS_VALUES = {
+    "bear": 1,
+    "bird": 2,
+    "cat": 3,
+    "cow": 4,
+    "deer": 5,
+    "dog": 6,
+    "dolphin": 7,
+    "elephant": 8,
+    "giraffe": 9,
+    "horse": 10,
+}
 
+
+def main():
     with TechCamp() as bot:
-        for source, target in transfers:
-            print(f"Moving {source} -> {target}")
-            bot.move_to(source)
-            bot.move_down()
-            bot.grip()
-            bot.move_up()
-            bot.move_to(target)
-            bot.move_down()
-            bot.release()
-            bot.move_up()
+        objects = bot.detect()
+        print("Detected objects:")
+        print(objects)
+
+        # Write your detection, planning, and pick-and-place algorithm here.
 
 
 if __name__ == "__main__":

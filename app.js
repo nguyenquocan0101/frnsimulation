@@ -43,9 +43,16 @@ import { consoleChannelForMessage } from "./console-routing.mjs";
 import { formatPythonSourceWithSelection } from "./python-format.mjs";
 import { createPythonAutocomplete } from "./python-autocomplete.mjs";
 import { createOnnxSubmissionClient } from "./onnx-submission-client.mjs";
+import {
+  buildIndentGuideLine,
+  deleteIndentBefore,
+  getPythonAutoIndent,
+  indentSelection,
+} from "./python-editor-behavior.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
+const WORKSHOP_CONTENT_RESET_KEY = "techcamp-workshop-content-reset-v1";
 const LEGACY_CHECKPOINT_PROGRAM_MARKER =
   "# Demo checkpoint: move the orange token P1 -> P7 -> P1.";
 const GRIPPER_FILE = "Assieme_pinza_dita_parallele.stp";
@@ -555,8 +562,16 @@ function initCodeEditor() {
   const editor = $("program");
   const highlight = $("codeHighlight");
   const highlightCode = highlight?.querySelector("code");
+  const indentGuides = $("codeIndentGuides");
   const lineNumbers = $("codeLineNumbers");
   if (!editor || !highlight || !highlightCode || !lineNumbers) return;
+  // Clear the previous workshop's student code and group once. The versioned
+  // flag makes this safe on every later page load.
+  if (!appStorage.getItem(WORKSHOP_CONTENT_RESET_KEY)) {
+    appStorage.removeItem(PROGRAM_STORAGE_KEY);
+    appStorage.removeItem("techcamp-last-group");
+    appStorage.setItem(WORKSHOP_CONTENT_RESET_KEY, "1");
+  }
   const storedSource = appStorage.getItem(PROGRAM_STORAGE_KEY);
   if (storedSource !== null) {
     // Migrate only the old built-in checkpoint demo; preserve any student code.
@@ -581,12 +596,22 @@ function initCodeEditor() {
   };
   const render = () => {
     highlightCode.innerHTML = highlightPython(editor.value);
+    if (indentGuides) {
+      indentGuides.textContent = editor.value
+        .split("\n")
+        .map(buildIndentGuideLine)
+        .join("\n");
+    }
     lineNumbers.textContent = Array.from(
       { length: editor.value.split("\n").length },
       (_, index) => String(index + 1),
     ).join("\n");
     highlight.scrollTop = editor.scrollTop;
     highlight.scrollLeft = editor.scrollLeft;
+    if (indentGuides) {
+      indentGuides.scrollTop = editor.scrollTop;
+      indentGuides.scrollLeft = editor.scrollLeft;
+    }
     lineNumbers.scrollTop = editor.scrollTop;
     clearCodeValidation();
   };
@@ -625,6 +650,10 @@ function initCodeEditor() {
   editor.addEventListener("scroll", () => {
     highlight.scrollTop = editor.scrollTop;
     highlight.scrollLeft = editor.scrollLeft;
+    if (indentGuides) {
+      indentGuides.scrollTop = editor.scrollTop;
+      indentGuides.scrollLeft = editor.scrollLeft;
+    }
     lineNumbers.scrollTop = editor.scrollTop;
   });
   editor.addEventListener("keydown", (event) => {
@@ -634,13 +663,42 @@ function initCodeEditor() {
       return;
     }
     if (event.defaultPrevented) return;
-    if (event.key !== "Tab") return;
-    event.preventDefault();
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
-    editor.setRangeText("    ", start, end, "end");
-    persistSource();
-    render();
+
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const result = indentSelection(
+        editor.value,
+        start,
+        end,
+        event.shiftKey ? "out" : "in",
+      );
+      editor.value = result.value;
+      editor.setSelectionRange(result.start, result.end);
+      persistSource();
+      render();
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const indent = getPythonAutoIndent(editor.value, start);
+      editor.setRangeText("\n" + indent, start, end, "end");
+      persistSource();
+      render();
+      return;
+    }
+
+    if (event.key === "Backspace" && start === end) {
+      const result = deleteIndentBefore(editor.value, start);
+      if (!result) return;
+      event.preventDefault();
+      editor.value = result.value;
+      editor.setSelectionRange(result.cursor, result.cursor);
+      persistSource();
+      render();
+    }
   });
   decrease?.addEventListener("click", () => {
     fontSize = clamp(fontSize - 1, 11, 20);
