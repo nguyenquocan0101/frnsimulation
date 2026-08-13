@@ -52,7 +52,7 @@ import {
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
-const WORKSHOP_CONTENT_RESET_KEY = "techcamp-workshop-content-reset-v1";
+const WORKSHOP_CONTENT_RESET_KEY = "techcamp-workshop-content-reset-v2";
 const LEGACY_CHECKPOINT_PROGRAM_MARKER =
   "# Demo checkpoint: move the orange token P1 -> P7 -> P1.";
 const GRIPPER_FILE = "Assieme_pinza_dita_parallele.stp";

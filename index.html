@@ -221,68 +221,9 @@
                   aria-controls="pythonAutocomplete"
                 >
 """
-SMART TOY FACTORY · SORTING CHALLENGE
-======================================
-
-Write your complete solution in this file.
-
-API
----
-Use only:
-    from techcamp_api import TechCamp
-
-Inside `with TechCamp() as bot:` you can call:
-    bot.detect()
-    bot.move_to("P1"), ..., bot.move_to("P7"), bot.move_to("HOME")
-    bot.move_down(), bot.move_up()
-    bot.grip(), bot.release()
-
-TASK
-----
-1. Call bot.detect() to read P1..P7. Each value is (class_name, confidence).
-2. P1 contains the orange marker at the beginning. Move it from P1 to P7 first.
-3. P7 is the temporary empty buffer while sorting the five blocks in P2..P6.
-4. Assign a unique value to each class in YOUR code, then sort in ascending order.
-5. Keep the orange marker at P7 when the program finishes.
-
-CLASS VALUES
-------------
-Choose the values yourself. Every class must have one unique numeric value.
-
-SAFETY
-------
-For every pick/place: move_to -> move_down -> grip/release -> move_up.
-Never move horizontally while the gripper is down.
-"""
-from techcamp_api import TechCamp
-
-
-CLASS_VALUES = {
-    # Assign your own unique values before sorting.
-    "bear": 0,
-    "bird": 0,
-    "cat": 0,
-    "cow": 0,
-    "deer": 0,
-    "dog": 0,
-    "dolphin": 0,
-    "elephant": 0,
-    "giraffe": 0,
-    "horse": 0,
-}
-
-
-def main():
-    with TechCamp() as bot:
-        objects = bot.detect()
-        print("Detected objects:")
-        print(objects)
-
-        # Write your detection, planning, and pick-and-place algorithm here.
-
-
-if __name__ == "__main__":
-    main()</textarea
+Workshop code is temporarily disabled.
+Paste or restore the saved exam when the workshop is reopened.
+</textarea
                 >
                 <div
                   class="python-autocomplete"
