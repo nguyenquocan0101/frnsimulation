@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const index = fs.readFileSync(new URL("./index.html", import.meta.url), "utf8");
-const template = index.match(/<textarea\b[^>]*\bid="program"[^>]*>([\s\S]*?)<\/textarea>/)?.[1] || "";
+const template = index.match(/<textarea\b[^>]*\bid="program"[^>]*>([\s\S]*?)<\/textarea\s*>/)?.[1] || "";
 
 test("IDE exam template uses the supported TechCamp API and English ten-class brief", () => {
   assert.match(template, /from techcamp_api import TechCamp/);
