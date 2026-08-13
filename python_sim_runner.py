@@ -23,16 +23,17 @@ CANONICAL_COMPETITION_OCCUPANCY = {
     point: block is not None
     for point, block in CANONICAL_COMPETITION_FIXTURE.items()
 }
-DETECTION_LABELS = {
-    "car": "oto",
-    "chair": "ghe",
-    "chicken": "ga",
-    "dog": "cho",
-    "house": "nha",
-}
+# `detect()` returns the same `(class_name, confidence)` shape as the camera
+# contract. Confidence is available for display but is not required for the
+# sorting exercise.
 CANONICAL_DETECTIONS = {
-    point: DETECTION_LABELS.get(CANONICAL_COMPETITION_FIXTURE[point], "empty")
-    for point in ("P2", "P3", "P4", "P5", "P6")
+    "P1": ("empty", 0.0),
+    "P2": ("cho", 0.892),
+    "P3": ("oto", 0.941),
+    "P4": ("ghe", 0.785),
+    "P5": ("du", 0.912),
+    "P6": ("voi", 0.854),
+    "P7": ("empty", 0.0),
 }
 MAX_TRACE_ACTIONS = 500
 MAX_PRINT_ACTIONS = 500
@@ -155,12 +156,23 @@ def validate_main_entrypoint(tree):
 
 class SafetyVisitor(ast.NodeVisitor):
     def visit_Import(self, node):
-        raise ProtocolError("Only use: from techcamp_api import TechCamp", node.lineno)
+        raise ProtocolError(
+            "Only use TechCamp or TechCampAI from the supported API.",
+            node.lineno,
+        )
 
     def visit_ImportFrom(self, node):
-        allowed = {"TechCamp", "TechCampError"}
-        if node.module != "techcamp_api" or any(item.name not in allowed for item in node.names):
-            raise ProtocolError("Only use: from techcamp_api import TechCamp", node.lineno)
+        allowed_modules = {
+            "techcamp_api": {"TechCamp", "TechCampError"},
+            "techcamp_ai_api": {"TechCampAI"},
+        }
+        allowed = allowed_modules.get(node.module)
+        if allowed is None or any(item.name not in allowed for item in node.names):
+            raise ProtocolError(
+                "Use from techcamp_api import TechCamp or "
+                "from techcamp_ai_api import TechCampAI.",
+                node.lineno,
+            )
 
     def visit_Name(self, node):
         if (node.id.startswith("__") and node.id != "__name__") or node.id in FORBIDDEN_NAMES:
@@ -196,6 +208,7 @@ class SimTechCamp:
     def __init__(self, raw_trace, positions):
         self._raw_trace = raw_trace
         self._positions = positions
+        self._detection_snapshot = None
 
     def _attempt(self, method, *args):
         command_count = sum(
@@ -264,8 +277,12 @@ class SimTechCamp:
         return {"type": "simulated_camera", "positions": dict(self._positions)}
 
     def detect(self):
-        self._attempt("detect")
-        return dict(CANONICAL_DETECTIONS)
+        # A run has one camera prediction. Repeated student calls read the
+        # same snapshot instead of triggering another prediction/action.
+        if self._detection_snapshot is None:
+            self._attempt("detect")
+            self._detection_snapshot = dict(CANONICAL_DETECTIONS)
+        return dict(self._detection_snapshot)
 
     def get_image(self):
         self._attempt("get_image")
@@ -431,13 +448,20 @@ def execute(payload):
         })
 
     def only_techcamp_import(name, *_args, **_kwargs):
-        if name != "techcamp_api":
-            raise TechCampError("Only techcamp_api may be imported in the simulator.")
-        return module
+        if name not in {"techcamp_api", "techcamp_ai_api"}:
+            raise TechCampError(
+                "Only techcamp_api or techcamp_ai_api may be imported in the simulator."
+            )
+        return modules[name]
 
     module = types.ModuleType("techcamp_api")
     module.TechCamp = lambda *args, **kwargs: SimTechCamp(raw_trace, positions)
     module.TechCampError = TechCampError
+    ai_module = types.ModuleType("techcamp_ai_api")
+    # Simulator adapter: the public API name is real, while camera/model work
+    # is represented by the deterministic simulator fixture.
+    ai_module.TechCampAI = lambda *args, **kwargs: SimTechCamp(raw_trace, positions)
+    modules = {"techcamp_api": module, "techcamp_ai_api": ai_module}
     safe_builtins = {
         "__import__": only_techcamp_import, "abs": abs, "all": all, "any": any,
         "bool": bool, "dict": dict, "enumerate": enumerate, "float": float,

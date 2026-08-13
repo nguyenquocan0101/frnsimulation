@@ -570,7 +570,44 @@ class PythonSimRunnerCompatibilityAndSandboxTests(unittest.TestCase):
             [action["type"] for action in result["actions"]],
             ["capture", "detect", "print"],
         )
-        self.assertIn("'P2': 'cho'", result["output"][0])
+        self.assertIn("'P2': ('cho', 0.892)", result["output"][0])
+
+    def test_detect_predicts_once_per_robot_session(self):
+        result = execute(
+            program(
+                "with TechCamp() as bot:\n"
+                "    first = bot.detect()\n"
+                "    second = bot.detect()\n"
+                "    print(first == second)"
+            )
+        )
+
+        self.assertTrue(result["ok"], result)
+
+    def test_techcamp_ai_api_import_uses_the_simulator_adapter(self):
+        source = (
+            "from techcamp_ai_api import TechCampAI\n\n"
+            "def main():\n"
+            "    with TechCampAI() as bot:\n"
+            "        detected = bot.detect()\n"
+            "        print(detected['P2'][0])\n"
+            "\n"
+            'if __name__ == "__main__":\n'
+            "    main()\n"
+        )
+
+        result = execute(source)
+
+        self.assertTrue(result["ok"], result)
+        self.assertIn("cho", result["output"][0])
+        self.assertEqual(
+            sum(text.count("cho") for text in result["output"]),
+            1,
+        )
+        self.assertEqual(
+            [action["type"] for action in result["actions"]].count("detect"),
+            1,
+        )
 
 
 if __name__ == "__main__":

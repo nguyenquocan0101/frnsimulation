@@ -52,7 +52,9 @@ import {
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
-const WORKSHOP_CONTENT_RESET_KEY = "techcamp-workshop-content-reset-v2";
+// Bump this token only when a new workshop should clear the previous draft
+// and group once. Later reloads preserve the student's new work.
+const WORKSHOP_CONTENT_RESET_KEY = "techcamp-workshop-content-reset-v3";
 const LEGACY_CHECKPOINT_PROGRAM_MARKER =
   "# Demo checkpoint: move the orange token P1 -> P7 -> P1.";
 const GRIPPER_FILE = "Assieme_pinza_dita_parallele.stp";
@@ -3933,7 +3935,7 @@ function validateStudentProgram(source) {
 
     if (/^from\b/.test(trimmed) || /^import\b/.test(trimmed)) {
       if (
-        /^from\s+techcamp_api\s+import\s+TechCamp(?:\s*,\s*TechCampError)?$/.test(
+        /^(?:from\s+techcamp_api\s+import\s+TechCamp(?:\s*,\s*TechCampError)?|from\s+techcamp_ai_api\s+import\s+TechCampAI)$/.test(
           trimmed,
         )
       ) {
@@ -3941,7 +3943,7 @@ function validateStudentProgram(source) {
       } else {
         addError(
           lineNumber,
-          "Only import TechCamp: from techcamp_api import TechCamp",
+          "Use from techcamp_api import TechCamp or from techcamp_ai_api import TechCampAI.",
         );
       }
       previousOpenedBlock = false;
@@ -3949,7 +3951,7 @@ function validateStudentProgram(source) {
     }
 
     if (/^with\b/.test(trimmed)) {
-      if (/^with\s+TechCamp\(\)\s+as\s+bot:$/.test(trimmed)) {
+      if (/^with\s+(?:TechCamp|TechCampAI)\(\)\s+as\s+bot:$/.test(trimmed)) {
         if (!importedTechCamp)
           addError(
             lineNumber,
@@ -3958,7 +3960,7 @@ function validateStudentProgram(source) {
         botCreated = true;
         knownPosition = false;
       } else {
-        addError(lineNumber, "Use this exact form: with TechCamp() as bot:");
+        addError(lineNumber, "Use this exact form: with TechCampAI() as bot: (or TechCamp()).");
       }
       previousOpenedBlock = true;
       continue;
@@ -3980,8 +3982,8 @@ function validateStudentProgram(source) {
     }
 
     if (/^bot\s*=/.test(trimmed)) {
-      if (!/^bot\s*=\s*TechCamp\(\)$/.test(trimmed))
-        addError(lineNumber, "Use this exact initialization: bot = TechCamp()");
+      if (!/^bot\s*=\s*(?:TechCamp|TechCampAI)\(\)$/.test(trimmed))
+        addError(lineNumber, "Use this exact initialization: bot = TechCampAI() (or TechCamp())");
       else {
         if (!importedTechCamp)
           addError(
@@ -4081,8 +4083,8 @@ function validateStudentProgram(source) {
   }
 
   if (!importedTechCamp && source.trim())
-    addError(1, "Missing: from techcamp_api import TechCamp");
-  if (!botCreated && source.trim()) addError(1, "Missing: bot = TechCamp()");
+    addError(1, "Missing: from techcamp_ai_api import TechCampAI (or techcamp_api import TechCamp)");
+  if (!botCreated && source.trim()) addError(1, "Missing: bot = TechCampAI() (or bot = TechCamp())");
   if (!hasRobotCommand && botCreated)
     addError(
       1,
@@ -4094,14 +4096,14 @@ function validateStudentProgram(source) {
 
 async function runTechCampLine(trimmed, indent, context) {
   if (
-    /^from\s+techcamp_api\s+import\s+TechCamp(?:\s*,\s*TechCampError)?$/.test(
+    /^(?:from\s+techcamp_api\s+import\s+TechCamp(?:\s*,\s*TechCampError)?|from\s+techcamp_ai_api\s+import\s+TechCampAI)$/.test(
       trimmed,
     )
   )
     return true;
   if (
-    /^with\s+TechCamp\(\)\s+as\s+bot:$/.test(trimmed) ||
-    /^bot\s*=\s*TechCamp\(\)$/.test(trimmed)
+    /^with\s+(?:TechCamp|TechCampAI)\(\)\s+as\s+bot:$/.test(trimmed) ||
+    /^bot\s*=\s*(?:TechCamp|TechCampAI)\(\)$/.test(trimmed)
   ) {
     startTechCamp();
     context.started = true;
