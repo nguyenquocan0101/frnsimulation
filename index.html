@@ -242,13 +242,12 @@ TASK
 1. Call bot.detect() to read P1..P7. Each value is (class_name, confidence).
 2. P1 contains the orange marker at the beginning. Move it from P1 to P7 first.
 3. P7 is the temporary empty buffer while sorting the five blocks in P2..P6.
-4. Sort the blocks in ascending order using the fixed class values below.
+4. Assign a unique value to each class in YOUR code, then sort in ascending order.
 5. Keep the orange marker at P7 when the program finishes.
 
 CLASS VALUES
 ------------
-bear=1, bird=2, cat=3, cow=4, deer=5,
-dog=6, dolphin=7, elephant=8, giraffe=9, horse=10
+Choose the values yourself. Every class must have one unique numeric value.
 
 SAFETY
 ------
@@ -259,16 +258,17 @@ from techcamp_api import TechCamp
 
 
 CLASS_VALUES = {
-    "bear": 1,
-    "bird": 2,
-    "cat": 3,
-    "cow": 4,
-    "deer": 5,
-    "dog": 6,
-    "dolphin": 7,
-    "elephant": 8,
-    "giraffe": 9,
-    "horse": 10,
+    # Assign your own unique values before sorting.
+    "bear": 0,
+    "bird": 0,
+    "cat": 0,
+    "cow": 0,
+    "deer": 0,
+    "dog": 0,
+    "dolphin": 0,
+    "elephant": 0,
+    "giraffe": 0,
+    "horse": 0,
 }
 
 

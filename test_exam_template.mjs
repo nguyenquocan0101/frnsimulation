@@ -12,5 +12,6 @@ test("IDE exam template uses the supported TechCamp API and English ten-class br
     assert.match(template, new RegExp(`\\b${label}\\b`));
   }
   assert.match(template, /P1.*P7|P7.*P1/s);
+  assert.match(template, /Assign your own unique values/);
   assert.match(template, /objects\s*=\s*bot\.detect\(\)/);
 });
