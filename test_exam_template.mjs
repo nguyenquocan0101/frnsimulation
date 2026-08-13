@@ -12,6 +12,12 @@ test("IDE exam template uses the supported TechCamp API and English ten-class br
     assert.match(template, new RegExp(`\\b${label}\\b`));
   }
   assert.match(template, /P1.*P7|P7.*P1/s);
-  assert.match(template, /Assign your own unique values/);
-  assert.match(template, /objects\s*=\s*bot\.detect\(\)/);
+  assert.match(template, /def\s+main\s*\(/);
+  assert.match(template, /first transfer must move the orange marker/i);
+  assert.match(template, /final\s+transfer\s+must\s+move/i);
+  assert.match(template, /any permutation/i);
+  assert.match(template, /confidence.*0\.70/i);
+  assert.match(template, /Do not hard-code/i);
+  assert.match(template, /pass/);
+  assert.doesNotMatch(template, /def\s+generate_transfers\s*\(/);
 });

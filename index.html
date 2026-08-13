@@ -224,7 +224,8 @@
 SMART TOY FACTORY · SORTING CHALLENGE
 ======================================
 
-Write your complete solution in this file.
+Write your complete solution in this file. Your program must follow the
+same four-part structure as the starter code below.
 
 API
 ---
@@ -237,17 +238,26 @@ Inside `with TechCamp() as bot:` you can call:
     bot.move_down(), bot.move_up()
     bot.grip(), bot.release()
 
-TASK
-----
-1. Call bot.detect() to read P1..P7. Each value is (class_name, confidence).
-2. P1 contains the orange marker at the beginning. Move it from P1 to P7 first.
-3. P7 is the temporary empty buffer while sorting the five blocks in P2..P6.
-4. Assign a unique value to each class in YOUR code, then sort in ascending order.
-5. Keep the orange marker at P7 when the program finishes.
+ASSIGNMENT
+----------
+1. Implement `generate_transfers(initial)`. The input list contains the
+   current contents of P1..P7. Return `(source, target)` pairs only.
+2. Call `bot.detect()` in `main()`. Each result is `(class_name, confidence)`;
+   use the class name to build the list passed to `generate_transfers()`.
+3. Sort the five blocks currently at P2..P6 in ascending challenge order.
+4. The first transfer must move the orange marker P1 -> P7. The final
+   transfer must move it P7 -> P1. The remaining transfers must place every
+   block in its correct slot without losing a block.
+5. The board may start in any permutation. Do not hard-code the sample
+   transfer list, source positions, or a fixed block arrangement.
+6. Check that every non-empty block has a valid confidence (at least 0.70),
+   that no class is duplicated, and stop safely before moving if the scan is
+   invalid. Confidence is for validation only, not the sorting value.
+7. Print the complete transfer plan before executing it, then execute every
+   pair with the movement API. Avoid no-op transfers where source equals target.
 
-CLASS VALUES
-------------
-Choose the values yourself. Every class must have one unique numeric value.
+The model may return these ten classes: bear, bird, cat, cow, deer, dog,
+dolphin, elephant, giraffe, horse.
 
 SAFETY
 ------
@@ -257,28 +267,10 @@ Never move horizontally while the gripper is down.
 from techcamp_api import TechCamp
 
 
-CLASS_VALUES = {
-    # Assign your own unique values before sorting.
-    "bear": 0,
-    "bird": 0,
-    "cat": 0,
-    "cow": 0,
-    "deer": 0,
-    "dog": 0,
-    "dolphin": 0,
-    "elephant": 0,
-    "giraffe": 0,
-    "horse": 0,
-}
-
-
 def main():
-    with TechCamp() as bot:
-        objects = bot.detect()
-        print("Detected objects:")
-        print(objects)
+    # Write your solution here.
+    pass
 
-        # Write your detection, planning, and pick-and-place algorithm here.
 
 
 if __name__ == "__main__":

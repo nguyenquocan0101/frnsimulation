@@ -570,7 +570,7 @@ class PythonSimRunnerCompatibilityAndSandboxTests(unittest.TestCase):
             [action["type"] for action in result["actions"]],
             ["capture", "detect", "print"],
         )
-        self.assertIn("'P2': 'cho'", result["output"][0])
+        self.assertIn("'P2': ('cho', 0.892)", result["output"][0])
 
 
 if __name__ == "__main__":

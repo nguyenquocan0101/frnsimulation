@@ -23,16 +23,18 @@ CANONICAL_COMPETITION_OCCUPANCY = {
     point: block is not None
     for point, block in CANONICAL_COMPETITION_FIXTURE.items()
 }
-DETECTION_LABELS = {
-    "car": "oto",
-    "chair": "ghe",
-    "chicken": "ga",
-    "dog": "cho",
-    "house": "nha",
-}
+# `detect()` mirrors the camera contract: every board slot is present and
+# each result is a `(class_name, confidence)` tuple.  The confidence values
+# are deterministic simulator fixtures so student programs can be tested
+# without opening a camera.
 CANONICAL_DETECTIONS = {
-    point: DETECTION_LABELS.get(CANONICAL_COMPETITION_FIXTURE[point], "empty")
-    for point in ("P2", "P3", "P4", "P5", "P6")
+    "P1": ("empty", 0.0),
+    "P2": ("cho", 0.892),
+    "P3": ("oto", 0.941),
+    "P4": ("ghe", 0.785),
+    "P5": ("du", 0.912),
+    "P6": ("voi", 0.854),
+    "P7": ("empty", 0.0),
 }
 MAX_TRACE_ACTIONS = 500
 MAX_PRINT_ACTIONS = 500
