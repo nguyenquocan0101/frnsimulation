@@ -59,7 +59,7 @@ const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
 // Bump this token only when a new workshop should clear the previous draft
 // and group once. Later reloads preserve the student's new work.
-const WORKSHOP_CONTENT_RESET_KEY = "techcamp-workshop-content-reset-v3";
+const WORKSHOP_CONTENT_RESET_KEY = "techcamp-workshop-content-reset-v4";
 const LEGACY_CHECKPOINT_PROGRAM_MARKER =
   "# Demo checkpoint: move the orange token P1 -> P7 -> P1.";
 const GRIPPER_FILE = "Assieme_pinza_dita_parallele.stp";
@@ -592,11 +592,10 @@ function initCodeEditor() {
   const indentGuides = $("codeIndentGuides");
   const lineNumbers = $("codeLineNumbers");
   if (!editor || !highlight || !highlightCode || !lineNumbers) return;
-  // Clear the previous workshop's student code and group once. The versioned
-  // flag makes this safe on every later page load.
+  // Clear the previous workshop prompt once. The versioned flag makes this
+  // safe on every later page load.
   if (!appStorage.getItem(WORKSHOP_CONTENT_RESET_KEY)) {
     appStorage.removeItem(PROGRAM_STORAGE_KEY);
-    appStorage.removeItem("techcamp-last-group");
     appStorage.setItem(WORKSHOP_CONTENT_RESET_KEY, "1");
   }
   const storedSource = appStorage.getItem(PROGRAM_STORAGE_KEY);
