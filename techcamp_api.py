@@ -237,8 +237,8 @@ class TechCamp:
             except Exception:
                 pass
             self._model.set_classes([
-                "house", "car", "dog", "chicken", "airplane",
-                "elephant", "tree", "chair", "umbrella",
+                "bird", "bear", "cat", "cow", "dog",
+                "dolphin", "elephant", "giraffe", "horse",
             ])
 
     def close(self):

@@ -70,6 +70,42 @@ test("running a program leaves the orange marker at P1 until student code moves 
   assert.doesNotMatch(app, /!state\.competitionSession\s*&&\s*\n?\s*this\.low/);
 });
 
+test("editable arrangement hides the marker while program runtime keeps it", () => {
+  const app = readFileSync(new URL("./app.js", import.meta.url), "utf8");
+  const visibilityStart = app.indexOf("function checkpointTokenVisibleForRuntime");
+  const visibilityEnd = app.indexOf("function updateCheckpointTokenVisual", visibilityStart);
+  const visibility = app.slice(visibilityStart, visibilityEnd);
+  const moveStart = app.indexOf("function moveBlockToPosition");
+  const moveEnd = app.indexOf("function moveBlockToBlock", moveStart);
+  const move = app.slice(moveStart, moveEnd);
+
+  assert.match(visibility, /isEmbedMode \|\| Boolean\(state\.programRun\)/);
+  assert.match(move, /checkpointTokenVisibleForRuntime\(\)/);
+  assert.match(app, /showCheckpointToken &&\s*state\.checkpointToken\?\.position === position/);
+  assert.match(app, /Scene reset -> P1\/P7 empty/);
+});
+
+test("arrangement locks duplicate moves during the 300ms transition", () => {
+  const app = readFileSync(new URL("./app.js", import.meta.url), "utf8");
+  const moveStart = app.indexOf("async function moveBlockToPosition");
+  const moveEnd = app.indexOf("function moveBlockToBlock", moveStart);
+  const move = app.slice(moveStart, moveEnd);
+
+  assert.match(move, /if \(blockArrangementAnimation\) return false/);
+  assert.match(move, /blockArrangementAnimation = \{ transaction \}/);
+  assert.match(app, /BLOCK_ARRANGEMENT_ANIMATION_MS/);
+  assert.match(app, /className = "block-drag-ghost"/);
+});
+
+test("bottom palette swaps animals without board drop targets", () => {
+  const app = readFileSync(new URL("./app.js", import.meta.url), "utf8");
+
+  assert.match(app, /function moveBlockToBlock\(blockName, targetBlockName\)/);
+  assert.match(app, /document\.querySelectorAll\("\.block-palette-item"\)/);
+  assert.match(app, /moveBlockToBlock\(sourceName, targetName\)/);
+  assert.doesNotMatch(app, /board-drop-zone|bindBoardCanvasDrag|boardDropPositionAt/);
+});
+
 test("student print output replays in order with motion actions", () => {
   const app = readFileSync(new URL("./app.js", import.meta.url), "utf8");
   const preflightStart = app.indexOf("async function runPythonProgram");

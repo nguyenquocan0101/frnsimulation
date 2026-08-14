@@ -570,7 +570,7 @@ class PythonSimRunnerCompatibilityAndSandboxTests(unittest.TestCase):
             [action["type"] for action in result["actions"]],
             ["capture", "detect", "print"],
         )
-        self.assertIn("'P2': ('cho', 0.892)", result["output"][0])
+        self.assertIn("'P2': ('dog', 0.892)", result["output"][0])
 
     def test_detect_predicts_once_per_robot_session(self):
         result = execute(
@@ -599,9 +599,9 @@ class PythonSimRunnerCompatibilityAndSandboxTests(unittest.TestCase):
         result = execute(source)
 
         self.assertTrue(result["ok"], result)
-        self.assertIn("cho", result["output"][0])
+        self.assertIn("dog", result["output"][0])
         self.assertEqual(
-            sum(text.count("cho") for text in result["output"]),
+            sum(text.count("dog") for text in result["output"]),
             1,
         )
         self.assertEqual(

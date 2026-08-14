@@ -49,6 +49,11 @@ import {
   getPythonAutoIndent,
   indentSelection,
 } from "./python-editor-behavior.mjs";
+import {
+  BLOCK_ARRANGEMENT_ANIMATION_MS,
+  orderBlocksForPalette,
+  planBlockPlacement,
+} from "./block-arrangement.mjs";
 
 const ROBOT_PROFILE_STORAGE_KEY = "techcamp-robot-profile";
 const PROGRAM_STORAGE_KEY = "techcamp-program-source";
@@ -185,26 +190,30 @@ const BLOCK_POSITIONS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
 const SORTABLE_BLOCK_NAMES = ["P1", "P3", "P5", "P6", "P7"];
 const BUFFER_POSITION = BLOCK_POSITIONS.at(-1);
 const SAMPLE_BLOCK_POSITIONS = {
-  // Demo input order from P2 to P6: car, chicken, dog, chair, house.
-  P1: "P3", // chicken
-  P3: "P4", // dog
-  P5: "P5", // chair
-  P6: "P6", // house
-  P7: "P2", // car
+  // Demo input order from P2 to P6: dog, bird, bear, cat, cow.
+  P1: "P3", // bird
+  P3: "P4", // bear
+  P5: "P5", // cat
+  P6: "P6", // cow
+  P7: "P2", // dog
 };
 const BLOCK_META = Object.freeze({
-  P1: { color: 0xf06b62, objectClass: "chicken" },
-  P3: { color: 0xe7c85f, objectClass: "dog" },
-  P5: { color: 0x56a9d9, objectClass: "chair" },
-  P6: { color: 0x7187d8, objectClass: "house" },
-  P7: { color: 0xa879d6, objectClass: "car" },
+  P1: { color: 0xf06b62, objectClass: "bird" },
+  P3: { color: 0xe7c85f, objectClass: "bear" },
+  P5: { color: 0x56a9d9, objectClass: "cat" },
+  P6: { color: 0x7187d8, objectClass: "cow" },
+  P7: { color: 0xa879d6, objectClass: "dog" },
 });
 const TECHCAMP_DETECTION_LABELS = Object.freeze({
-  car: "oto",
-  chair: "ghe",
-  chicken: "ga",
-  dog: "cho",
-  house: "nha",
+  bird: "bird",
+  bear: "bear",
+  cat: "cat",
+  cow: "cow",
+  dog: "dog",
+  dolphin: "dolphin",
+  elephant: "elephant",
+  giraffe: "giraffe",
+  horse: "horse",
 });
 const BLOCK_COLORS = [
   0xf06b62, 0xf3a64a, 0xe7c85f, 0x6fc88f, 0x56a9d9, 0x7187d8, 0xa879d6,
@@ -243,10 +252,10 @@ const SAFE_ZONE_BOUNDS = Object.freeze({
 });
 const COMPETITION_BLOCK_SETUP = Object.freeze([
   { name: "P1", position: "P2", objectClass: "dog", color: 0xe7c85f },
-  { name: "P3", position: "P3", objectClass: "chicken", color: 0xf06b62 },
-  { name: "P5", position: "P4", objectClass: "chair", color: 0x56a9d9 },
-  { name: "P6", position: "P5", objectClass: "house", color: 0x7187d8 },
-  { name: "P7", position: "P6", objectClass: "car", color: 0xa879d6 },
+  { name: "P3", position: "P3", objectClass: "bird", color: 0xf06b62 },
+  { name: "P5", position: "P4", objectClass: "bear", color: 0x56a9d9 },
+  { name: "P6", position: "P5", objectClass: "cat", color: 0x7187d8 },
+  { name: "P7", position: "P6", objectClass: "cow", color: 0xa879d6 },
 ]);
 
 function safeZoneBoundsForProfile(profileId) {
@@ -258,25 +267,39 @@ function safeZoneBoundsForProfile(profileId) {
   };
 }
 const OBJECT_CLASSES = [
-  { value: 1, id: "chicken", label: "Chicken" },
-  { value: 2, id: "tree", label: "Tree" },
-  { value: 3, id: "dog", label: "Dog" },
-  { value: 4, id: "car", label: "Car" },
-  { value: 5, id: "chair", label: "Chair" },
-  { value: 6, id: "umbrella", label: "Umbrella" },
-  { value: 7, id: "elephant", label: "Elephant" },
-  { value: 8, id: "airplane", label: "Airplane" },
-  { value: 9, id: "house", label: "House" },
+  { value: 1, id: "bird", label: "bird" },
+  { value: 2, id: "bear", label: "bear" },
+  { value: 3, id: "cat", label: "cat" },
+  { value: 4, id: "cow", label: "cow" },
+  { value: 5, id: "dog", label: "dog" },
+  { value: 6, id: "dolphin", label: "dolphin" },
+  { value: 7, id: "elephant", label: "elephant" },
+  { value: 8, id: "giraffe", label: "giraffe" },
+  { value: 9, id: "horse", label: "horse" },
 ];
-// Workshop sticker set.  The files are copied into the static app so they
-// remain available after deployment; the source folder on the developer
-// machine is not a browser-accessible URL.
+// Workshop animal set. The files are copied into the static app so they
+// remain available after deployment; all IDs and labels stay lowercase.
 const OBJECT_CLASS_TEXTURE_FILES = Object.freeze({
-  chicken: "./assets/sticker-objects/chicken.png",
-  dog: "./assets/sticker-objects/dog.png",
-  chair: "./assets/sticker-objects/chair.png",
-  house: "./assets/sticker-objects/house.png",
-  car: "./assets/sticker-objects/car.png",
+  bird: "./assets/boxpicture/sticker-01.jpeg",
+  bear: "./assets/boxpicture/sticker-02.jpeg",
+  cat: "./assets/boxpicture/sticker-03.png",
+  cow: "./assets/boxpicture/sticker-04.jpeg",
+  dog: "./assets/boxpicture/sticker-05.png",
+  dolphin: "./assets/boxpicture/sticker-06.jpeg",
+  elephant: "./assets/boxpicture/sticker-07.jpeg",
+  giraffe: "./assets/boxpicture/sticker-08.jpeg",
+  horse: "./assets/boxpicture/sticker-09.jpeg",
+});
+const OBJECT_CLASS_COLORS = Object.freeze({
+  bird: 0xf06b62,
+  bear: 0xe7c85f,
+  cat: 0x56a9d9,
+  cow: 0x6fc88f,
+  dog: 0xa879d6,
+  dolphin: 0x4fa8c7,
+  elephant: 0xc489d9,
+  giraffe: 0xe8a84b,
+  horse: 0xd66b83,
 });
 const TECHCAMP_MAX_SPEED = 40;
 const TECHCAMP_MAX_ACC = 20;
@@ -467,6 +490,8 @@ let scene,
 let boardSlotPoses = new Map();
 let boardSlotRotation = 0;
 let checkpointTokenMesh = null;
+let blockArrangementAnimation = null;
+let blockDragGhost = null;
 let cameraViewIndex = -1;
 let jointRotators = [];
 let modelMaterials = [];
@@ -1217,13 +1242,34 @@ function objectClassForBlock(blockName) {
   return OBJECT_CLASSES.find((item) => item.id === objectClassId) || null;
 }
 
+function createEditableBlocks() {
+  const initialPositions = {
+    bird: "P3",
+    bear: "P4",
+    cat: "P5",
+    cow: "P6",
+    dog: "P2",
+  };
+  return OBJECT_CLASSES.map((objectClass) => ({
+    name: objectClass.id,
+    position: initialPositions[objectClass.id] || null,
+    color: OBJECT_CLASS_COLORS[objectClass.id],
+    objectClass,
+    carried: false,
+  }));
+}
+
 function checkpointTokenCarried() {
   return Boolean(state.checkpointToken?.carried);
 }
 
+function checkpointTokenVisibleForRuntime() {
+  return isEmbedMode || Boolean(state.programRun);
+}
+
 function updateCheckpointTokenVisual() {
   if (!checkpointTokenMesh) return;
-  if (!state.sceneObjectsVisible) {
+  if (!state.sceneObjectsVisible || !checkpointTokenVisibleForRuntime()) {
     checkpointTokenMesh.visible = false;
     return;
   }
@@ -1493,7 +1539,8 @@ function buildBlockBoard() {
     );
     board.add(frontLabel);
   });
-  SORTABLE_BLOCK_NAMES.forEach((name) => {
+  state.blocks.forEach((block) => {
+    const name = block.name;
     const objectClass = objectClassForBlock(name);
     if (!objectClass) return;
     const blockGroup = new THREE.Group();
@@ -1543,7 +1590,22 @@ function blockAt(position) {
   );
 }
 
+function blockVisualTarget(block) {
+  const point = block.carried
+    ? gripperJawPose(state.jointsDeg)
+    : pointRecord(block.position === "HOMECHESS" ? "HOME" : block.position);
+  const cart = Array.isArray(point)
+    ? point
+    : point
+      ? boardSlotPoses.get(block.position) || workpiecePose(point)
+      : null;
+  return cart
+    ? new THREE.Vector3(cart[0] / 1000, cart[1] / 1000, cart[2] / 1000)
+    : null;
+}
+
 function updateBlockVisuals() {
+  if (blockArrangementAnimation) return;
   if (!blockMeshes.size) return;
   if (!state.sceneObjectsVisible) {
     blockMeshes.forEach((mesh) => {
@@ -1551,29 +1613,83 @@ function updateBlockVisuals() {
     });
     return;
   }
-  const gripCenter = gripperJawPose(state.jointsDeg);
   blockMeshes.forEach((mesh) => {
     mesh.visible = false;
   });
   state.blocks.forEach((block) => {
     const mesh = blockMeshes.get(block.name);
     if (!mesh) return;
-    const point = block.carried
-      ? gripCenter
-      : pointRecord(block.position === "HOMECHESS" ? "HOME" : block.position);
-    const cart = Array.isArray(point)
-      ? point
-      : point
-        ? boardSlotPoses.get(block.position) || workpiecePose(point)
-        : null;
-    if (!cart) return;
-    mesh.position.set(cart[0] / 1000, cart[1] / 1000, cart[2] / 1000);
+    const target = blockVisualTarget(block);
+    if (!target) return;
+    mesh.position.copy(target);
     // The block follows the jaw position while keeping its face upright,
     // matching the table orientation instead of turning edge-on with J6.
     mesh.rotation.set(0, 0, boardSlotRotation);
     mesh.visible = true;
   });
   updateCheckpointTokenVisual();
+}
+
+function animateBlockArrangement(transaction, startPositions) {
+  const animatedNames = [
+    transaction.blockName,
+    transaction.displacedBlockName,
+  ].filter(Boolean);
+  const tracks = animatedNames
+    .map((blockName) => {
+      const mesh = blockMeshes.get(blockName);
+      const block = state.blocks.find((item) => item.name === blockName);
+      if (!mesh || !block) return null;
+      const target = blockVisualTarget(block);
+      const visibleStart = startPositions.get(blockName) || null;
+      if (!visibleStart && !target) return null;
+      const start = visibleStart
+        ? visibleStart.clone()
+        : target.clone().add(new THREE.Vector3(0, 0, 0.1));
+      const end = target
+        ? target.clone()
+        : start.clone().add(new THREE.Vector3(0, 0, 0.1));
+      mesh.position.copy(start);
+      mesh.rotation.set(0, 0, boardSlotRotation);
+      mesh.visible = true;
+      return { mesh, start, end, hideAtEnd: !target };
+    })
+    .filter(Boolean);
+
+  if (!tracks.length) {
+    blockArrangementAnimation = null;
+    updateBlockVisuals();
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const startedAt = performance.now();
+    const tick = (now) => {
+      const linear = Math.min(
+        1,
+        (now - startedAt) / BLOCK_ARRANGEMENT_ANIMATION_MS,
+      );
+      const eased = 1 - Math.pow(1 - linear, 3);
+      const lift = Math.sin(Math.PI * linear) * 0.055;
+      tracks.forEach(({ mesh, start, end }) => {
+        mesh.position.lerpVectors(start, end, eased);
+        mesh.position.z += lift;
+      });
+      if (linear < 1) {
+        requestAnimationFrame(tick);
+        return;
+      }
+      tracks.forEach(({ mesh, end, hideAtEnd }) => {
+        mesh.position.copy(end);
+        mesh.visible = !hideAtEnd;
+      });
+      blockArrangementAnimation = null;
+      updateBlockVisuals();
+      renderBlockBoard();
+      resolve();
+    };
+    requestAnimationFrame(tick);
+  });
 }
 
 function renderBlockBoardLegacy() {
@@ -1596,20 +1712,82 @@ function renderBlockBoardLegacy() {
 }
 
 let draggedBlockName = null;
-let draggedToken = false;
 let pointerDraggedBlockName = null;
 let selectedBlockName = null;
 let pointerDragBound = false;
 
+function createBlockDragGhost(card, event) {
+  blockDragGhost?.remove();
+  const ghost = document.createElement("div");
+  ghost.className = "block-drag-ghost";
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.setAttribute("style", card.getAttribute("style") || "");
+  ghost.innerHTML = '<span class="block-palette-image"></span>';
+  document.body.appendChild(ghost);
+  blockDragGhost = ghost;
+  updateBlockDragGhost(event.clientX, event.clientY);
+  requestAnimationFrame(() => ghost.classList.add("is-active"));
+}
+
+function updateBlockDragGhost(clientX, clientY) {
+  if (!blockDragGhost) return;
+  blockDragGhost.style.left = clientX + "px";
+  blockDragGhost.style.top = clientY + "px";
+}
+
+function settleBlockDragGhost(targetBlockName) {
+  if (!blockDragGhost) return;
+  const ghost = blockDragGhost;
+  const target = document.querySelector(
+    `.block-palette-item[data-block-name="${targetBlockName}"]`,
+  );
+  const bounds = target?.getBoundingClientRect();
+  blockDragGhost = null;
+  if (bounds) {
+    ghost.style.left = bounds.left + bounds.width / 2 + "px";
+    ghost.style.top = bounds.top + bounds.height / 2 + "px";
+    ghost.classList.add("is-settling");
+  }
+  setTimeout(() => ghost.remove(), 220);
+}
+
 function clearPointerBlockDrag() {
+  draggedBlockName = null;
   pointerDraggedBlockName = null;
-  draggedToken = false;
+  blockDragGhost?.remove();
+  blockDragGhost = null;
+  document.body.classList.remove("dragging-animal-block");
+  if (controls) controls.enabled = true;
   document
-    .querySelectorAll("[data-block-name]")
-    .forEach((card) => card.classList.remove("dragging"));
-  document
-    .querySelectorAll("[data-drop-position]")
-    .forEach((slot) => slot.classList.remove("drag-over"));
+    .querySelectorAll(".block-palette-item")
+    .forEach((card) => card.classList.remove("dragging", "swap-target"));
+}
+
+function handlePointerBlockMove(event) {
+  if (!pointerDraggedBlockName || blockArrangementAnimation) return;
+  updateBlockDragGhost(event.clientX, event.clientY);
+  const target = document
+    .elementFromPoint(event.clientX, event.clientY)
+    ?.closest?.(".block-palette-item");
+  document.querySelectorAll(".block-palette-item").forEach((card) => {
+    card.classList.toggle(
+      "swap-target",
+      card === target && card.dataset.blockName !== pointerDraggedBlockName,
+    );
+  });
+}
+
+function handlePointerBlockUp(event) {
+  if (!pointerDraggedBlockName) return;
+  const blockName = pointerDraggedBlockName;
+  const targetBlockName = document
+    .elementFromPoint(event.clientX, event.clientY)
+    ?.closest?.(".block-palette-item")?.dataset?.blockName;
+  if (targetBlockName && targetBlockName !== blockName)
+    settleBlockDragGhost(targetBlockName);
+  clearPointerBlockDrag();
+  if (targetBlockName && targetBlockName !== blockName)
+    moveBlockToBlock(blockName, targetBlockName);
 }
 
 function setSelectedBlock(blockName) {
@@ -1621,167 +1799,200 @@ function setSelectedBlock(blockName) {
   });
 }
 
-function moveBlockToPosition(blockName, position) {
+async function moveBlockToPosition(blockName, position) {
+  if (blockArrangementAnimation) return false;
   const block = state.blocks.find((item) => item.name === blockName);
-  if (!block || block.carried) return;
+  if (!block || block.carried) return false;
   if (
+    checkpointTokenVisibleForRuntime() &&
     position === state.checkpointToken?.position &&
     !checkpointTokenCarried()
   ) {
     log(`Orange marker occupies ${position}; block move rejected`);
-    return;
+    return false;
   }
-  const previous = block.position;
-  const targetBlock = blockAt(position);
-  if (targetBlock && targetBlock !== block) targetBlock.position = previous;
-  block.position = position;
+  const transaction = planBlockPlacement(
+    state.blocks,
+    blockName,
+    position,
+    BLOCK_POSITIONS,
+  );
+  if (!transaction.accepted) return false;
+
+  const animatedNames = [
+    transaction.blockName,
+    transaction.displacedBlockName,
+  ].filter(Boolean);
+  const startPositions = new Map(
+    animatedNames
+      .map((name) => {
+        const mesh = blockMeshes.get(name);
+        return mesh?.visible ? [name, mesh.position.clone()] : null;
+      })
+      .filter(Boolean),
+  );
+  blockArrangementAnimation = { transaction };
+  state.blocks = transaction.blocks;
   selectedBlockName = null;
   renderBlockBoard();
-  updateBlockVisuals();
   log(
     "Block " +
       blockName +
-      (targetBlock && targetBlock !== block ? " swap " : " -> ") +
-      position +
-      (previous === position ? " · unchanged" : ""),
+      (transaction.kind === "swap" ? " swap " : " -> ") +
+      position,
   );
+  await animateBlockArrangement(transaction, startPositions);
+  return true;
 }
 
-function bindBlockBoardDrag() {
+function moveBlockToBlock(blockName, targetBlockName) {
+  if (
+    blockArrangementAnimation ||
+    !blockName ||
+    !targetBlockName ||
+    blockName === targetBlockName
+  )
+    return false;
+  const block = state.blocks.find((item) => item.name === blockName);
+  const target = state.blocks.find((item) => item.name === targetBlockName);
+  if (!block || !target || block.carried || target.carried) return false;
+  if (BLOCK_POSITIONS.includes(target.position))
+    return moveBlockToPosition(blockName, target.position);
+  if (BLOCK_POSITIONS.includes(block.position))
+    return moveBlockToPosition(targetBlockName, block.position);
+  return false;
+}
+
+function bindBlockPaletteDrag() {
   if (!pointerDragBound) {
-    document.addEventListener("mouseup", clearPointerBlockDrag);
+    document.addEventListener("pointermove", handlePointerBlockMove);
+    document.addEventListener("pointerup", handlePointerBlockUp);
+    document.addEventListener("pointercancel", clearPointerBlockDrag);
     pointerDragBound = true;
   }
-  document.querySelectorAll("[data-block-name]").forEach((card) => {
+  document.querySelectorAll(".block-palette-item").forEach((card) => {
     card.addEventListener("dragstart", (event) => {
+      if (blockArrangementAnimation) {
+        event.preventDefault();
+        return;
+      }
       draggedBlockName = card.dataset.blockName;
       card.classList.add("dragging");
+      document.body.classList.add("dragging-animal-block");
       event.dataTransfer?.setData("text/plain", draggedBlockName);
       if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
     });
-    card.addEventListener("dragend", () => {
-      draggedBlockName = null;
-      card.classList.remove("dragging");
-      document
-        .querySelectorAll("[data-drop-position]")
-        .forEach((slot) => slot.classList.remove("drag-over"));
+    card.addEventListener("dragover", (event) => {
+      const sourceName =
+        draggedBlockName || event.dataTransfer?.getData("text/plain");
+      if (
+        !sourceName ||
+        sourceName === card.dataset.blockName ||
+        blockArrangementAnimation
+      )
+        return;
+      event.preventDefault();
+      card.classList.add("swap-target");
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
     });
-    card.addEventListener("mousedown", (event) => {
+    card.addEventListener("dragleave", () =>
+      card.classList.remove("swap-target"),
+    );
+    card.addEventListener("drop", (event) => {
+      event.preventDefault();
+      const sourceName =
+        draggedBlockName || event.dataTransfer?.getData("text/plain");
+      const targetName = card.dataset.blockName;
+      clearPointerBlockDrag();
+      if (sourceName && sourceName !== targetName)
+        moveBlockToBlock(sourceName, targetName);
+    });
+    card.addEventListener("dragend", () => {
+      clearPointerBlockDrag();
+    });
+    card.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || blockArrangementAnimation) return;
       pointerDraggedBlockName = card.dataset.blockName;
       card.classList.add("dragging");
+      createBlockDragGhost(card, event);
+      document.body.classList.add("dragging-animal-block");
+      if (controls) controls.enabled = false;
       event.preventDefault();
     });
     card.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
-      setSelectedBlock(card.dataset.blockName);
-    });
-  });
-  document.querySelectorAll("[data-token-id]").forEach((card) => {
-    card.addEventListener("dragstart", (event) => {
-      draggedToken = true;
-      card.classList.add("dragging");
-      event.dataTransfer?.setData("text/plain", CHECKPOINT_TOKEN_ID);
-      if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
-    });
-    card.addEventListener("dragend", () => {
-      draggedToken = false;
-      card.classList.remove("dragging");
-    });
-  });
-  document.querySelectorAll("[data-drop-position]").forEach((slot) => {
-    slot.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      slot.classList.add("drag-over");
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-    });
-    slot.addEventListener("dragleave", () =>
-      slot.classList.remove("drag-over"),
-    );
-    slot.addEventListener("drop", (event) => {
-      event.preventDefault();
-      slot.classList.remove("drag-over");
-      const name =
-        draggedBlockName || event.dataTransfer?.getData("text/plain");
-      if (draggedToken || name === CHECKPOINT_TOKEN_ID) {
-        const from = state.checkpointToken.position;
-        const target = slot.dataset.dropPosition;
-        const accepted = applyCheckpointTokenPlacement(from, target, true);
-        if (!accepted)
-          state.checkpointToken = { ...state.checkpointToken, carried: false };
-      } else if (name) moveBlockToPosition(name, slot.dataset.dropPosition);
-      draggedBlockName = null;
-      draggedToken = false;
-    });
-    slot.addEventListener("mouseenter", () => {
-      if (pointerDraggedBlockName) slot.classList.add("drag-over");
-    });
-    slot.addEventListener("mouseleave", () =>
-      slot.classList.remove("drag-over"),
-    );
-    slot.addEventListener("mouseup", (event) => {
-      if (!pointerDraggedBlockName) return;
-      event.preventDefault();
-      moveBlockToPosition(pointerDraggedBlockName, slot.dataset.dropPosition);
-      clearPointerBlockDrag();
-    });
-    slot.addEventListener("keydown", (event) => {
-      if (!selectedBlockName || (event.key !== "Enter" && event.key !== " "))
-        return;
-      event.preventDefault();
-      moveBlockToPosition(selectedBlockName, slot.dataset.dropPosition);
+      const targetName = card.dataset.blockName;
+      if (selectedBlockName && selectedBlockName !== targetName)
+        moveBlockToBlock(selectedBlockName, targetName);
+      else setSelectedBlock(targetName);
     });
   });
 }
 
 function renderBlockBoard() {
   const carrying = state.blocks.find((block) => block.carried);
-  const remaining = state.blocks.filter((block) => !block.carried).length;
+  const showCheckpointToken = checkpointTokenVisibleForRuntime();
+  const remaining = state.blocks.filter(
+    (block) => !block.carried && BLOCK_POSITIONS.includes(block.position),
+  ).length;
   const stateStrip = $("blockStateStrip");
   if (stateStrip) {
-    stateStrip.innerHTML = BLOCK_POSITIONS.map((position) => {
-      const block = blockAt(position);
-      const tokenHere =
-        state.checkpointToken?.position === position &&
-        !checkpointTokenCarried();
-      const color = block
-        ? "#" + block.color.toString(16).padStart(6, "0")
-        : tokenHere
-          ? "#f47b20"
-          : "transparent";
-      const slotState = tokenHere
-        ? "orange marker"
-        : block
-          ? "occupied"
-          : carrying
-            ? "carrying"
-            : "empty";
+    stateStrip.classList.toggle(
+      "is-arranging",
+      Boolean(blockArrangementAnimation),
+    );
+    stateStrip.setAttribute(
+      "aria-busy",
+      String(Boolean(blockArrangementAnimation)),
+    );
+    const classIds = OBJECT_CLASSES.map((objectClass) => objectClass.id);
+    const paletteClasses = orderBlocksForPalette(
+      OBJECT_CLASSES.map((objectClass) => ({
+        name: objectClass.id,
+        position: state.blocks.find((block) => block.name === objectClass.id)
+          ?.position,
+      })),
+      classIds,
+      BLOCK_POSITIONS,
+    ).map((orderedBlock) =>
+      OBJECT_CLASSES.find((item) => item.id === orderedBlock.name),
+    );
+    const palette = paletteClasses.map((objectClass) => {
+      const block = state.blocks.find((item) => item.name === objectClass.id);
+      const placed = block && BLOCK_POSITIONS.includes(block.position);
+      const color =
+        "#" +
+        (OBJECT_CLASS_COLORS[objectClass.id] || 0x64748b)
+          .toString(16)
+          .padStart(6, "0");
       return (
-        '<button class="block-state-slot' +
-        (block || tokenHere ? " is-occupied" : " is-empty") +
-        (tokenHere ? " checkpoint-token-slot" : "") +
+        '<button class="block-palette-item' +
+        (placed ? " is-placed" : "") +
         (block?.name === selectedBlockName ? " is-selected" : "") +
-        '" style="--block-color:' +
-        color +
-        '" type="button" draggable="' +
-        String(Boolean(block || tokenHere)) +
-        '" data-drop-position="' +
-        position +
+        '" type="button" draggable="true" data-block-name="' +
+        objectClass.id +
         '"' +
-        (block ? ' data-block-name="' + block.name + '"' : "") +
-        (tokenHere ? ' data-token-id="' + CHECKPOINT_TOKEN_ID + '"' : "") +
+        (blockArrangementAnimation ? " disabled" : "") +
         ' aria-pressed="' +
         String(block?.name === selectedBlockName) +
-        '" aria-label="' +
-        position +
-        ": " +
-        slotState +
-        '"><span>' +
-        position +
-        "</span></button>"
+        '" aria-label="Drag ' +
+        objectClass.label +
+        ' block' +
+        (placed ? " currently at " + block.position : " (available)") +
+        " onto another animal to swap" +
+        '" style="--block-color:' +
+        color +
+        ';--block-image:url(' +
+        (OBJECT_CLASS_TEXTURE_FILES[objectClass.id] || "") +
+        ')"><span class="block-palette-image" aria-hidden="true"></span></button>'
       );
     }).join("");
-    bindBlockBoardDrag();
+    stateStrip.innerHTML =
+      '<div class="block-palette" aria-label="All image blocks">' +
+      palette +
+      '</div>';
+    bindBlockPaletteDrag();
   }
   if ($("boardChip")) $("boardChip").textContent = remaining + " BLOCKS";
   if ($("boardState"))
@@ -1790,13 +2001,16 @@ function renderBlockBoard() {
       " blocks" +
       (carrying
         ? " · carrying " + carrying.name
-        : " · orange marker available");
+        : showCheckpointToken
+          ? " · orange marker available"
+          : " · ready to arrange");
   if ($("blockLegend")) {
     $("blockLegend").innerHTML = BLOCK_POSITIONS.map((position, index) => {
       const blocks = state.blocks.filter(
         (block) => !block.carried && block.position === position,
       );
       const tokenHere =
+        showCheckpointToken &&
         state.checkpointToken?.position === position &&
         !checkpointTokenCarried();
       const color = blocks.length
@@ -1806,7 +2020,7 @@ function renderBlockBoard() {
         ? blocks
             .map(
               (block) =>
-                '<button class="block-card" type="button" draggable="true" data-block-name="' +
+                '<button class="block-card" type="button" draggable="false" data-block-name="' +
                 block.name +
                 '" aria-label="Drag block ' +
                 block.name +
@@ -1838,7 +2052,6 @@ function renderBlockBoard() {
         "</div></div>"
       );
     }).join("");
-    bindBlockBoardDrag();
   }
 }
 
@@ -1851,7 +2064,7 @@ function resetBlocks(silent = false) {
         objectClass: objectClassForBlock(name),
         carried: false,
       }))
-    : createCompetitionBlocks();
+    : createEditableBlocks();
   state.checkpointToken = resetCheckpointToken();
   techcampSim.position = null;
   techcampSim.low = false;
@@ -1863,8 +2076,8 @@ function resetBlocks(silent = false) {
   if (!silent) {
     log(
       isEmbedMode
-        ? "Scene reset -> P1 marker · P2 car · P3 chicken · P4 dog · P5 chair · P6 house · P7 empty"
-        : "Scene reset -> P1 marker · P2 dog · P3 chicken · P4 chair · P5 house · P6 car · P7 empty",
+        ? "Scene reset -> P1 marker · P2 dog · P3 bird · P4 bear · P5 cat · P6 cow · P7 empty"
+        : "Scene reset -> P1/P7 empty · P2 dog · P3 bird · P4 bear · P5 cat · P6 cow",
     );
   }
 }
@@ -2946,8 +3159,20 @@ function resetCompetitionFixture(silent = true) {
   renderBlockBoard();
   updateBlockVisuals();
   if (boardGroup && state.modelReady) buildBlockBoard();
-  if (!silent) log("Competition fixture reset -> marker P1 · dog P2 · chicken P3 · chair P4 · house P5 · car P6");
+  if (!silent) log("Competition fixture reset -> marker P1 · dog P2 · bird P3 · bear P4 · cat P5 · cow P6");
 }
+
+window.getBlockArrangementDiagnostics = () => ({
+  animationMs: BLOCK_ARRANGEMENT_ANIMATION_MS,
+  animating: Boolean(blockArrangementAnimation),
+  interaction: "palette-swap-only",
+  blocks: state.blocks.map((block) => ({
+    name: block.name,
+    position: block.position ?? null,
+    carried: Boolean(block.carried),
+    meshVisible: Boolean(blockMeshes.get(block.name)?.visible),
+  })),
+});
 
 window.getRobotVisualDiagnostics = getRobotVisualDiagnostics;
 
@@ -4448,6 +4673,8 @@ async function runProgram() {
   } finally {
     if (state.programRun === token) {
       state.programRun = null;
+      updateCheckpointTokenVisual();
+      renderBlockBoard();
       renderState();
     }
   }

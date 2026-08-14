@@ -21,30 +21,30 @@ import {
 const SOURCE = {
   P1: "marker",
   P2: "dog",
-  P3: "chicken",
-  P4: "chair",
-  P5: "house",
-  P6: "car",
+  P3: "bird",
+  P4: "bear",
+  P5: "cat",
+  P6: "cow",
   P7: null,
 };
 
 const AFTER_OPENING = {
   P1: null,
   P2: "dog",
-  P3: "chicken",
-  P4: "chair",
-  P5: "house",
-  P6: "car",
+  P3: "bird",
+  P4: "bear",
+  P5: "cat",
+  P6: "cow",
   P7: "marker",
 };
 
 const TARGET = {
   P1: null,
-  P2: "car",
-  P3: "chicken",
+  P2: "cow",
+  P3: "bird",
   P4: "dog",
-  P5: "chair",
-  P6: "house",
+  P5: "bear",
+  P6: "cat",
   P7: "marker",
 };
 
@@ -193,7 +193,7 @@ test("occupied-destination release is invalid and never commits a transfer", () 
   assert.equal(state.phase, "invalid");
   assert.equal(state.steps, 0);
   assert.equal(state.distance, 0);
-  assert.equal(state.fixture.P3, "chicken");
+  assert.equal(state.fixture.P3, "bird");
   assert.deepEqual(state.gripper, { blockId: "dog", source: "P2" });
 });
 

@@ -10,7 +10,7 @@ const vercel = JSON.parse(fs.readFileSync(new URL("./vercel.json", import.meta.u
 test("competition page contains rules, leaderboard, and IDE links", () => {
   assert.match(page, /Sort fast/);
   assert.match(page, /competitionRows/);
-  assert.match(page, /P2 car/);
+  assert.match(page, /P2 dog/);
   assert.match(page, /href="\.\/"/);
   assert.match(script, /listCompetitionResults/);
 });

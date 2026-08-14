@@ -16,11 +16,11 @@ export function resetCheckpointToken() {
 
 export function createInitialSortableBlocks() {
   return [
-    { id: "P1", position: "P3", label: "P1", color: 0xf06b62, objectClass: "chicken" },
-    { id: "P3", position: "P4", label: "P3", color: 0xe7c85f, objectClass: "dog" },
-    { id: "P5", position: "P5", label: "P5", color: 0x56a9d9, objectClass: "chair" },
-    { id: "P6", position: "P6", label: "P6", color: 0x7187d8, objectClass: "house" },
-    { id: "P7", position: "P2", label: "P7", color: 0xa879d6, objectClass: "car" },
+    { id: "P1", position: "P3", label: "P1", color: 0xf06b62, objectClass: "bird" },
+    { id: "P3", position: "P4", label: "P3", color: 0xe7c85f, objectClass: "bear" },
+    { id: "P5", position: "P5", label: "P5", color: 0x56a9d9, objectClass: "cat" },
+    { id: "P6", position: "P6", label: "P6", color: 0x7187d8, objectClass: "cow" },
+    { id: "P7", position: "P2", label: "P7", color: 0xa879d6, objectClass: "dog" },
   ];
 }
 

@@ -12,11 +12,13 @@ VALID_POINTS = {"P1", "P2", "P3", "P4", "P5", "P6", "P7", "HOME", "HOMECHESS"}
 BLOCK_POINTS = {"P1", "P2", "P3", "P4", "P5", "P6", "P7"}
 CANONICAL_COMPETITION_FIXTURE = {
     "P1": "marker",
+    # Keep the Python fixture aligned with the visible 3D board and the
+    # student-facing TechCampAI class names.
     "P2": "dog",
-    "P3": "chicken",
-    "P4": "chair",
-    "P5": "house",
-    "P6": "car",
+    "P3": "bird",
+    "P4": "bear",
+    "P5": "cat",
+    "P6": "cow",
     "P7": None,
 }
 CANONICAL_COMPETITION_OCCUPANCY = {
@@ -28,11 +30,11 @@ CANONICAL_COMPETITION_OCCUPANCY = {
 # sorting exercise.
 CANONICAL_DETECTIONS = {
     "P1": ("empty", 0.0),
-    "P2": ("cho", 0.892),
-    "P3": ("oto", 0.941),
-    "P4": ("ghe", 0.785),
-    "P5": ("du", 0.912),
-    "P6": ("voi", 0.854),
+    "P2": ("dog", 0.892),
+    "P3": ("bird", 0.941),
+    "P4": ("bear", 0.785),
+    "P5": ("cat", 0.912),
+    "P6": ("cow", 0.854),
     "P7": ("empty", 0.0),
 }
 MAX_TRACE_ACTIONS = 500

@@ -43,7 +43,7 @@ test("guide documents the board labels, marker, API, and exact arrangements", ()
     "release",
     "get_positions",
   ]) assert.match(guide, new RegExp(api.replace("_", "[_\\s]")));
-  for (const text of ["P2 = dog", "P3 = chicken", "P4 = chair", "P5 = house", "P6 = car", "P2 = car"]) {
+  for (const text of ["P2 = dog", "P3 = bird", "P4 = bear", "P5 = cat", "P6 = cow", "P2 = cow"]) {
     assert.match(guide, new RegExp(text));
   }
   assert.match(guide, /orange marker|khối cam|marker cam/i);
@@ -55,8 +55,8 @@ test("guide contains the complete zero-argument main example", () => {
   assert.match(guide, /move_to\("P2"\)/);
   assert.match(guide, /"P6"/);
   assert.doesNotMatch(guide, /def move_block\(/);
-  assert.match(guide, /Dog: P2 -&gt; P1|Dog: P2 -> P1/);
-  assert.match(guide, /Car: P6 -&gt; P2|Car: P6 -> P2/);
+  assert.match(guide, /dog: P2 -&gt; P1|dog: P2 -> P1/);
+  assert.match(guide, /cow: P6 -&gt; P2|cow: P6 -> P2/);
   assert.doesNotMatch(guide, /PRACTICE|Try these next|practice-prompt|checklist/i);
 });
 

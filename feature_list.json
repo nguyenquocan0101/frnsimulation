@@ -696,6 +696,36 @@
       "evidence": "",
       "notes": "Out-of-scope guardrail from the spec.",
       "priority": "P3"
+    },
+    {
+      "id": "drag-animal-in-bottom-tray",
+      "title": "Kéo đổi con vật ngay trong dãy phía dưới",
+      "user_visible_behavior": "so that tôi có thể sắp xếp bàn mà không cần kéo ảnh lên vùng 3D.",
+      "verification_command": "Kéo một ảnh lên ảnh khác trong dãy dưới đổi vị trí của chúng; vùng bàn không nhận thao tác thả.",
+      "status": "passing",
+      "evidence": "Local browser: dog kéo lên bird đổi P2/P3; dolphin ngoài bàn kéo lên bear đưa dolphin vào P4 và bear ra ngoài. Canvas drop bị bỏ qua, không có board drop zone hoặc console error.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "swap-occupied-animal-position",
+      "title": "Tráo đổi hai con vật trong dãy phía dưới",
+      "user_visible_behavior": "so that tôi sắp xếp hai con vật trong một thao tác.",
+      "verification_command": "Thả ảnh A lên ảnh B ở dãy dưới làm hai con đổi trạng thái vị trí, không mất hoặc nhân bản khối.",
+      "status": "passing",
+      "evidence": "Local browser: palette-only swap đồng bộ nhãn và mesh 3D; thả lên canvas không đổi state. Pure tests vẫn bảo toàn state qua 20 lần tráo.",
+      "notes": "",
+      "priority": "P1"
+    },
+    {
+      "id": "all-slots-animal-arrangement",
+      "title": "Dùng P1–P7 làm vị trí con vật, không dùng marker cam",
+      "user_visible_behavior": "so that cả bảy ô trên bàn có cùng cách kéo/thả.",
+      "verification_command": "Arrangement surface không render marker cam hoặc hạn chế marker; cả P1–P7 nhận được con vật.",
+      "status": "passing",
+      "evidence": "Final: local palette renders all 9 animals and P1–P7 destinations with no arrangement marker; runtime marker regressions remain green in the 293-passing Node suite.",
+      "notes": "Marker semantics của robot/competition runtime cần được giữ riêng cho tới khi có yêu cầu thay đổi phạm vi đó.",
+      "priority": "P1"
     }
   ]
 }

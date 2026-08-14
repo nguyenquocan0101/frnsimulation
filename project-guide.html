@@ -53,12 +53,12 @@
 </section>
 
 <section id="complete-example" class="guide-section example-section" aria-labelledby="example-title">
-  <div class="section-heading"><p class="eyebrow">EXAMPLE</p><h2 id="example-title">A complete program.</h2><p>Current: <code>P2 = dog</code>, <code>P3 = chicken</code>, <code>P4 = chair</code>, <code>P5 = house</code>, <code>P6 = car</code>. Target: <code>P2 = car</code>, <code>P3 = chicken</code>, <code>P4 = dog</code>, <code>P5 = chair</code>, <code>P6 = house</code>.</p></div>
+  <div class="section-heading"><p class="eyebrow">EXAMPLE</p><h2 id="example-title">A complete program.</h2><p>Current: <code>P2 = dog</code>, <code>P3 = bird</code>, <code>P4 = bear</code>, <code>P5 = cat</code>, <code>P6 = cow</code>. Target: <code>P2 = cow</code>, <code>P3 = bird</code>, <code>P4 = dog</code>, <code>P5 = bear</code>, <code>P6 = cat</code>.</p></div>
   <div class="code-card"><div class="code-card-head"><span>main.py</span><button class="button copy-button" type="button" data-copy-source="starter-code">Copy code</button></div><pre class="code-block"><code id="starter-code">from techcamp_api import TechCamp
 
 def main():
     with TechCamp() as bot:
-        # Dog: P2 -> P1 (temporary empty slot)
+        # dog: P2 -> P1 (temporary empty slot)
         bot.move_to("P2")
         bot.move_down()
         bot.grip()
@@ -68,7 +68,7 @@ def main():
         bot.release()
         bot.move_up()
 
-        # Car: P6 -> P2
+        # cow: P6 -> P2
         bot.move_to("P6")
         bot.move_down()
         bot.grip()
@@ -78,7 +78,7 @@ def main():
         bot.release()
         bot.move_up()
 
-        # House: P5 -> P6
+        # cat: P5 -> P6
         bot.move_to("P5")
         bot.move_down()
         bot.grip()
@@ -88,7 +88,7 @@ def main():
         bot.release()
         bot.move_up()
 
-        # Chair: P4 -> P5
+        # bear: P4 -> P5
         bot.move_to("P4")
         bot.move_down()
         bot.grip()
@@ -98,7 +98,7 @@ def main():
         bot.release()
         bot.move_up()
 
-        # Dog: P1 -> P4
+        # dog: P1 -> P4
         bot.move_to("P1")
         bot.move_down()
         bot.grip()

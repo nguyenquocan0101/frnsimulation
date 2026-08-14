@@ -7,30 +7,30 @@ export const POSITION_INDEX = Object.freeze(Object.fromEntries(
 export const COMPETITION_SOURCE_FIXTURE = Object.freeze({
   P1: "marker",
   P2: "dog",
-  P3: "chicken",
-  P4: "chair",
-  P5: "house",
-  P6: "car",
+  P3: "bird",
+  P4: "bear",
+  P5: "cat",
+  P6: "cow",
   P7: null,
 });
 
 export const SCORED_INITIAL_FIXTURE = Object.freeze({
   P1: null,
   P2: "dog",
-  P3: "chicken",
-  P4: "chair",
-  P5: "house",
-  P6: "car",
+  P3: "bird",
+  P4: "bear",
+  P5: "cat",
+  P6: "cow",
   P7: "marker",
 });
 
 export const TARGET_FIXTURE = Object.freeze({
   P1: null,
-  P2: "car",
-  P3: "chicken",
+  P2: "cow",
+  P3: "bird",
   P4: "dog",
-  P5: "chair",
-  P6: "house",
+  P5: "bear",
+  P6: "cat",
   P7: "marker",
 });
 
