@@ -33,7 +33,7 @@
       </header>
       <section class="teacher-panel teacher-gate" id="teacherGate" aria-label="Teacher access">
         <label for="teacherPassword">Teacher password</label>
-        <input id="teacherPassword" type="password" inputmode="numeric" maxlength="6" autocomplete="off" />
+        <input id="teacherPassword" type="password" inputmode="numeric" maxlength="4" autocomplete="off" />
         <button class="button primary" id="teacherUnlockBtn" type="button">Unlock</button>
         <p id="teacherGateError" role="alert"></p>
       </section>
@@ -62,6 +62,9 @@
             Refresh
           </button>
         </div>
+        <p class="runtime-help" id="teacherRuntimeHelp">
+          Grade uses the simulator. Run real sends the selected submission to the Local Agent on the judge PC; choose FR3 or FR5 and confirm the physical warning.
+        </p>
         <p
           class="teacher-error"
           id="submissionError"
@@ -126,16 +129,39 @@
         downloadSubmission,
       } from "./firebase-public-client.mjs";
       import { initTeacherPortal } from "./teacher-submissions.mjs";
+      import { gradeStudentSource } from "./teacher-grading.mjs";
       const access = createTeacherAccess({ baseUrl: ONNX_API_BASE_URL });
       const gate = document.getElementById("teacherGate");
       const password = document.getElementById("teacherPassword");
       const unlock = document.getElementById("teacherUnlockBtn");
       const gateError = document.getElementById("teacherGateError");
+      const sourceSha256 = async (source) => {
+        if (typeof source !== "string" || !globalThis.crypto?.subtle || typeof TextEncoder === "undefined") return "unavailable";
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+        return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      };
       const bootTeacher = () => initTeacherPortal({
         list: listSubmissions,
         download: downloadSubmission,
         listModels: access.listModels,
         downloadModel: access.downloadModel,
+        listJobs: access.listJobs,
+        getJob: access.getJob,
+        getAgentStatus: access.getAgentStatus,
+        stopJob: access.stopJob,
+        confirmRealJob: access.confirmRealJob,
+        createRealJob: access.createRealJob,
+        grade: (row) => gradeStudentSource(row.source),
+        confirmRun: async ({ row, robotModel }) => {
+          const checksum = await sourceSha256(row.source);
+          const modelStatus = row.model?.status === "present" ? "available" : "missing";
+          return window.confirm(
+            `Run submission ${row.id || row.submissionId} on ${robotModel}?\n` +
+            `Source SHA-256: ${checksum}\n` +
+            `ONNX model: ${modelStatus}\n` +
+            "This controls the physical robot."
+          );
+        },
         statusNode: document.getElementById("teacherPublicStatus"),
         rowsNode: document.getElementById("submissionTableBody"),
         filterInput: document.getElementById("teacherFilter"),

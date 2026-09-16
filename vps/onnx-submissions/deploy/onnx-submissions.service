@@ -10,6 +10,8 @@ User=techcamp-onnx
 Group=techcamp-onnx
 WorkingDirectory=/opt/techcamp-onnx/current
 EnvironmentFile=/etc/techcamp-onnx.env
+# Private Local Agent token; this file is separate from the non-secret env example.
+EnvironmentFile=-/etc/techcamp-onnx.secret.env
 ExecStart=/opt/techcamp-onnx/current/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8787 --no-access-log --timeout-keep-alive 15
 Restart=always
 RestartSec=5

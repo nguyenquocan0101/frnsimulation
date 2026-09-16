@@ -22,6 +22,29 @@ export function createTeacherAccess({ baseUrl = globalThis.__TECHCAMP_ONNX_API_U
       return session();
     },
     async listModels() { return (await request("/v1/teacher/models")).json(); },
+    async createRealJob({ submissionId, source, robotModel, siteId = "default", robotId, pointsTable = "points_HCM.json", modelAvailable = false }) {
+      const response = await request("/v1/teacher/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ submissionId, source, robotModel, siteId, robotId, pointsTable, modelAvailable, action: "real_run" }),
+      });
+      return response.json();
+    },
+    async getAgentStatus() { return (await request("/v1/teacher/agent-status")).json(); },
+    async listJobs() { return (await request("/v1/teacher/jobs")).json(); },
+    async getJob(jobId) { return (await request(`/v1/teacher/jobs/${encodeURIComponent(jobId)}`)).json(); },
+    async confirmRealJob(jobId) {
+      const response = await request(`/v1/teacher/jobs/${encodeURIComponent(jobId)}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: "physical_run" }),
+      });
+      return response.json();
+    },
+    async stopJob(jobId) {
+      const response = await request(`/v1/teacher/jobs/${encodeURIComponent(jobId)}/stop`, { method: "POST" });
+      return response.json();
+    },
     async downloadModel(submissionId) {
       const ticket = await (await request(`/v1/teacher/models/${encodeURIComponent(submissionId)}/download-ticket`, { method: "POST" })).json();
       const anchor = globalThis.document?.createElement("a");

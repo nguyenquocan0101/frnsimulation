@@ -28,6 +28,9 @@ test("camera state hooks and zoom migration are deterministic", () => {
   assert.match(appSource, /data-camera-view/);
   assert.match(appSource, /data-camera-zoom/);
   assert.match(appSource, /HOME_CAMERA_PRESET_VIEW_INDEX = 2/);
+  assert.match(appSource, /HOME_CAMERA_PRESET_VIEW_INDEX_BY_PROFILE/);
+  assert.match(appSource, /fr3: HOME_CAMERA_PRESET_VIEW_INDEX/);
+  assert.match(appSource, /fr5: HOME_CAMERA_PRESET_VIEW_INDEX/);
   assert.match(appSource, /HOME_CAMERA_PRESET_ZOOM = 200/);
   assert.match(htmlSource, /id="cameraZoomRange"[\s\S]*max="200"/);
   assert.deepEqual(migrateZoomValue(118), { value: 100, userSet: false, version: 1 });

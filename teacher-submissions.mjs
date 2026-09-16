@@ -49,12 +49,21 @@ export function initTeacherPortal({
   previewCloseButton,
   listModels,
   downloadModel,
+  grade,
+  createRealJob,
+  confirmRealJob,
+  getAgentStatus,
+  getJob,
+  stopJob,
+  confirmRun,
+  listJobs,
 } = {}) {
   if (!list || !statusNode || !rowsNode || !filterInput || !refreshButton) return null;
   let rows = [];
   let busy = false;
   let lastUpdated = null;
   let activeTrigger = null;
+  let runtimeJobs = [];
 
   const setState = (status, message) => {
     statusNode.dataset.status = status;
@@ -119,6 +128,131 @@ export function initTeacherPortal({
         modelButton.addEventListener("click", () => downloadModel(row.id || row.submissionId));
         actionsCell.append(modelButton);
       }
+      const runtimeJob = row.runtimeJob;
+      const runtimeStatus = document.createElement("span");
+      runtimeStatus.className = "runtime-status";
+      runtimeStatus.textContent = runtimeJob?.status ? `Real: ${runtimeJob.status}` : "Real: idle";
+      actionsCell.append(runtimeStatus);
+      const runtimeLog = document.createElement("pre");
+      runtimeLog.className = "runtime-log";
+      runtimeLog.textContent = (runtimeJob?.logs || []).slice(-3).map((entry) => entry?.message || "").filter(Boolean).join("\n");
+      actionsCell.append(runtimeLog);
+      if (grade) {
+        const gradeButton = document.createElement("button");
+        gradeButton.type = "button";
+        gradeButton.className = "button quiet grade-button";
+        gradeButton.textContent = "Grade";
+        gradeButton.dataset.action = "grade";
+        actionsCell.append(gradeButton);
+        gradeButton.addEventListener("click", async () => {
+          if (typeof row.source !== "string") {
+            runtimeStatus.textContent = "Grade: source unavailable";
+            return;
+          }
+          gradeButton.disabled = true;
+          runtimeStatus.textContent = "Grade: running simulation";
+          try {
+            const result = await grade(row);
+            runtimeStatus.textContent = result?.ok
+              ? `Grade: ${Number(result.score).toFixed(2)} · ${result.steps} steps`
+              : `Grade: failed · ${result?.error || "simulation error"}`;
+          } catch (error) {
+            runtimeStatus.textContent = `Grade: failed · ${error?.message || "error"}`;
+          } finally {
+            gradeButton.disabled = false;
+          }
+        });
+      }
+      if (createRealJob && confirmRealJob) {
+        const modelSelect = document.createElement("select");
+        modelSelect.className = "robot-model-select";
+        modelSelect.setAttribute("aria-label", "Robot model");
+        for (const model of ["FR3", "FR5"]) {
+          const option = document.createElement("option");
+          option.value = model;
+          option.textContent = model;
+          modelSelect.append(option);
+        }
+        if (runtimeJob?.robotModel === "FR3" || runtimeJob?.robotModel === "FR5") modelSelect.value = runtimeJob.robotModel;
+        actionsCell.append(modelSelect);
+        const runButton = document.createElement("button");
+        runButton.type = "button";
+        runButton.className = "button primary real-run-button";
+        runButton.textContent = "Run real";
+        runButton.dataset.action = "real-run";
+        runButton.disabled = Boolean(runtimeJob && ["queued", "claimed", "running", "stopping", "cleanup"].includes(runtimeJob.status));
+        actionsCell.append(runButton);
+        let activeRuntimeJobId = runtimeJob?.jobId || null;
+        let stopButton = null;
+        if (stopJob) {
+          stopButton = document.createElement("button");
+          stopButton.type = "button";
+          stopButton.className = "button quiet stop-job-button";
+          stopButton.textContent = "STOP";
+          stopButton.dataset.action = "stop";
+          stopButton.hidden = !(runtimeJob?.jobId && ["queued", "claimed", "running", "stopping", "cleanup"].includes(runtimeJob.status));
+          actionsCell.append(stopButton);
+          stopButton.addEventListener("click", async () => {
+            if (!activeRuntimeJobId) return;
+            stopButton.disabled = true;
+            try {
+              const stopped = await stopJob(activeRuntimeJobId);
+              runtimeStatus.textContent = `Real: ${stopped.status || "stopping"}`;
+            } catch (error) {
+              runtimeStatus.textContent = `Real STOP failed · ${error?.message || "error"}`;
+              stopButton.disabled = false;
+            }
+          });
+        }
+        runButton.addEventListener("click", async () => {
+          if (typeof row.source !== "string") {
+            runtimeStatus.textContent = "Real: source unavailable";
+            return;
+          }
+          const model = modelSelect.value;
+          if (confirmRun && !(await confirmRun({ row, robotModel: model }))) return;
+          runButton.disabled = true;
+          runtimeStatus.textContent = `Real: queuing ${model}`;
+          let createdJob = null;
+          try {
+            if (getAgentStatus) {
+              const agentStatus = await getAgentStatus();
+              if (!agentStatus?.online) throw new Error("Local Agent is offline.");
+            }
+            createdJob = await createRealJob({
+              submissionId: row.id || row.submissionId,
+              source: row.source,
+              robotModel: model,
+              modelAvailable: row.model?.status === "present",
+              row,
+            });
+            if (!createdJob?.jobId) throw new Error("Real job did not return an id.");
+            activeRuntimeJobId = createdJob.jobId;
+            if (stopButton) {
+              stopButton.hidden = false;
+              stopButton.disabled = false;
+            }
+            await confirmRealJob(createdJob.jobId);
+            runtimeStatus.textContent = `Real: ${createdJob.status || "queued"}`;
+            if (getJob) {
+              await watchJob(createdJob.jobId, runtimeStatus, runtimeLog);
+              activeRuntimeJobId = null;
+              if (stopButton) stopButton.hidden = true;
+            }
+          } catch (error) {
+            if (createdJob?.jobId && stopJob) {
+              try { await stopJob(createdJob.jobId); } catch {}
+            }
+            activeRuntimeJobId = null;
+            if (stopButton) {
+              stopButton.hidden = true;
+              stopButton.disabled = false;
+            }
+            runtimeStatus.textContent = `Real: failed · ${error?.message || "error"}`;
+            runButton.disabled = false;
+          }
+        });
+      }
       item.append(numberCell, groupCell, filenameCell, timeCell, actionsCell);
       rowsNode.append(item);
       previewButton.addEventListener("click", () => {
@@ -150,6 +284,22 @@ export function initTeacherPortal({
     });
   };
 
+  const watchJob = async (jobId, statusNode, logNode) => {
+    if (!getJob) return;
+    for (;;) {
+      try {
+        const job = await getJob(jobId);
+        statusNode.textContent = `Real: ${job.status || "unknown"}`;
+        if (logNode) logNode.textContent = (job.logs || []).slice(-3).map((entry) => entry?.message || "").filter(Boolean).join("\n");
+        if (["succeeded", "failed", "timeout", "cancelled"].includes(job.status)) return job;
+      } catch (error) {
+        statusNode.textContent = `Real: status unavailable · ${error?.message || "error"}`;
+        return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  };
+
   const closePreview = () => {
     if (!previewDialog) return;
     if (typeof previewDialog.close === "function") previewDialog.close();
@@ -174,7 +324,16 @@ export function initTeacherPortal({
       const nextRows = await list();
       let modelResult = { models: [] };
       try { modelResult = listModels ? await listModels() : modelResult; } catch (error) { modelResult = { error }; }
-      rows = joinSubmissionModels(Array.isArray(nextRows) ? nextRows : [], modelResult.models, modelResult.error);
+      if (listJobs) {
+        try { runtimeJobs = (await listJobs())?.jobs || []; } catch { runtimeJobs = []; }
+      }
+      const jobsBySubmission = new Map();
+      for (const job of runtimeJobs) {
+        const key = job.submissionId;
+        if (key && (!jobsBySubmission.has(key) || String(job.createdAt) > String(jobsBySubmission.get(key).createdAt))) jobsBySubmission.set(key, job);
+      }
+      rows = joinSubmissionModels(Array.isArray(nextRows) ? nextRows : [], modelResult.models, modelResult.error)
+        .map((row) => ({ ...row, runtimeJob: jobsBySubmission.get(row.id || row.submissionId) || null }));
       lastUpdated = new Date();
       setState(rows.length ? "ready" : "empty", rows.length ? `${rows.length} submissions · Updated ${lastUpdated.toLocaleTimeString()}` : "Public workshop · No submissions yet");
       render();

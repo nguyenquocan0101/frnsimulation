@@ -24,6 +24,11 @@ from fastapi.responses import FileResponse, JSONResponse
 
 
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+SAFE_KEY_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+REAL_ROBOT_MODELS = frozenset({"FR3", "FR5"})
+JOB_ACTIVE_STATUSES = frozenset({"claimed", "running", "stopping", "cleanup"})
+JOB_TERMINAL_STATUSES = frozenset({"succeeded", "failed", "timeout", "cancelled"})
+JOB_STATUSES = frozenset({"queued", *JOB_ACTIVE_STATUSES, *JOB_TERMINAL_STATUSES})
 
 
 def _default_config() -> dict[str, Any]:
@@ -46,9 +51,15 @@ def _default_config() -> dict[str, Any]:
         "completed_quota_bytes": 20 * 1024**3,
         "free_space_margin_bytes": 5 * 1024**3,
         "incomplete_ttl_seconds": 24 * 3600,
-        "teacher_password": "090909",
+        "teacher_password": os.environ.get("TEACHER_PASSWORD", "0909"),
         "teacher_session_ttl_seconds": 3600,
         "teacher_download_ticket_ttl_seconds": 60,
+        "agent_token": os.environ.get("TECHCAMP_AGENT_TOKEN", ""),
+        "real_run_source_max_bytes": 120_000,
+        "real_run_log_max_bytes": 200_000,
+        "real_run_max_runtime_seconds": 300,
+        "runtime_version": "techcamp-local-v1",
+        "agent_presence_ttl_seconds": 10,
     }
 
 
@@ -107,13 +118,17 @@ def create_app(
 
     uploads_dir = cfg.data_root / ".uploads"
     submissions_dir = cfg.data_root / "submissions"
+    jobs_dir = cfg.data_root / "jobs"
+    agent_presence_path = cfg.data_root / "agent-presence.json"
     uploads_dir.mkdir(parents=True, exist_ok=True)
     submissions_dir.mkdir(parents=True, exist_ok=True)
+    jobs_dir.mkdir(parents=True, exist_ok=True)
 
     locks_guard = threading.Lock()
     init_lock = threading.Lock()
     upload_locks: dict[str, threading.Lock] = {}
     writer_slots = threading.BoundedSemaphore(cfg.writer_cap)
+    jobs_lock = threading.Lock()
     init_attempts: dict[str, deque[float]] = defaultdict(deque)
     teacher_sessions: dict[str, float] = {}
     download_tickets: dict[str, dict[str, Any]] = {}
@@ -123,6 +138,9 @@ def create_app(
 
     def part_path(upload_id: str) -> Path:
         return uploads_dir / f"{upload_id}.part"
+
+    def job_path(job_id: str) -> Path:
+        return jobs_dir / f"{job_id}.json"
 
     def get_lock(upload_id: str) -> threading.Lock:
         with locks_guard:
@@ -275,6 +293,134 @@ def create_app(
             raise HTTPException(401, "Teacher session expired")
         return token
 
+    def agent_token(request: Request) -> None:
+        configured = str(getattr(cfg, "agent_token", "") or "")
+        supplied = request.headers.get("x-techcamp-agent-token", "")
+        if not configured:
+            raise HTTPException(503, "Local agent is not configured")
+        if not supplied or not hmac.compare_digest(supplied, configured):
+            raise HTTPException(401, "Local agent authentication required")
+
+    def job_timestamp() -> str:
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    def read_job(job_id: str) -> dict[str, Any]:
+        if not ID_RE.fullmatch(job_id):
+            raise HTTPException(404, "Job not found")
+        path = job_path(job_id)
+        if not path.is_file():
+            raise HTTPException(404, "Job not found")
+        try:
+            return _load_json(path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            raise HTTPException(503, "Job state is unavailable") from error
+
+    def public_job(job: dict[str, Any]) -> dict[str, Any]:
+        result = {key: value for key, value in job.items() if key != "source"}
+        result.pop("agentToken", None)
+        return result
+
+    def active_job_exists(*, robot_id: str | None = None) -> bool:
+        for path in jobs_dir.glob("*.json"):
+            try:
+                current = _load_json(path)
+            except (OSError, ValueError, json.JSONDecodeError):
+                continue
+            if current.get("status") not in JOB_ACTIVE_STATUSES:
+                continue
+            if robot_id is None or current.get("robotId") == robot_id:
+                return True
+        return False
+
+    def read_agent_presence() -> dict[str, Any]:
+        if not agent_presence_path.is_file():
+            return {}
+        try:
+            value = _load_json(agent_presence_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            return {}
+        return value if isinstance(value, dict) else {}
+
+    def agent_is_online() -> bool:
+        last_seen = parse_time(read_agent_presence().get("lastSeenAt"))
+        if last_seen is None:
+            return False
+        return time.time() - last_seen <= float(cfg.agent_presence_ttl_seconds)
+
+    def require_job_body(body: Any) -> tuple[str, str, str, str, str, str, str, bool]:
+        if not isinstance(body, dict):
+            raise HTTPException(400, "Invalid JSON")
+        submission_id = body.get("submissionId")
+        source = body.get("source")
+        model = body.get("robotModel")
+        action = body.get("action", "real_run")
+        site_id = body.get("siteId", "default")
+        robot_id = body.get("robotId") or f"{model}:{site_id}"
+        points_table = body.get("pointsTable", "points_HCM.json")
+        model_available = body.get("modelAvailable", False)
+        values = (submission_id, source, model, action, site_id, robot_id, points_table)
+        if not isinstance(submission_id, str) or not SAFE_KEY_RE.fullmatch(submission_id):
+            raise HTTPException(422, "Invalid submissionId")
+        if not isinstance(source, str) or not source.strip():
+            raise HTTPException(422, "Python source is required")
+        if len(source.encode("utf-8")) > int(cfg.real_run_source_max_bytes):
+            raise HTTPException(413, "Source exceeds the maximum size")
+        if model not in REAL_ROBOT_MODELS:
+            raise HTTPException(422, "robotModel must be FR3 or FR5")
+        if action != "real_run":
+            raise HTTPException(422, "Unsupported job action")
+        if not isinstance(model_available, bool):
+            raise HTTPException(422, "Invalid modelAvailable")
+        for value, label, limit in (
+            (site_id, "siteId", 80),
+            (robot_id, "robotId", 120),
+            (points_table, "pointsTable", 128),
+        ):
+            if not isinstance(value, str) or not value.strip() or len(value) > limit:
+                raise HTTPException(422, f"Invalid {label}")
+            if label != "siteId" and (Path(value).name != value or "\\" in value or "/" in value):
+                raise HTTPException(422, f"Invalid {label}")
+        return (*values, model_available)
+
+    def append_job_log(job: dict[str, Any], message: str) -> None:
+        if not isinstance(message, str) or not message:
+            return
+        logs = job.setdefault("logs", [])
+        if not isinstance(logs, list):
+            logs = []
+            job["logs"] = logs
+        logs.append({"at": job_timestamp(), "message": message[:2000]})
+        encoded = json.dumps(logs, ensure_ascii=False)
+        max_bytes = int(cfg.real_run_log_max_bytes)
+        while len(encoded.encode("utf-8")) > max_bytes and logs:
+            logs.pop(0)
+            encoded = json.dumps(logs, ensure_ascii=False)
+
+    def transition_job(job: dict[str, Any], status: str, *, error: str | None = None) -> None:
+        previous = job.get("status")
+        if status not in JOB_STATUSES:
+            raise HTTPException(422, "Invalid job status")
+        legal = {
+            "queued": {"claimed", "cancelled"},
+            "claimed": {"running", "stopping", "cleanup", "failed", "cancelled"},
+            "running": {"stopping", "cleanup", "failed", "timeout"},
+            "stopping": {"cleanup", "cancelled", "failed", "timeout"},
+            "cleanup": set(JOB_TERMINAL_STATUSES),
+        }
+        if previous in JOB_TERMINAL_STATUSES:
+            raise HTTPException(409, "Job is already terminal")
+        if status != previous and status not in legal.get(previous, set()):
+            raise HTTPException(409, f"Cannot transition job from {previous} to {status}")
+        job["status"] = status
+        job["updatedAt"] = job_timestamp()
+        if status in JOB_TERMINAL_STATUSES:
+            job["finishedAt"] = job["updatedAt"]
+        if error:
+            job["error"] = error[:2000]
+
+    def create_job_response(job: dict[str, Any]) -> JSONResponse:
+        return JSONResponse(public_job(job), status_code=201)
+
     def model_record(submission_id: str) -> dict[str, Any]:
         if not ID_RE.fullmatch(submission_id):
             raise HTTPException(404, "Model not found")
@@ -306,6 +452,236 @@ def create_app(
         token = secrets.token_urlsafe(32)
         teacher_sessions[token] = time.time() + float(cfg.teacher_session_ttl_seconds)
         return {"token": token, "expiresIn": float(cfg.teacher_session_ttl_seconds)}
+
+    @app.post("/v1/teacher/jobs")
+    async def create_teacher_job(request: Request):
+        teacher_token(request)
+        try:
+            body = await request.json()
+        except Exception as error:
+            raise HTTPException(400, "Invalid JSON") from error
+        submission_id, source, model, action, site_id, robot_id, points_table, model_available = require_job_body(body)
+        model_meta = model_record(submission_id) if model_available else None
+        with jobs_lock:
+            if active_job_exists(robot_id=robot_id):
+                raise HTTPException(409, "A real-run job is already active for this robot")
+            job_id = secrets.token_urlsafe(24).replace("-", "_")
+            timestamp = job_timestamp()
+            job = {
+                "jobId": job_id,
+                "submissionId": submission_id,
+                "source": source,
+                "sourceSha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+                "action": action,
+                "robotModel": model,
+                "siteId": site_id,
+                "robotId": robot_id,
+                "pointsTable": points_table,
+                "modelAvailable": model_available,
+                "modelSha256": model_meta.get("sha256") if model_meta else None,
+                "modelSize": model_meta.get("size") if model_meta else None,
+                "runtimeVersion": str(cfg.runtime_version),
+                "status": "queued",
+                "stopRequested": False,
+                "logs": [],
+                "createdAt": timestamp,
+                "updatedAt": timestamp,
+                "teacherAction": "real_run",
+            }
+            append_job_log(job, f"Queued {model} real-run for submission {submission_id}.")
+            _atomic_json(job_path(job_id), job)
+        return create_job_response(job)
+
+    @app.get("/v1/teacher/jobs")
+    async def list_teacher_jobs(request: Request):
+        teacher_token(request)
+        jobs = []
+        for path in jobs_dir.glob("*.json"):
+            try:
+                jobs.append(public_job(_load_json(path)))
+            except (OSError, ValueError, json.JSONDecodeError):
+                continue
+        jobs.sort(key=lambda item: str(item.get("createdAt", "")), reverse=True)
+        return {"jobs": jobs[:100]}
+
+    @app.get("/v1/teacher/jobs/{job_id}")
+    async def get_teacher_job(job_id: str, request: Request):
+        teacher_token(request)
+        with jobs_lock:
+            return public_job(read_job(job_id))
+
+    @app.post("/v1/teacher/jobs/{job_id}/stop")
+    async def stop_teacher_job(job_id: str, request: Request):
+        teacher_token(request)
+        with jobs_lock:
+            job = read_job(job_id)
+            status = job.get("status")
+            if status in JOB_TERMINAL_STATUSES:
+                raise HTTPException(409, "Job is already terminal")
+            job["stopRequested"] = True
+            append_job_log(job, "STOP requested by teacher.")
+            if status == "queued":
+                transition_job(job, "cancelled")
+            elif status in {"claimed", "running"}:
+                transition_job(job, "stopping")
+            _atomic_json(job_path(job_id), job)
+            return public_job(job)
+
+    @app.post("/v1/teacher/jobs/{job_id}/confirm")
+    async def confirm_teacher_job(job_id: str, request: Request):
+        teacher_token(request)
+        try:
+            body = await request.json()
+        except Exception as error:
+            raise HTTPException(400, "Invalid JSON") from error
+        if not isinstance(body, dict) or body.get("confirmation") != "physical_run":
+            raise HTTPException(422, "Explicit physical_run confirmation required")
+        with jobs_lock:
+            if not agent_is_online():
+                raise HTTPException(503, "Local Agent is offline")
+            job = read_job(job_id)
+            if job.get("status") != "queued":
+                raise HTTPException(409, "Only queued jobs can be confirmed")
+            job["teacherConfirmedAt"] = job_timestamp()
+            append_job_log(job, "Physical run explicitly confirmed by teacher.")
+            _atomic_json(job_path(job_id), job)
+            return public_job(job)
+
+    @app.get("/v1/teacher/agent-status")
+    async def get_teacher_agent_status(request: Request):
+        teacher_token(request)
+        with jobs_lock:
+            presence = read_agent_presence()
+            last_seen = parse_time(presence.get("lastSeenAt"))
+            return {
+                "online": agent_is_online(),
+                "lastSeenAt": presence.get("lastSeenAt"),
+                "runtimeVersion": presence.get("runtimeVersion"),
+                "ageSeconds": None if last_seen is None else max(0, time.time() - last_seen),
+            }
+
+    @app.post("/v1/agent/heartbeat")
+    async def agent_heartbeat(request: Request):
+        agent_token(request)
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        if not isinstance(body, dict):
+            body = {}
+        timestamp = job_timestamp()
+        presence = {
+            "lastSeenAt": timestamp,
+            "runtimeVersion": body.get("runtimeVersion") or cfg.runtime_version,
+        }
+        with jobs_lock:
+            _atomic_json(agent_presence_path, presence)
+        return {"online": True, **presence}
+
+    @app.get("/v1/agent/jobs/next")
+    async def claim_agent_job(request: Request):
+        agent_token(request)
+        with jobs_lock:
+            candidates = []
+            for path in jobs_dir.glob("*.json"):
+                try:
+                    current = _load_json(path)
+                except (OSError, ValueError, json.JSONDecodeError):
+                    continue
+                if current.get("status") == "queued":
+                    candidates.append(current)
+            candidates.sort(key=lambda item: str(item.get("createdAt", "")))
+            for job in candidates:
+                if not job.get("teacherConfirmedAt"):
+                    continue
+                if active_job_exists():
+                    return {"job": None, "retryAfterSeconds": 2}
+                transition_job(job, "claimed")
+                job["claimedAt"] = job["updatedAt"]
+                append_job_log(job, "Claimed by Local Agent.")
+                _atomic_json(job_path(job["jobId"]), job)
+                return {
+                    "job": {
+                        "jobId": job["jobId"],
+                        "submissionId": job["submissionId"],
+                        "source": job["source"],
+                        "sourceSha256": job["sourceSha256"],
+                        "action": job["action"],
+                        "robotModel": job["robotModel"],
+                        "siteId": job["siteId"],
+                        "robotId": job["robotId"],
+                        "pointsTable": job["pointsTable"],
+                        "modelAvailable": bool(job.get("modelAvailable")),
+                        "modelSha256": job.get("modelSha256"),
+                        "modelSize": job.get("modelSize"),
+                        "runtimeVersion": job["runtimeVersion"],
+                        "maxRuntimeSeconds": float(cfg.real_run_max_runtime_seconds),
+                    }
+                }
+            return {"job": None, "retryAfterSeconds": 2}
+
+    @app.get("/v1/agent/jobs/{job_id}")
+    async def get_agent_job(job_id: str, request: Request):
+        agent_token(request)
+        with jobs_lock:
+            job = read_job(job_id)
+            return {
+                "jobId": job["jobId"],
+                "status": job["status"],
+                "stopRequested": bool(job.get("stopRequested")),
+                "updatedAt": job.get("updatedAt"),
+            }
+
+    @app.get("/v1/agent/jobs/{job_id}/model")
+    async def download_agent_model(job_id: str, request: Request):
+        agent_token(request)
+        with jobs_lock:
+            job = read_job(job_id)
+            if job.get("status") not in JOB_ACTIVE_STATUSES:
+                raise HTTPException(409, "Job is not claimed by the Local Agent")
+            submission_id = job.get("submissionId")
+            if not isinstance(submission_id, str):
+                raise HTTPException(404, "Model not found")
+            record = model_record(submission_id)
+        model_path = submissions_dir / submission_id / "model.onnx"
+        return FileResponse(
+            model_path,
+            media_type="application/octet-stream",
+            filename="model.onnx",
+            headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"},
+        )
+
+    @app.post("/v1/agent/jobs/{job_id}/events")
+    async def agent_job_event(job_id: str, request: Request):
+        agent_token(request)
+        try:
+            body = await request.json()
+        except Exception as error:
+            raise HTTPException(400, "Invalid JSON") from error
+        if not isinstance(body, dict):
+            raise HTTPException(400, "Invalid JSON")
+        with jobs_lock:
+            job = read_job(job_id)
+            status = body.get("status")
+            if status is not None and not isinstance(status, str):
+                raise HTTPException(422, "Invalid job status")
+            if status:
+                transition_job(job, status, error=body.get("error") if isinstance(body.get("error"), str) else None)
+            if isinstance(body.get("message"), str):
+                append_job_log(job, body["message"])
+            logs = body.get("logs")
+            if isinstance(logs, list):
+                for message in logs[-50:]:
+                    if isinstance(message, str):
+                        append_job_log(job, message)
+            if isinstance(body.get("result"), dict):
+                job["result"] = body["result"]
+            if isinstance(body.get("cleanup"), dict):
+                job["cleanup"] = body["cleanup"]
+            if "heartbeat" in body:
+                job["lastHeartbeatAt"] = job_timestamp()
+            _atomic_json(job_path(job_id), job)
+            return public_job(job)
 
     @app.get("/v1/teacher/models")
     async def list_teacher_models(request: Request):

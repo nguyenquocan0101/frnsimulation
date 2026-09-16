@@ -309,6 +309,14 @@ const HOME_CAMERA_TARGET = [0, 0.24, -0.3];
 const HOME_CAMERA_ZOOM_DEFAULT = 100;
 const HOME_CAMERA_PRESET_ZOOM = 200;
 const HOME_CAMERA_PRESET_VIEW_INDEX = 2;
+// The calibrated FR3 table is presented from the physical Front direction.
+// Keep the existing FR5 Home-camera preset unchanged.
+const HOME_CAMERA_PRESET_VIEW_INDEX_BY_PROFILE = Object.freeze({
+  // With the FR3 HOME calibration, logical Back is the camera on the
+  // table-facing side and keeps P1 -> P7 in the physical order.
+  fr3: HOME_CAMERA_PRESET_VIEW_INDEX,
+  fr5: HOME_CAMERA_PRESET_VIEW_INDEX,
+});
 const HOME_CAMERA_ZOOM_RANGE = [100, 200];
 const CAMERA_ZOOM_STORAGE_KEY = "techcamp-camera-zoom-v1";
 const LEGACY_CAMERA_ZOOM_STORAGE_KEY = "fr3-home-camera-zoom";
@@ -342,8 +350,7 @@ function syncSceneGroundRotation() {
   // GridHelper lies on the scene XZ floor. The FK/table rail is calculated
   // in the robot's XY plane, which is mapped to scene XZ by robotRoot's
   // -90° X rotation, so the matching floor rotation is around scene Y.
-  sceneGrid.rotation.y =
-    state.robotProfileId === "fr5" ? boardSlotRotation : 0;
+  sceneGrid.rotation.y = boardSlotRotation;
 }
 
 const $ = (id) => document.getElementById(id);
@@ -1114,10 +1121,10 @@ function initTeacherPortalShortcut() {
     const now = Date.now();
     clicks = now - lastClickAt <= 900 ? clicks + 1 : 1;
     lastClickAt = now;
-    if (clicks === 3) openDialog();
+    if (clicks === 4) openDialog();
   };
   const verify = () => {
-    if (password.value === "090909" || password.value === "stemtechx") {
+    if (password.value === "0909") {
       window.location.href = "./teacher.html";
       return;
     }
@@ -1440,13 +1447,8 @@ function buildBlockBoard() {
   // orthogonal to the FR3 table.  This keeps every slot on one visual rail
   // while preserving the actual FK position used by the robot targets.
   let boardRotation = boardLayout.rotationZ;
-  if (state.robotProfileId === "fr5") {
-    const rowStart = workpiecePose(pointRecord("P1"));
-    const rowEnd = workpiecePose(pointRecord("P6"));
-    const dx = rowEnd[0] - rowStart[0];
-    const dy = rowEnd[1] - rowStart[1];
-    if (Math.hypot(dx, dy) > 1) boardRotation = Math.atan2(dy, dx);
-  }
+  if (Math.hypot(rowDx, rowDy) > 1)
+    boardRotation = Math.atan2(rowDy, rowDx);
   boardSlotRotation = boardRotation;
   const boardSize = {
     length: boardLayout.length,
@@ -2083,8 +2085,11 @@ function resetBlocks(silent = false) {
 
 async function loadCalibratedPoints(profileId = state.robotProfileId) {
   try {
-    const pointFile =
-      profileId === "fr5" ? "./points-fr5.json" : "./points.json";
+    const pointFiles = {
+      fr3: "./points_HCM_FR3.json",
+      fr5: "./points_HCM.json",
+    };
+    const pointFile = pointFiles[profileId] || pointFiles.fr5;
     const response = await fetch(pointFile, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     state.calibratedPoints = normalizePointData(await response.json());
@@ -2215,8 +2220,7 @@ function updateSafeZoneVisual() {
   // The FR5 teaching rail has a calibrated yaw. Keep the safety volume
   // parallel to the table/blocks in the visual scene without changing the
   // controller-frame bounds used by motion checks.
-  safeZoneGroup.rotation.z =
-    state.robotProfileId === "fr5" ? boardSlotRotation : 0;
+  safeZoneGroup.rotation.z = boardSlotRotation;
   safeZoneMesh.scale.set(size[0] / 1000, size[1] / 1000, size[2] / 1000);
   const evaluation = state.safeZone.alert
     ? { status: "outside" }
@@ -3236,6 +3240,12 @@ async function switchRobotProfile(profileId, { initial = false } = {}) {
     state.robotLoading = false;
     appStorage.setItem(ROBOT_PROFILE_STORAGE_KEY, profile.id);
     await loadCalibratedPoints(profile.id);
+    if (!initial) {
+      setHomeCameraView(
+        HOME_CAMERA_PRESET_VIEW_INDEX_BY_PROFILE[profile.id] ??
+          HOME_CAMERA_PRESET_VIEW_INDEX,
+      );
+    }
     syncRobotProfileUi(profile);
     setJointVisualization($("controlTab")?.classList.contains("active"));
     $("loadingCard")?.classList.add("hidden");
@@ -3424,7 +3434,10 @@ function changeView() {
 
 function homeView() {
   setCameraZoom(HOME_CAMERA_PRESET_ZOOM, { userSet: false });
-  setHomeCameraView(HOME_CAMERA_PRESET_VIEW_INDEX);
+  setHomeCameraView(
+    HOME_CAMERA_PRESET_VIEW_INDEX_BY_PROFILE[state.robotProfileId] ??
+      HOME_CAMERA_PRESET_VIEW_INDEX,
+  );
 }
 
 class TechCampError extends Error {}

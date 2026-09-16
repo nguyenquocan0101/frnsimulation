@@ -726,6 +726,46 @@
       "evidence": "Final: local palette renders all 9 animals and P1–P7 destinations with no arrangement marker; runtime marker regressions remain green in the 293-passing Node suite.",
       "notes": "Marker semantics của robot/competition runtime cần được giữ riêng cho tới khi có yêu cầu thay đổi phạm vi đó.",
       "priority": "P1"
+    },
+    {
+      "id": "phase-01-control-plane",
+      "title": "Authenticated Teacher-to-agent job control plane",
+      "user_visible_behavior": "Teacher can queue and stop an exact Firebase submission for a selected FR3 or FR5 without exposing robot ports",
+      "verification_command": "python -m pytest vps/onnx-submissions/tests -q",
+      "status": "passing",
+      "evidence": "52 FastAPI tests passed, including authenticated real-run job, confirmation, claim, STOP, model download, agent heartbeat/offline blocking, concurrent active-job rejection, and Teacher-to-Local-Agent dry-run integration",
+      "notes": "FastAPI control plane stores job state; Firebase remains the immutable submission source",
+      "priority": "P1"
+    },
+    {
+      "id": "phase-02-local-agent",
+      "title": "FR3/FR5 Local Agent and safe physical execution boundary",
+      "user_visible_behavior": "The judge PC runs one selected submitted main.py with the matching FR3/FR5 profile, 0.4-second gripper contract, timeout, STOP, and cleanup",
+      "verification_command": "python -m unittest TechCamp-colgnaoh/test_techcamp_agent.py",
+      "status": "passing",
+      "evidence": "43 unittest cases passed in TechCamp-colgnaoh, including Local Agent tests for FR3/FR5 profiles, source guard, dry-run, STOP, timeout, non-zero exit, startup failure, cleanup, heartbeat, and the lock held across student process plus cleanup",
+      "notes": "Dry-run/fake-driver tests must pass before physical acceptance",
+      "priority": "P1"
+    },
+    {
+      "id": "phase-03-teacher-page",
+      "title": "Teacher grade and real-run controls",
+      "user_visible_behavior": "Unlocked Teacher page can grade, select FR3/FR5, dispatch, monitor, and stop a submission",
+      "verification_command": "node --test test_teacher_grading.mjs test_public_teacher_portal.mjs test_public_teacher_preview.test.mjs test/teacher-model-join.test.mjs",
+      "status": "passing",
+      "evidence": "31 Node tests passed for Teacher page, four-click/0909 gate, offline-agent blocking, authenticated client wiring, grading engine reuse, selected FR3/FR5 dispatch, and public simulation preservation",
+      "notes": "Public contestant simulation remains additive and unchanged",
+      "priority": "P1"
+    },
+    {
+      "id": "phase-04-verification",
+      "title": "Deployment notes and end-to-end dry-run verification",
+      "user_visible_behavior": "Operator can start the control plane and Local Agent, run a no-robot dry-run, and see terminal cleanup status",
+      "verification_command": "python -m unittest discover -v TechCamp-colgnaoh",
+      "status": "in_progress",
+      "evidence": "52 API tests, 43 Local Agent tests, npm test 304 total (300 passed, 4 Firebase emulator skips), and py_compile pass; Teacher-to-Local-Agent dry-run integration is green, while VPS/Vercel deployment and physical FR3/FR5 acceptance remain pending",
+      "notes": "Physical robot acceptance remains a manual operator step",
+      "priority": "P1"
     }
   ]
 }
