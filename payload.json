@@ -1,0 +1,1 @@
+{"source": "from techcamp_api import TechCamp\n\nPOINTS = [\"P1\", \"P2\", \"P3\", \"P4\", \"P5\", \"P6\", \"P7\"]\n\nwith TechCamp() as bot:\n    for point in POINTS:\n        print(f\"Đang kiểm tra {point}\")\n        bot.move_to(point)\n        bot.move_down()\n        bot.move_up()\n\nprint(\"Đã kiểm tra xong P1 đến P7\")\n", "positions": {}}
