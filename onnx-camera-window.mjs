@@ -1,4 +1,4 @@
-import { createOnnxCameraController } from './onnx-camera.mjs?v=20260812-position-array';
+import { createOnnxCameraController } from './onnx-camera.mjs?v=20260918-feature-map-mode';
 
 const VALID_THEMES = new Set(['light', 'dark']);
 

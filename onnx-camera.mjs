@@ -8,6 +8,7 @@ import {
   parseClassNames,
   resolveModelContract,
   topClassifications,
+  topFeatureMapChannels,
   validateOnnxFilename,
 } from './onnx-camera-core.mjs';
 import { createAiCameraLogPublisher } from './ai-camera-log.mjs';
@@ -150,6 +151,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
   const nodes = {
     connect: byId(root, 'onnxConnectCameraBtn'),
     disconnect: byId(root, 'onnxDisconnectBtn'),
+    modelMode: byId(root, 'onnxModelMode'),
     modelInput: byId(root, 'onnxModelInput'),
     modelName: byId(root, 'onnxModelName'),
     imageInput: byId(root, 'onnxImageInput'),
@@ -191,6 +193,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     modelBytes: null,
     contract: null,
     classNames: [],
+    modelMode: nodes.modelMode?.value || 'auto',
     loadToken: 0,
     cameraToken: 0,
     imageToken: 0,
@@ -219,6 +222,17 @@ export function createOnnxCameraController({ root, deps = {} }) {
     else delete nodes.provider.dataset.state;
   }
 
+  function errorText(error) {
+    const message = error instanceof Error ? error.message : String(error ?? 'Unknown error');
+    return message || 'Unknown error';
+  }
+
+  function resultDetails(result) {
+    return result.map((entry) => entry.metric === 'activation'
+      ? `${entry.label} activation ${entry.confidence.toFixed(4)}`
+      : `${entry.label} ${(entry.confidence * 100).toFixed(1)}%`).join(' · ');
+  }
+
   function clearResultViews() {
     nodes.results.replaceChildren();
     nodes.overlayResults?.replaceChildren();
@@ -228,6 +242,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     const busy = Boolean(state.busy);
     const hasStream = Boolean(state.stream);
     nodes.modelInput.disabled = busy || state.destroyed;
+    if (nodes.modelMode) nodes.modelMode.disabled = busy || state.destroyed;
     nodes.imageInput.disabled = busy || state.destroyed;
     nodes.connect.disabled = busy || hasStream || state.destroyed;
     nodes.disconnect.disabled = busy || !hasStream;
@@ -293,14 +308,14 @@ export function createOnnxCameraController({ root, deps = {} }) {
     if (session?.release) await session.release().catch(() => {});
   }
 
-  async function createSession(provider, { modelBytes = state.modelBytes, ort = state.ort } = {}) {
+  async function createSession(provider, { modelBytes = state.modelBytes, ort = state.ort, modelMode = state.modelMode } = {}) {
     let session = null;
     try {
       session = await ort.InferenceSession.create(modelBytes, {
         executionProviders: [provider],
         graphOptimizationLevel: 'all',
       });
-      const contract = resolveModelContract(session);
+      const contract = resolveModelContract(session, undefined, modelMode);
       return { session, contract };
     } catch (error) {
       await session?.release?.().catch(() => {});
@@ -311,6 +326,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
   async function loadModel(file) {
     const token = ++state.loadToken;
     if (!file) return;
+    state.modelMode = nodes.modelMode?.value || 'auto';
     state.sourceToken += 1;
     state.predictionToken += 1;
     state.results = [];
@@ -327,7 +343,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
       state.classNames = [];
       state.provider = '';
       setProvider('MODEL ERROR', 'error');
-      setStatus('Model filename needs to end in .onnx. Choose a YOLO26-cls export.', 'error');
+      setStatus('Model filename needs to end in .onnx. Choose a compatible ONNX export.', 'error');
       setBusy();
       return;
     }
@@ -355,11 +371,11 @@ export function createOnnxCameraController({ root, deps = {} }) {
       let usedFallback = false;
       let created;
       try {
-        created = await createSession(provider, { modelBytes, ort });
+        created = await createSession(provider, { modelBytes, ort, modelMode: state.modelMode });
       } catch (webgpuError) {
         if (provider !== 'webgpu') throw webgpuError;
         provider = 'wasm';
-        created = await createSession(provider, { modelBytes, ort });
+        created = await createSession(provider, { modelBytes, ort, modelMode: state.modelMode });
         usedFallback = true;
       }
       if (token !== state.loadToken || state.destroyed) {
@@ -373,7 +389,10 @@ export function createOnnxCameraController({ root, deps = {} }) {
       setProvider(provider.toUpperCase(), 'ready');
       shouldAutoPredict = state.sourceKind === 'image' && state.frameReady && state.boxes.length > 0;
       const labels = state.classNames.length ? `${state.classNames.length} labels` : 'class index labels';
-      setStatus(`${file.name} ready · ${created.contract.width}×${created.contract.height} · ${labels}`, 'success');
+      const outputInfo = created.contract.mode === 'feature-map'
+        ? `feature-map ${created.contract.outputChannels}×${created.contract.outputHeight}×${created.contract.outputWidth} (diagnostic)`
+        : labels;
+      setStatus(`${file.name} ready · ${created.contract.width}×${created.contract.height} · ${outputInfo}`, 'success');
     } catch (error) {
       if (token !== state.loadToken || state.destroyed) return;
       state.modelBytes = null;
@@ -382,7 +401,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
       await releaseSession();
       if (token !== state.loadToken || state.destroyed) return;
       setProvider('MODEL ERROR', 'error');
-      setStatus(`Could not load this YOLO26-cls model. ${error.message}`, 'error');
+      setStatus(`Could not load this ONNX model. ${errorText(error)}`, 'error');
     } finally {
       if (token === state.loadToken) setBusy();
     }
@@ -767,7 +786,7 @@ export function createOnnxCameraController({ root, deps = {} }) {
     clearResultViews();
     state.results.forEach((result, index) => {
       const title = `Box ${index + 1} · ${result[0].label}`;
-      const details = result.map((entry) => `${entry.label} ${(entry.confidence * 100).toFixed(1)}%`).join(' · ');
+      const details = resultDetails(result);
       const makeItem = (className) => {
         const item = documentRef.createElement('li');
         item.className = className;
@@ -847,6 +866,14 @@ export function createOnnxCameraController({ root, deps = {} }) {
       const tensor = tensorForBox(box, context.contract, context.ort);
       const outputs = await context.session.run({ [context.contract.inputName]: tensor });
       const output = outputs[context.contract.outputName];
+      if (context.contract.mode === 'feature-map') {
+        return topFeatureMapChannels(
+          output?.data,
+          output?.dims ?? context.contract.outputShape,
+          context.classNames,
+          3,
+        );
+      }
       return topClassifications(output?.data, context.classNames, 3);
     };
     try {
@@ -877,7 +904,8 @@ export function createOnnxCameraController({ root, deps = {} }) {
     };
     const boxes = state.boxes.slice();
     setBusy('predict');
-    setStatus(`Classifying ${boxes.length} ${boxes.length === 1 ? 'box' : 'boxes'}…`);
+    const action = state.contract.mode === 'feature-map' ? 'Analyzing feature-map channels in' : 'Classifying';
+    setStatus(`${action} ${boxes.length} ${boxes.length === 1 ? 'box' : 'boxes'}…`);
     const started = performanceRef.now();
     try {
       const nextResults = await predictBoxesSequentially(
@@ -890,19 +918,20 @@ export function createOnnxCameraController({ root, deps = {} }) {
       renderResults();
       const elapsed = Math.round(performanceRef.now() - started);
       const resultSummary = `Predicted ${boxes.length} ${boxes.length === 1 ? 'box' : 'boxes'} in ${elapsed} ms. Boxes are ready to run again.`;
-      const arraySummary = `P1-P7: [${buildPredictionArray(nextResults, MAX_BOXES).join(', ')}]`;
+      const arrayLabel = state.contract.mode === 'feature-map' ? 'P1-P7 channel indices' : 'P1-P7';
+      const arraySummary = `${arrayLabel}: [${buildPredictionArray(nextResults, MAX_BOXES).join(', ')}]`;
       setStatus(`${arraySummary} · ${resultSummary}`, 'success');
       predictionPublisher.publish({
         summary: `${arraySummary} · ${resultSummary}`,
         lines: nextResults.map((result, index) => {
           const title = `Box ${index + 1} · ${result[0].label}`;
-          const details = result.map((entry) => `${entry.label} ${(entry.confidence * 100).toFixed(1)}%`).join(' · ');
+          const details = resultDetails(result);
           return `${title} — ${details}`;
         }),
       });
     } catch (error) {
       if (!state.destroyed && state.predictionToken === runToken && state.sourceToken === sourceToken) {
-        setStatus(`Prediction failed. Your frame and boxes were kept. ${error.message}`, 'error');
+        setStatus(`Prediction failed. Your frame and boxes were kept. ${errorText(error)}`, 'error');
       }
     } finally {
       if (!state.destroyed && state.predictionToken === runToken) setBusy();
@@ -928,6 +957,17 @@ export function createOnnxCameraController({ root, deps = {} }) {
     windowRef.removeEventListener('pagehide', destroy);
   }
 
+  nodes.modelMode?.addEventListener('change', () => {
+    state.modelMode = nodes.modelMode.value || 'auto';
+    const file = nodes.modelInput.files?.[0];
+    if (file) {
+      void loadModel(file);
+      return;
+    }
+    setStatus(state.modelMode === 'feature-map'
+      ? 'Feature-map mode selected. Choose the custom traffic-lamp .onnx file.'
+      : 'Model mode selected. Choose a local .onnx file.');
+  });
   nodes.modelInput.addEventListener('change', () => loadModel(nodes.modelInput.files?.[0]));
   nodes.imageInput.addEventListener('change', () => loadImage(nodes.imageInput.files?.[0]));
   nodes.connect.addEventListener('click', () => connectCamera());

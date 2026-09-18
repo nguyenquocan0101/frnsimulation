@@ -10,6 +10,7 @@ import {
   parseClassNames,
   resolveModelContract,
   topClassifications,
+  topFeatureMapChannels,
   validateOnnxFilename,
 } from './onnx-camera-core.mjs';
 
@@ -79,6 +80,27 @@ test('resolves fixed and dynamic batch-one image contracts', () => {
     inputMetadata: [{ shape: [1, 3, 640, 640], type: 'float32' }],
     outputMetadata: [{ shape: [1, 84, 8400], type: 'float32' }],
   }), /rank-2 classification/);
+});
+
+test('auto-detects and summarizes the custom NCHW feature-map model', () => {
+  const session = {
+    inputNames: ['000_net'], outputNames: ['030_route'],
+    inputMetadata: [{ shape: ['N', 3, 256, 256], type: 'float32' }],
+    outputMetadata: [{ shape: ['N', 48, 64, 64], type: 'float32' }],
+  };
+  const contract = resolveModelContract(session, 224, 'auto');
+  assert.equal(contract.mode, 'feature-map');
+  assert.equal(contract.outputChannels, 48);
+  assert.equal(contract.outputHeight, 64);
+  assert.equal(contract.outputWidth, 64);
+  const values = new Float32Array(2 * 2 * 2);
+  values.set([0.1, -0.2, 0.3, -0.4, 0.9, 0.8, -0.7, 0.6]);
+  assert.deepEqual(
+    topFeatureMapChannels(values, [1, 2, 2, 2], [], 2).map((item) => item.index),
+    [1, 0],
+  );
+  assert.equal(topFeatureMapChannels(values, [1, 2, 2, 2], [], 1)[0].metric, 'activation');
+  assert.throws(() => resolveModelContract(session, 224, 'classification'), /rank-2 classification/);
 });
 
 test('preprocessing helpers center-crop and produce RGB NCHW floats', () => {

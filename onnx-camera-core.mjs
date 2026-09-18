@@ -112,7 +112,11 @@ function concreteDimension(value, fallback) {
   return Number.isInteger(number) && number > 0 ? number : fallback;
 }
 
-export function resolveModelContract(session, fallbackSize = DEFAULT_IMAGE_SIZE) {
+export function resolveModelContract(session, fallbackSize = DEFAULT_IMAGE_SIZE, requestedMode = 'classification') {
+  const supportedModes = new Set(['classification', 'feature-map', 'auto']);
+  if (!supportedModes.has(requestedMode)) {
+    throw new Error(`Unsupported ONNX model mode: ${requestedMode}.`);
+  }
   if (session?.inputNames?.length !== 1 || session?.outputNames?.length !== 1) {
     throw new Error('Model needs exactly one image input and one classification output.');
   }
@@ -134,27 +138,61 @@ export function resolveModelContract(session, fallbackSize = DEFAULT_IMAGE_SIZE)
     throw new Error(`Model input type ${input.type} is unsupported; export a float32 ONNX model.`);
   }
   const outputDimensions = output?.shape ?? output?.dimensions ?? output?.dims ?? [];
-  if (!Array.isArray(outputDimensions) || outputDimensions.length !== 2) {
+  if (output?.type && output.type !== 'float32') {
+    throw new Error(`Model output type ${output.type} is unsupported; export a float32 ONNX model.`);
+  }
+  const outputRank = Array.isArray(outputDimensions) ? outputDimensions.length : 0;
+  const mode = requestedMode === 'auto'
+    ? (outputRank === 4 ? 'feature-map' : 'classification')
+    : requestedMode;
+  if (mode === 'feature-map') {
+    if (outputRank !== 4) {
+      throw new Error('Feature-map mode needs a rank-4 NCHW output tensor [1, channels, height, width].');
+    }
+    const outputBatch = concreteDimension(outputDimensions[0], 0);
+    if (outputBatch > 0 && outputBatch !== 1) {
+      throw new Error('Feature-map output batch must be 1 or dynamic.');
+    }
+    const outputChannels = concreteDimension(outputDimensions[1], 0);
+    if (outputChannels < 2) {
+      throw new Error('Feature-map output needs at least two channels.');
+    }
+    return {
+      inputName,
+      outputName,
+      width: concreteDimension(dimensions[3], fallbackSize),
+      height: concreteDimension(dimensions[2], fallbackSize),
+      knownClasses: outputChannels,
+      mode,
+      outputShape: outputDimensions,
+      outputChannels,
+      outputHeight: concreteDimension(outputDimensions[2], 1),
+      outputWidth: concreteDimension(outputDimensions[3], 1),
+    };
+  }
+  if (outputRank !== 2) {
     throw new Error('Model output must be a rank-2 classification tensor [1, classes].');
   }
   const outputBatch = concreteDimension(outputDimensions[0], 0);
   if (outputBatch > 0 && outputBatch !== 1) {
     throw new Error('Model output batch must be 1 or dynamic.');
   }
-  if (output?.type && output.type !== 'float32') {
-    throw new Error(`Model output type ${output.type} is unsupported; export a float32 ONNX model.`);
-  }
-  const knownClasses = concreteDimension(outputDimensions.at?.(-1), 0);
+  const knownClasses = concreteDimension(outputDimensions[1], 0);
   if (knownClasses === 1) {
     throw new Error('Model output does not look like a classification tensor.');
   }
-  return {
+  const contract = {
     inputName,
     outputName,
     width: concreteDimension(dimensions[3], fallbackSize),
     height: concreteDimension(dimensions[2], fallbackSize),
     knownClasses,
   };
+  if (requestedMode !== 'classification') {
+    contract.mode = mode;
+    contract.outputShape = outputDimensions;
+  }
+  return contract;
 }
 
 export function computeCoverCrop(sourceWidth, sourceHeight, targetWidth, targetHeight) {
@@ -208,6 +246,37 @@ export function topClassifications(values, names = [], limit = 3) {
     }))
     .sort((left, right) => right.confidence - left.confidence || left.index - right.index)
     .slice(0, Math.min(limit, probabilities.length));
+}
+
+export function topFeatureMapChannels(values, dimensions, names = [], limit = 3) {
+  if (!Array.isArray(dimensions) || dimensions.length !== 4) {
+    throw new Error('Feature-map output must be a rank-4 NCHW tensor.');
+  }
+  const batch = concreteDimension(dimensions[0], 0);
+  const channels = concreteDimension(dimensions[1], 0);
+  const height = concreteDimension(dimensions[2], 0);
+  const width = concreteDimension(dimensions[3], 0);
+  if ((batch > 0 && batch !== 1) || channels < 2 || height < 1 || width < 1) {
+    throw new Error('Feature-map output dimensions are invalid.');
+  }
+  const scores = Array.from(values ?? {}, Number);
+  const channelSize = height * width;
+  if (scores.length < channels * channelSize || scores.some((value) => !Number.isFinite(value))) {
+    throw new Error('Feature-map output is not a valid numeric tensor.');
+  }
+  return Array.from({ length: channels }, (_, index) => {
+    const start = index * channelSize;
+    let total = 0;
+    for (let offset = 0; offset < channelSize; offset += 1) total += Math.abs(scores[start + offset]);
+    return {
+      index,
+      label: names[index] || `channel_${index}`,
+      confidence: total / channelSize,
+      metric: 'activation',
+    };
+  })
+    .sort((left, right) => right.confidence - left.confidence || left.index - right.index)
+    .slice(0, Math.min(limit, channels));
 }
 
 export function buildPredictionArray(results, size = 7) {

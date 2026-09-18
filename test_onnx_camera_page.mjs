@@ -23,11 +23,14 @@ test('Simulation has an accessible launcher and no inline ONNX card', () => {
 });
 
 test('dedicated page owns the full labelled camera workflow', () => {
-  for (const id of ['onnxCameraCard', 'onnxModelInput', 'onnxConnectCameraBtn', 'onnxCameraSelect', 'onnxDisconnectBtn', 'onnxCaptureBtn', 'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults', 'onnxOverlayResults']) {
+  for (const id of ['onnxCameraCard', 'onnxModelMode', 'onnxModelInput', 'onnxConnectCameraBtn', 'onnxCameraSelect', 'onnxDisconnectBtn', 'onnxCaptureBtn', 'onnxUndoBtn', 'onnxClearBtn', 'onnxPredictBtn', 'onnxCameraStatus', 'onnxResults', 'onnxOverlayResults']) {
     assert.match(windowPage, new RegExp(`id="${id}"`));
   }
-  assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs\?v=20260812-position-array"/);
-  assert.match(windowPage, /href="\.\/onnx-camera-window\.css\?v=20260812-image-upload"/);
+  assert.match(windowPage, /value="auto" selected/);
+  assert.match(windowPage, /value="feature-map"/);
+  assert.match(windowPage, /original decoder for semantic traffic-light labels/);
+  assert.match(windowPage, /src="\.\/onnx-camera-window\.mjs\?v=20260918-feature-map-mode"/);
+  assert.match(windowPage, /href="\.\/onnx-camera-window\.css\?v=20260918-feature-map-mode"/);
   assert.match(windowPage, /FPTU TECH<span>X<\/span> CAMP/);
   assert.match(windowPage, /fonts\.googleapis\.com\/css2\?family=Paytone\+One/);
   assert.doesNotMatch(windowPage, /Load a model and connect a camera to begin/);

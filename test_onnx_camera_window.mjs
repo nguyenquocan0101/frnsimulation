@@ -65,7 +65,7 @@ test('camera window bootstrap and controller imports share one new cache token',
   assert.ok(htmlToken, 'HTML bootstrap import has an explicit cache token');
   assert.ok(controllerToken, 'window-to-controller import has an explicit cache token');
   assert.equal(htmlToken, controllerToken, 'both import edges use the exact same token');
-  assert.notEqual(htmlToken, '20260812-timed-log', 'Phase 3 changes the previous deployment token');
+  assert.equal(htmlToken, '20260918-feature-map-mode');
 });
 
 test('camera window exposes a local image upload for box drawing', () => {
